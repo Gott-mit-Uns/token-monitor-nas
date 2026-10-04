@@ -12,7 +12,7 @@ RUN npm run ensure:tokscale && npm pkg delete dependencies.electron-updater 'dep
 
 FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 AS runtime
 
-ARG BUILD_VERSION=v0.65.0-03
+ARG BUILD_VERSION=v0.66.0-01
 ARG VCS_REF=unknown
 ENV NODE_ENV=production TOKEN_MONITOR_NAS_VERSION=${BUILD_VERSION}
 WORKDIR /opt/token-monitor
@@ -27,6 +27,7 @@ LABEL org.opencontainers.image.title="Token Monitor Hermes Agent" \
 COPY app/package.json app/package-lock.json ./
 COPY app/src/agent ./src/agent
 COPY app/src/shared ./src/shared
+COPY app/scripts/vendor/tokscale.json ./scripts/vendor/tokscale.json
 RUN chmod -R a=rX ./package.json ./package-lock.json ./src
 COPY --from=dependencies --link /opt/token-monitor/node_modules ./node_modules
 
