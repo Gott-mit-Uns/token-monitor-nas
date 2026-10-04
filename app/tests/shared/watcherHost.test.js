@@ -569,6 +569,24 @@ test('a worker module that fails to load falls back to watching in-process', asy
 });
 
 function watcherChildrenOf(ppid) {
+  // NAS slim images intentionally omit procps. Read the same process identity
+  // from procfs so Linux still verifies orphan cleanup without adding runtime
+  // packages or skipping the assertion.
+  if (process.platform === 'linux') {
+    const children = [];
+    for (const pid of fs.readdirSync('/proc').filter((name) => /^\d+$/.test(name))) {
+      try {
+        const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+        const parent = /^PPid:\s+(\d+)/m.exec(status);
+        const command = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8');
+        if (Number(parent?.[1]) === ppid && command.includes('watcherWorker.js')) children.push(Number(pid));
+      } catch (error) {
+        // A process can exit between enumeration and reading its metadata.
+        if (!['ENOENT', 'ESRCH', 'EACCES'].includes(error.code)) throw error;
+      }
+    }
+    return children;
+  }
   const { execFileSync } = require('node:child_process');
   return execFileSync('ps', ['-A', '-o', 'pid=,ppid=,command='], { encoding: 'utf8' })
     .split('\n')
