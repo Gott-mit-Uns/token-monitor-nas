@@ -26,9 +26,11 @@ jobs:
           version=$(node scripts/check-nas-version.js)
           echo "value=$version" >> "$GITHUB_OUTPUT"
       - name: Build and test without NAS data
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           docker build -t token-monitor-test .
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-release.js
+          docker run --rm -e GITHUB_TOKEN -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-release.js
           docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-clients.js
           docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale.js
           docker run --rm -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/test-nas.js
