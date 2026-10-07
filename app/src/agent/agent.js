@@ -15,6 +15,7 @@ const {
   parseBoolean,
   parseLimitProviders
 } = require('../shared/limits/collector');
+const { createAgentTitleSync } = require('./titleSync');
 const { postAgentUsage } = require('./upload');
 const { createDeduplicatingDelivery } = require('./deliveryPolicy');
 const { mark } = require('./nasHealth');
@@ -82,7 +83,9 @@ const opencodeAmbientEnabled = parseBoolean(
 const opencodeCookie = String(process.env.TOKEN_MONITOR_OPENCODE_COOKIE || '').trim();
 const once = Boolean(args.once);
 const dryRun = Boolean(args['dry-run'] || args.dryRun);
-const nasAgentVersion = process.env.TOKEN_MONITOR_NAS_VERSION || appVersion();
+const nasAgentVersion = String(process.env.TOKEN_MONITOR_NAS_VERSION || appVersion()).replace(/^v+/i, '');
+const syncSessionTitles = parseBoolean(args.syncSessionTitles ?? args['sync-session-titles'] ?? process.env.TOKEN_MONITOR_SYNC_SESSION_TITLES, false);
+const titleSyncNegotiator = createAgentTitleSync({ dataDir: path.dirname(pidFilePath()), fetchFn: fetch });
 
 const usageOptions = {
   clients,
@@ -145,8 +148,10 @@ function summaryWithSessionUsageArchive(summary, now = new Date()) {
 
 const delivery = createDeduplicatingDelivery({
   heartbeatMs: intervalMs,
-  send: (summary) => postAgentUsage({
-    fetchFn: fetch,
+  send: async (summary) => {
+    const titleSyncOptions = await titleSyncNegotiator.negotiate({ hubUrl, headers: secret ? { authorization: `Bearer ${secret}` } : {}, deviceId: summary.deviceId || deviceId, enabled: syncSessionTitles });
+    try { return await postAgentUsage({
+    fetchFn: (url, options) => fetch(url, { ...options, redirect: 'error' }),
     url: `${hubUrl}/api/ingest`,
     headers: {
       'content-type': 'application/json',
@@ -154,10 +159,12 @@ const delivery = createDeduplicatingDelivery({
       ...(secret ? { authorization: `Bearer ${secret}` } : {})
     },
     summary,
+    ...titleSyncOptions,
     sessionDetailsEnabled: parseBoolean(process.env.TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED, true),
     timeoutMs: Number(process.env.TOKEN_MONITOR_UPLOAD_TIMEOUT_MS) || 30000,
     logger: (message) => console.warn(`[sync] ${message}`)
-  }),
+  }); } catch (error) { titleSyncNegotiator.invalidate(); throw error; }
+  },
   onSuccess: () => mark('uploadedAt')
 });
 
@@ -194,6 +201,7 @@ async function main() {
     runtimeHandle?.stop();
     sessionUsageArchiveStore.close();
   });
+  if (!dryRun) await titleSyncNegotiator.negotiate({ hubUrl, deviceId, headers: secret ? { authorization: `Bearer ${secret}` } : {}, enabled: syncSessionTitles });
   const runtimeOptions = {
     envelope: { deviceId, agentVersion: nasAgentVersion, agentRuntime: 'headless-agent' },
     usageOptions,

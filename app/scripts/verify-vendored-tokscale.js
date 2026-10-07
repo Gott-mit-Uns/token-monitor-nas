@@ -58,6 +58,56 @@ const MCODE_SESSION_ID = 'mvs_0123456789abcdef0123456789abcdef';
 // Monitor normalization are both exercised by this release gate.
 const TOKEN_CONTRACT_CASES = Object.freeze([
   {
+    client: 'cherrystudio',
+    // Native chat ledger counts include cached input and reasoning output.
+    // Agent and legacy aggregate rows overlap other sources and must be skipped.
+    expectedRow: { model: 'glm-5.2', input: 620, output: 280, cacheRead: 500, cacheWrite: 80, reasoning: 60 },
+    hasExplicitTotal: false,
+    expectedPeriod: { totalTokens: 1540, clientTokens: 1540, clientOutputTokens: 340 },
+    expectedSession: { id: 'zai', totalTokens: 1540, outputTokens: 340, reasoningTokens: 60 },
+    writeFixture(home) {
+      const { DatabaseSync } = require('node:sqlite');
+      const appData = process.platform === 'win32'
+        ? path.join(home, 'AppData', 'Roaming')
+        : process.platform === 'darwin'
+          ? path.join(home, 'Library', 'Application Support')
+          : path.join(home, '.config');
+      const dir = path.join(appData, 'CherryStudio', 'Data');
+      fs.mkdirSync(dir, { recursive: true });
+      const db = new DatabaseSync(path.join(dir, 'cherrystudio.sqlite'));
+      try {
+        db.exec(`CREATE TABLE ai_usage_record (
+          id TEXT PRIMARY KEY, record_kind TEXT, message_kind TEXT,
+          provider_id TEXT, model_id TEXT, input_tokens INTEGER,
+          output_tokens INTEGER, cache_read_tokens INTEGER, cache_write_tokens INTEGER,
+          reasoning_tokens INTEGER, cost REAL, cost_currency TEXT, created_at INTEGER
+        );
+        INSERT INTO ai_usage_record VALUES
+          ('chat-1', 'invocation', 'chat', 'zai', 'glm-5.2', 1200, 340, 500, 80, 60, 0.0314, 'USD', 1787196900000),
+          ('agent-1', 'invocation', 'agent-session', 'zai', 'glm-5.2', 1200, 340, 500, 80, 60, 0.0314, 'USD', 1787196900000),
+          ('legacy-1', 'legacy-aggregate', 'chat', 'zai', 'glm-5.2', 1200, 340, 500, 80, 60, 0.0314, 'USD', 1787196900000);`);
+      } finally {
+        db.close();
+      }
+    }
+  },
+  ...['codebuddy', 'workbuddy'].map((client) => ({
+    client,
+    // Pinned Tencent Buddy raw-usage regression: ambiguous input stays intact;
+    // both cache writes and reasoning are independent additive buckets.
+    expectedRow: { model: 'glm-5.2', input: 3, output: 2, cacheRead: 4, cacheWrite: 4, reasoning: 5 },
+    hasExplicitTotal: false,
+    expectedPeriod: { totalTokens: 18, clientTokens: 18, clientOutputTokens: 7 },
+    expectedSession: { id: 'session-2', totalTokens: 18, outputTokens: 7, reasoningTokens: 5 },
+    writeFixture(home) {
+      const { cases } = require('../tests/fixtures/tencentBuddyUsage.json');
+      const fixture = cases.find(({ name }) => name === 'parse_jsonl_file_keeps_ambiguous_raw_usage_input_unchanged');
+      const dir = path.join(home, `.${client}`, 'projects', 'tm-contract');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'session-2.jsonl'), `${JSON.stringify(fixture.entry)}\n`);
+    }
+  })),
+  {
     client: 'muse',
     // Responses usage includes 5105 cached input and 278 reasoning output.
     expectedRow: { model: MUSE_MODEL, input: 21859, output: 101, cacheRead: 5105, reasoning: 278 },
