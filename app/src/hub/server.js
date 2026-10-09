@@ -29,7 +29,10 @@ const {
   wantsMinimalResponse
 } = require('../shared/hubProtocol');
 const { isAuthorized, readJsonBody, sendJson, sendText } = require('../shared/http');
-const { loadDotEnv, parseArgs, projectRoot, readJson, writeJsonAtomic } = require('../shared/config');
+const { loadDotEnv, parseArgs, projectRoot, writeJsonAtomic } = require('../shared/config');
+
+const { readHubStore } = require('./store');
+const { createSseChannel } = require('./sse');
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -50,10 +53,12 @@ function createHub({
   syncSessionTitles = false,
   staleAfterMs = DEFAULT_STALE_AFTER_MS,
   broadcastDelayMs = 100,
+  sseMaxBufferedBytes = 8 * 1024 * 1024,
+  sseBlockedTimeoutMs = 30000,
   dataFile = path.join(projectRoot(), 'data', 'devices.json'),
   logger = console
 } = {}) {
-  const store = readJson(dataFile, { version: 1, devices: {} }) || { version: 1, devices: {} };
+  const store = readHubStore(dataFile);
   if (!store.devices || typeof store.devices !== 'object') store.devices = {};
   // Subscriptions are shared by every device on this hub rather than owned by one
   // of them, so they sit beside the device map rather than inside it.
@@ -82,7 +87,11 @@ function createHub({
   function persist() {
     store.version = 1;
     store.savedAt = new Date().toISOString();
-    writeJsonAtomic(dataFile, store);
+    try { writeJsonAtomic(dataFile, store); } catch (_) {
+      const error = new Error('Hub data could not be persisted.');
+      error.code = 'hub_persistence_failed';
+      throw error;
+    }
   }
 
   function getStats() {
@@ -114,18 +123,8 @@ function createHub({
   let broadcastTimer = null;
   let lastSseContentKey = '';
 
-  function sseFormat(event, data) {
-    return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  }
-
   function writeSse(client, event, data) {
-    try {
-      client.res.write(sseFormat(event, data));
-      return true;
-    } catch (_) {
-      sseClients.delete(client);
-      return false;
-    }
+    return client.channel.send(event, data);
   }
 
   function notifyStatsListeners(reason, stats = getStats(), at = new Date().toISOString()) {
@@ -185,8 +184,16 @@ function createHub({
     const record = mergeSyncDeviceRecord(store.devices[deviceId], { ...payload, receivedAt: new Date().toISOString() }, {
       preserveSessionTitles: acceptsSessionTitles(serverTitlesEnabled, store.syncTitlePolicies[deviceId], payload.sessionTitleSyncGeneration)
     });
+    const previous = store.devices[record.deviceId];
+    const hadPrevious = Object.hasOwn(store.devices, record.deviceId);
+    const previousSavedAt = store.savedAt;
     store.devices[record.deviceId] = record;
-    persist();
+    try { persist(); } catch (error) {
+      if (hadPrevious) store.devices[record.deviceId] = previous;
+      else delete store.devices[record.deviceId];
+      store.savedAt = previousSavedAt;
+      throw error;
+    }
     if (statsListeners.size > 0) notifyStatsListeners('ingest');
     queueStatsBroadcast();
     return record;
@@ -379,11 +386,10 @@ function createHub({
         'connection': 'keep-alive',
         'x-accel-buffering': 'no'
       });
-      res.write(sseFormat('snapshot', { type: 'stats', reason: 'snapshot', stats, at: new Date().toISOString() }));
       const client = { res, freshnessEvents: wantsFreshnessEvents(req) };
       if (sseClients.size === 0) lastSseContentKey = hubStatsContentKey(stats);
       sseClients.add(client);
-      const heartbeat = setInterval(() => { try { res.write(': hb\n\n'); } catch (_) {} }, 30000);
+      let heartbeat;
       const cleanup = () => {
         clearInterval(heartbeat);
         sseClients.delete(client);
@@ -393,8 +399,11 @@ function createHub({
           broadcastTimer = null;
         }
       };
-      req.on('close', cleanup);
-      req.on('error', cleanup);
+      client.channel = createSseChannel(res, { maxBufferedBytes: sseMaxBufferedBytes, blockedTimeoutMs: sseBlockedTimeoutMs, onClose: cleanup });
+      if (!client.channel.send('snapshot', { type: 'stats', reason: 'snapshot', stats, at: new Date().toISOString() })) return;
+      heartbeat = setInterval(() => client.channel.heartbeat(), 30000);
+      req.on('close', () => client.channel.dispose());
+      req.on('error', () => client.channel.dispose());
       return;
     }
 
@@ -405,6 +414,7 @@ function createHub({
         const response = { ok: true, deviceId: record.deviceId };
         return sendJson(res, 200, wantsMinimalResponse(req) ? response : { ...response, stats: getStats() });
       } catch (error) {
+        if (error.code === 'hub_persistence_failed') return sendJson(res, 503, { error: 'persistence_unavailable' });
         if (error.message === 'deviceId_required') return sendJson(res, 400, { error: 'deviceId_required' });
         if (error.code === 'payload_too_large') {
           res.shouldKeepAlive = false;
@@ -470,7 +480,7 @@ function createHub({
     return new Promise((resolve) => {
       if (broadcastTimer) clearTimeout(broadcastTimer);
       broadcastTimer = null;
-      for (const client of sseClients) { try { client.res.end(); } catch (_) {} }
+      for (const client of sseClients) { client.channel.dispose(); try { client.res.end(); } catch (_) {} }
       sseClients.clear();
       server.close(() => resolve());
     });

@@ -18,7 +18,8 @@ const {
 const { createAgentTitleSync } = require('./titleSync');
 const { postAgentUsage } = require('./upload');
 const { createDeduplicatingDelivery } = require('./deliveryPolicy');
-const { mark } = require('./nasHealth');
+const { mark, initializeHealth } = require('./nasHealth');
+const { applyHermesSessionTitles } = require('./hermesTitles');
 const { HUB_RESPONSE_HEADER, HUB_RESPONSE_MINIMAL } = require('../shared/hubProtocol');
 const { applyProjectRollups } = require('../shared/usage');
 const { runAgent, runAgentOnce } = require('./runtime');
@@ -142,6 +143,7 @@ function summaryWithSessionUsageArchive(summary, now = new Date()) {
       canonical: !dryRun
     });
   }
+  if (syncSessionTitles) visibleSummary = applyHermesSessionTitles(visibleSummary, { logger: message => console.warn(message) });
   if (!dryRun) mark('collectedAt');
   return projectsEnabled ? applyProjectRollups(visibleSummary) : visibleSummary;
 }
@@ -201,6 +203,7 @@ async function main() {
     runtimeHandle?.stop();
     sessionUsageArchiveStore.close();
   });
+  if (!dryRun) initializeHealth();
   if (!dryRun) await titleSyncNegotiator.negotiate({ hubUrl, deviceId, headers: secret ? { authorization: `Bearer ${secret}` } : {}, enabled: syncSessionTitles });
   const runtimeOptions = {
     envelope: { deviceId, agentVersion: nasAgentVersion, agentRuntime: 'headless-agent' },

@@ -31,6 +31,7 @@ function runAgent(options = {}, deps = {}) {
 
 async function runAgentOnce(options = {}, deps = {}) {
   let latestRecord = null;
+  let lastDeliveryError = null;
   let usageSettled = false;
   let resolveUsage;
   let rejectUsage;
@@ -50,7 +51,16 @@ async function runAgentOnce(options = {}, deps = {}) {
     }
   };
   const dryRun = options.dryRun === true;
-  const runtime = createAgentDeviceRuntime(options, deps, {
+  const runtime = createAgentDeviceRuntime({
+    ...options,
+    async deliver(...args) {
+      try {
+        const result = await options.deliver?.(...args);
+        lastDeliveryError = null;
+        return result;
+      } catch (error) { lastDeliveryError = error; throw error; }
+    }
+  }, deps, {
     usageOptions,
     sink: dryRun ? null : undefined,
     onRecord(record, meta) {
@@ -74,6 +84,7 @@ async function runAgentOnce(options = {}, deps = {}) {
     await initialLimits;
     if (dryRun && latestRecord) await options.deliver?.(latestRecord);
     await runtime.flush();
+    if (lastDeliveryError) throw lastDeliveryError;
     return latestRecord;
   } finally {
     runtime.stop();

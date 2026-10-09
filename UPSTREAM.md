@@ -3,7 +3,7 @@
 - 仓库：<https://github.com/Javis603/token-monitor>
 - 官方 tag：`v0.68.0`
 - 官方提交：`5d2db368d8313415763860d594de00e46a663418`
-- NAS 发布号：`v0.68.0-01`
+- NAS 发布号：`v0.68.0-02`
 - 源码范围：`app/src/shared`、官方 `app/src/agent/agent.js`、`runtime.js`、`seedClients.js`、官方 `app/src/hub`、相关构建脚本和依赖清单；NAS 专用代码在 Agent 包装、Docker、Compose 和发布检查中。
 
 迁移重点：官方新版将 `session-usage-archive.json` 迁至 `session-usage-archive.sqlite`，成功后会移除旧 JSON。部署前须备份整个状态目录；回退到旧镜像时也必须恢复迁移前的状态副本，不能只切换镜像标签。
@@ -21,3 +21,5 @@ NAS v0.67.0-01：跟进官方采集、定价及依赖更新，恢复官方固定
 NAS v0.67.0-01 同步升级官方 Node Hub、Agent 和共享协议，保留 NAS 超时、去重和健康检查补丁。新增标题同步遵守官方协商和默认关闭策略。Agent 上报版本移除 v 前缀；发布标签仍保留。
 
 NAS v0.68.0-01：跟进官方 0.68 共享采集、归档及同步脱敏更新，Node Hub 与 Agent 使用同一基线。Codex Dots 实验采集默认关闭，Hermes NAS 配置不变。沿用 SQLite 归档，未引入新的 NAS 状态格式迁移；保留标题协商、上传超时、去重、健康检查及无 v 前缀上报。
+
+NAS v0.68.0-02：补充 Hermes 主库/profile 只读标题叠加；Node Hub 严格加载数据文件、用量写盘失败回滚及有界 SSE；健康状态绑定本次进程启动；单次运行最终上传失败会返回错误。官方基础仍为 0.68.0。归档格式和持久化目录不变，健康状态会在启动时重新生成。新增回归测试全部使用合成数据。

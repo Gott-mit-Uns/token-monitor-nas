@@ -1,6 +1,6 @@
 # Token Monitor NAS
 
-基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.68.0`，NAS 发布版本是 `v0.68.0-01`。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
+基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.68.0`，NAS 发布版本是 `v0.68.0-02`。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
 
 Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https://github.com/Gott-mit-Uns/token-monitor-adapter)，包括源码、Windows 构建工作流与历史 `adapter-v*` Release。本仓库维护 NAS Docker Agent 与 Node Hub；Adapter 更新与下载请使用新仓库。
 
@@ -12,13 +12,20 @@ Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https
 image: ghcr.io/gott-mit-uns/token-monitor-hermes:latest
 ```
 
-`latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.68.0-01`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
+`latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.68.0-02`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
 
-拉取并重新创建当前服务：
+仅部署 Agent 时，拉取并重新创建当前服务：
 
 ```sh
 docker compose pull
 docker compose up -d token-monitor-nas
+```
+
+同一个 Compose 同时部署 Hub 和 Agent 时，必须一并更新两个服务：
+
+```sh
+docker compose pull token-monitor-hub token-monitor-nas
+docker compose up -d token-monitor-hub token-monitor-nas
 ```
 
 GitHub 上发布代码和镜像不会自动替 NAS 拉取镜像。旧的固定标签与提交 SHA 标签保留作回退用途。
@@ -30,6 +37,8 @@ GitHub 上发布代码和镜像不会自动替 NAS 拉取镜像。旧的固定�
 桌面 Hub 显示的名称由 `TOKEN_MONITOR_DEVICE_ID` 决定。DXP4800 模板为 `DXP4800`，DH4300plus 模板为 `DH4300Plus`。改动设备 ID 后须 `docker compose up -d --force-recreate token-monitor-nas`；Hub 会将新 ID 当成另一台设备，旧记录不会自动合并。普通版本升级不要改这个值。
 
 默认每 5 分钟采集一次，也监听 Hermes 文件变化；文件事件防抖 60 秒。Compose 为 `Asia/Shanghai` 时区，保留 512 MiB 内存上限、只读根文件系统、Hermes 只读挂载、最小能力以及独立状态目录。额度和项目统计默认关闭，历史和会话归档开启。Agent 对未变化的记录去重，并保留心跳；上传总时限默认 30 秒。
+
+健康检查按本次 Agent 进程启动标识验证采集与上传时间。重启后首次采集成功前不会沿用旧健康状态，未来时间戳也不会判为正常。
 
 健康检查：
 
@@ -60,3 +69,11 @@ GitHub Actions 只构建仓库源码和测试数据，不连接 NAS、不读取�
 ## NAS Node Hub
 
 镜像也包含同一官方基线的 Node Hub。Hub 服务使用同一镜像，设置 `command: ["node", "src/hub/server.js"]`，保留独立 `/data` 持久化目录和现有 Hub 环境配置。Agent 的默认启动命令不变。可选会话标题同步默认关闭，不上传消息正文。
+
+## 会话标题与 Hub 数据保护
+
+服务器和上传设备分别设置 `TOKEN_MONITOR_SYNC_SESSION_TITLES: "1"` 后，NAS Agent 会按已采集的 Hermes 会话 ID，只读查询主库和已发现的 profile 数据库，补充今天和本月的标题。标题读取失败不阻断用量采集；消息正文不读取或上传。标题只叠加到同步结果，用量计数、采集锚点和本地归档不变。默认仍关闭标题上传。
+
+Hub 只有在数据文件不存在时才初始化空库；文件无法读取、为空、JSON 损坏或结构无效时会保留原文件并拒绝启动，应从验证过的备份恢复。用量写盘失败会回滚内存记录，并向发送端返回 503。
+
+SSE 为每个连接保留最新待发快照及后续的新鲜度事件，缓冲总量上限 8 MiB；阻塞 30 秒仍不能发送时断开连接。客户端重连后获取最新完整快照，不积压中间版本。

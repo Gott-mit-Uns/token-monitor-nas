@@ -12,7 +12,7 @@ RUN npm run ensure:tokscale && npm pkg delete dependencies.electron-updater 'dep
 
 FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 AS runtime
 
-ARG BUILD_VERSION=v0.68.0-01
+ARG BUILD_VERSION=v0.68.0-02
 ARG VCS_REF=unknown
 ENV NODE_ENV=production TOKEN_MONITOR_NAS_VERSION=${BUILD_VERSION}
 WORKDIR /opt/token-monitor

@@ -179,3 +179,32 @@ test('once rejects and stops when the initial usage collection fails', async () 
   harness.usageError(new Error('usage failed'));
   await assert.rejects(running, /usage failed/);
 });
+
+test('once rejects after draining when its final upload fails', async () => {
+  const harness = runtimeHarness();
+  const expected = new Error('upload failed');
+  const running = runAgentOnce({
+    envelope: { deviceId: 'device-1' }, usageOptions: {}, limitsOptions: {},
+    deliver: async () => { throw expected; }
+  }, harness.deps);
+  const rejected = assert.rejects(running, error => error === expected);
+  harness.usageUpdate(usageSummary(9));
+  harness.limitsRefresh.resolve();
+  await rejected;
+});
+
+test('once can recover when a later complete snapshot uploads successfully', async () => {
+  const harness = runtimeHarness();
+  let sends = 0;
+  const running = runAgentOnce({
+    envelope: { deviceId: 'device-1' }, usageOptions: {}, limitsOptions: {},
+    deliver: async () => { if (++sends === 1) throw new Error('first upload failed'); }
+  }, harness.deps);
+  harness.usageUpdate(usageSummary(9));
+  await new Promise(setImmediate);
+  harness.limitsUpdate({ updatedAt: 'limits-time', providers: [] });
+  harness.limitsRefresh.resolve();
+  const result = await running;
+  assert.equal(sends, 2);
+  assert.equal(result.today.totalTokens, 9);
+});
