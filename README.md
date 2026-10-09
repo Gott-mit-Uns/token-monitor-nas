@@ -64,7 +64,7 @@ GitHub Actions 只构建仓库源码和测试数据，不连接 NAS、不读取�
 
 ## 构建策略
 
-依赖安装层只依赖 npm 清单；Tokscale 验证层仅复制其入口、辅助模块及固定清单，修改其他脚本不会触发依赖重装。运行阶段通过 `COPY --link` 复制生产依赖。GitHub Actions 使用 GHA 层缓存；不额外引入需要跨临时 runner 持久化的 npm 缓存挂载。继续使用固定摘要的 Debian slim 基础以保持双架构原生依赖兼容。
+依赖安装层只依赖 npm 清单；Tokscale 验证层仅复制其入口、辅助模块及固定清单，修改其他脚本不会触发依赖重装。运行阶段通过 `COPY --link` 复制生产依赖。GitHub Actions 使用 GHA 层缓存；不额外引入需要跨临时 runner 持久化的 npm 缓存挂载。继续使用固定摘要的 Debian slim 基础以保持双架构原生依赖兼容。候选镜像分别在原生 amd64 和原生 arm64 Linux 运行器执行完整测试；两者都通过后才发布固定标签及更新 latest。QEMU 仅用于跨架构构建，不用于进程身份或耗时验证。
 
 ## NAS Node Hub
 
