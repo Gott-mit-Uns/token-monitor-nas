@@ -65,6 +65,6 @@ test('health CLI rejects a previous process lifetime and stays unready until thi
   assert.equal(run().status, 1);
   current.mark('collectedAt');
   const result = run();
-  assert.equal(result.status, 0);
+  assert.equal(result.status, 0, JSON.stringify({ stdout: result.stdout, stderr: result.stderr }));
   assert.deepEqual(JSON.parse(result.stdout), { collection: 'ok', upload: 'stale' });
 });
