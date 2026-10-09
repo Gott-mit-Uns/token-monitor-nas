@@ -65,6 +65,12 @@ test('health CLI rejects a previous process lifetime and stays unready until thi
   assert.equal(run().status, 1);
   current.mark('collectedAt');
   const result = run();
-  assert.equal(result.status, 0, JSON.stringify({ stdout: result.stdout, stderr: result.stderr }));
+  let diagnostics = '';
+  if (result.status !== 0) {
+    const script = `const fs=require('node:fs');const h=require(${JSON.stringify(path.resolve(__dirname, '../../src/agent/nasHealth.js'))});const s=JSON.parse(fs.readFileSync(${JSON.stringify(filePath)}));const pid=Number(fs.readFileSync(${JSON.stringify(path.join(root, 'agent.pid'))}));const identity=h.processIdentity(pid);const now=Date.now();console.log(JSON.stringify({pidMatches:s.pid===pid,identityMatches:s.processIdentity===identity,bootMatches:s.processIdentity.split(':')[0]===identity.split(':')[0],ticksMatches:s.processIdentity.split(':')[1]===identity.split(':')[1],startedAge:now-s.startedAt,collectedAge:now-s.collectedAt,afterStartup:s.collectedAt>=s.startedAt,version:s.version}));`;
+    const probe = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8' });
+    diagnostics = probe.stdout + probe.stderr;
+  }
+  assert.equal(result.status, 0, JSON.stringify({ stdout: result.stdout, stderr: result.stderr, diagnostics }));
   assert.deepEqual(JSON.parse(result.stdout), { collection: 'ok', upload: 'stale' });
 });
