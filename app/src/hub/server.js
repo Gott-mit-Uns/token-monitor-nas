@@ -24,6 +24,7 @@ const { CURRENCY_CODES, normalizeCurrency } = require('../shared/currency');
 const { currentHubBuild } = require('../shared/hubBuildIdentity');
 const {
   freshnessEvent,
+  acceptsEncoding,
   hubStatsContentKey,
   wantsFreshnessEvents,
   wantsMinimalResponse
@@ -33,6 +34,9 @@ const { loadDotEnv, parseArgs, projectRoot, writeJsonAtomic } = require('../shar
 
 const { readHubStore } = require('./store');
 const { createSseChannel } = require('./sse');
+const { createWindowsStream } = require('./windowsStream');
+const { windowsStreamPolicy } = require('./windowsSchedule');
+const { createWindowsMetrics } = require('./windowsMetrics');
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -55,6 +59,8 @@ function createHub({
   broadcastDelayMs = 100,
   sseMaxBufferedBytes = 8 * 1024 * 1024,
   sseBlockedTimeoutMs = 30000,
+  windowsStreamEnabled = false,
+  windowsStreamClock = {},
   dataFile = path.join(projectRoot(), 'data', 'devices.json'),
   logger = console
 } = {}) {
@@ -122,6 +128,16 @@ function createHub({
   const statsListeners = new Set();
   let broadcastTimer = null;
   let lastSseContentKey = '';
+  const windowsMetrics = createWindowsMetrics(windowsStreamClock.now);
+  const warnedCalendarYears = new Set();
+  function getWindowsPolicy(at) {
+    const current = (windowsStreamClock.policy || windowsStreamPolicy)(at);
+    if (current.calendarStatus === 'weekday_fallback' && !warnedCalendarYears.has(current.calendarYear)) {
+      warnedCalendarYears.add(current.calendarYear);
+      logger.warn?.(`Windows stream calendar missing for ${current.calendarYear}; using Shanghai weekdays until the official calendar is added.`);
+    }
+    return current;
+  }
 
   function writeSse(client, event, data) {
     return client.channel.send(event, data);
@@ -143,7 +159,10 @@ function createHub({
     const at = new Date().toISOString();
     if (sseClients.size > 0) {
       lastSseContentKey = hubStatsContentKey(stats);
-      for (const client of sseClients) writeSse(client, 'stats', { type: 'stats', reason, stats, at });
+      for (const client of sseClients) {
+        if (client.windowsStream) client.windowsStream.notify(reason, true, stats);
+        else writeSse(client, 'stats', { type: 'stats', reason, stats, at });
+      }
     }
     notifyStatsListeners(reason, stats, at);
   }
@@ -156,12 +175,17 @@ function createHub({
     const at = new Date().toISOString();
     if (!lastSseContentKey || nextContentKey !== lastSseContentKey) {
       lastSseContentKey = nextContentKey;
-      for (const client of sseClients) writeSse(client, 'stats', { type: 'stats', reason: 'ingest', stats, at });
+      for (const client of sseClients) {
+        if (client.windowsStream) client.windowsStream.notify('ingest');
+        else writeSse(client, 'stats', { type: 'stats', reason: 'ingest', stats, at });
+      }
       return;
     }
     const event = freshnessEvent(stats, 'ingest', at);
     for (const client of sseClients) {
-      if (client.freshnessEvents) {
+      if (client.windowsStream) {
+        client.windowsStream.notify('ingest');
+      } else if (client.freshnessEvents) {
         writeSse(client, 'freshness', event);
       } else {
         writeSse(client, 'stats', { type: 'stats', reason: 'ingest', stats, at });
@@ -332,6 +356,12 @@ function createHub({
   async function handleRequest(req, res) {
     if (req.method === 'OPTIONS') return sendText(res, 204, '');
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    const windowsRequest = url.pathname.startsWith('/windows/api/');
+    if (windowsRequest) {
+      if (!windowsStreamEnabled) return sendJson(res, 404, { error: 'not_found' });
+      url.pathname = url.pathname.slice('/windows'.length);
+      windowsMetrics.request(req, res, url.pathname);
+    }
 
     if (url.pathname === '/api/health') {
       return sendJson(res, 200, {
@@ -347,6 +377,17 @@ function createHub({
     }
 
     if (!isAuthorized(req, secret)) return sendJson(res, 401, { error: 'unauthorized' });
+
+    if (windowsRequest && req.method === 'GET' && url.pathname === '/api/stream/status') {
+      const now = windowsStreamClock.now || Date.now;
+      const clients = [...sseClients].filter(client => client.windowsStream);
+      return sendJson(res, 200, { enabled: true, nasVersion: process.env.TOKEN_MONITOR_NAS_VERSION || null, ...getWindowsPolicy(now()),
+        connectionCount: clients.length, gzipConnectionCount: clients.filter(client => client.gzip).length,
+        identityConnectionCount: clients.filter(client => !client.gzip).length,
+        freshnessConnectionCount: clients.filter(client => client.freshnessEvents).length,
+        connections: clients.map(client => ({ gzip: client.gzip, ...client.windowsStream.status() })),
+        metrics: windowsMetrics.snapshot() });
+    }
 
     if (req.method === 'GET' && url.pathname === '/api/sync/content') return sendJson(res, 200, getSyncContent());
 
@@ -380,18 +421,22 @@ function createHub({
 
     if (req.method === 'GET' && url.pathname === '/api/stats/stream') {
       const stats = getStats();
+      const gzip = windowsRequest && acceptsEncoding(req, 'gzip');
       res.writeHead(200, {
         'content-type': 'text/event-stream',
         'cache-control': 'no-cache, no-transform',
         'connection': 'keep-alive',
-        'x-accel-buffering': 'no'
+        'x-accel-buffering': 'no',
+        ...(windowsRequest ? { vary: 'accept-encoding' } : {}),
+        ...(gzip ? { 'content-encoding': 'gzip' } : {})
       });
-      const client = { res, freshnessEvents: wantsFreshnessEvents(req) };
+      const client = { res, freshnessEvents: wantsFreshnessEvents(req), gzip };
       if (sseClients.size === 0) lastSseContentKey = hubStatsContentKey(stats);
       sseClients.add(client);
       let heartbeat;
       const cleanup = () => {
         clearInterval(heartbeat);
+        client.windowsStream?.dispose();
         sseClients.delete(client);
         if (sseClients.size === 0) {
           lastSseContentKey = '';
@@ -399,9 +444,16 @@ function createHub({
           broadcastTimer = null;
         }
       };
-      client.channel = createSseChannel(res, { maxBufferedBytes: sseMaxBufferedBytes, blockedTimeoutMs: sseBlockedTimeoutMs, onClose: cleanup });
-      if (!client.channel.send('snapshot', { type: 'stats', reason: 'snapshot', stats, at: new Date().toISOString() })) return;
-      heartbeat = setInterval(() => client.channel.heartbeat(), 30000);
+      client.channel = createSseChannel(res, { maxBufferedBytes: sseMaxBufferedBytes, blockedTimeoutMs: sseBlockedTimeoutMs,
+        gzip, onClose: cleanup,
+        ...(windowsRequest ? { onFrame: windowsMetrics.frame, onBodyBytes: windowsMetrics.body } : {}) });
+      if (windowsRequest) {
+        windowsMetrics.open();
+        client.windowsStream = createWindowsStream({ channel: client.channel, getStats,
+          freshnessEvents: client.freshnessEvents, ...windowsStreamClock, policy: getWindowsPolicy, onFull: windowsMetrics.full });
+        if (!sseClients.has(client)) { client.windowsStream.dispose(); return; }
+      } else if (!client.channel.send('snapshot', { type: 'stats', reason: 'snapshot', stats, at: new Date().toISOString() })) return;
+      heartbeat = setInterval(() => client.windowsStream ? client.windowsStream.heartbeat() : client.channel.heartbeat(), 30000);
       req.on('close', () => client.channel.dispose());
       req.on('error', () => client.channel.dispose());
       return;
@@ -502,7 +554,8 @@ if (require.main === module) {
   const dataFile = String(args.dataFile || process.env.TOKEN_MONITOR_DATA_FILE || path.join(projectRoot(), 'data', 'devices.json'));
 
   const syncSessionTitles = syncSessionTitlesEnabled(args.syncSessionTitles ?? args['sync-session-titles'] ?? process.env.TOKEN_MONITOR_SYNC_SESSION_TITLES);
-  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, syncSessionTitles });
+  const windowsStreamEnabled = String(process.env.TOKEN_MONITOR_WINDOWS_STREAM_ENABLED || '').trim() === '1';
+  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, syncSessionTitles, windowsStreamEnabled });
   hub.start().then(() => {
     console.log(`Token Monitor hub listening on http://${hub.bindHost}:${port}`);
     console.log(`Data file: ${dataFile}`);
