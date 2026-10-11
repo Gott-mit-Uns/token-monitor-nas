@@ -153,6 +153,37 @@ test('gzip q=0 falls back to identity, and urgent edits publish immediately', as
   assert.ok(diagnostic.metrics.identityStreamBodyBytes > 0);
 });
 
+test('Windows HTTP heartbeat reads live device metadata without full aggregation', async t => {
+  const start = Date.parse('2026-10-11T00:00:00.000Z');
+  let now = start;
+  const f = await fixture(t, { windowsStreamClock: { now: () => now } });
+  f.hub.ingest({ deviceId: 'a', syncUploadIntervalMs: 600000, today: { totalTokens: 7 } });
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const limited = await stream(f.origin);
+  t.after(() => limited.close());
+  await waitFor(() => limited.events.some(event => event.event === 'snapshot'));
+  const record = f.hub.getDevices()[0];
+  record.receivedAt = new Date(start).toISOString();
+  for (const key of ['periods', 'history', 'limits']) {
+    Object.defineProperty(record, key, { configurable: true,
+      get() { throw new Error(`Heartbeat attempted full aggregation: ${key}`); }
+    });
+  }
+  now += 30000;
+  t.mock.timers.tick(30000);
+  await waitFor(() => limited.events.some(event => event.event === 'freshness'));
+  let freshness = limited.events.filter(event => event.event === 'freshness').at(-1).data;
+  assert.deepEqual(freshness.stats.devices, [{ deviceId: 'a', receivedAt: new Date(start).toISOString(),
+    ageMs: 30000, stale: false }]);
+  now = start + 20 * 60000 + 1;
+  t.mock.timers.tick(30000);
+  await waitFor(() => limited.events.filter(event => event.event === 'freshness').length === 2);
+  freshness = limited.events.filter(event => event.event === 'freshness').at(-1).data;
+  assert.equal(freshness.stats.devices[0].ageMs, 1200001);
+  assert.equal(freshness.stats.devices[0].stale, true);
+  assert.equal(limited.events.filter(event => ['snapshot', 'stats'].includes(event.event)).length, 1);
+});
+
 test('metrics count compressed JSON body bytes, and unknown paths cannot create unbounded metric keys', async t => {
   const f = await fixture(t);
   f.hub.ingest({ deviceId: 'a', today: { sessions: Object.fromEntries(Array.from({ length: 100 }, (_, i) =>

@@ -1,6 +1,6 @@
 # Token Monitor NAS
 
-基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.68.0`，NAS 发布版本是 `v0.68.0-03`。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
+基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.68.0`，NAS 发布版本是 `v0.68.0-04`。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
 
 Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https://github.com/Gott-mit-Uns/token-monitor-adapter)，包括源码、Windows 构建工作流与历史 `adapter-v*` Release。本仓库维护 NAS Docker Agent 与 Node Hub；Adapter 更新与下载请使用新仓库。
 
@@ -12,7 +12,7 @@ Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https
 image: ghcr.io/gott-mit-uns/token-monitor-hermes:latest
 ```
 
-`latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.68.0-03`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
+`latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.68.0-04`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
 
 仅部署 Agent 时，拉取并重新创建当前服务：
 
@@ -37,6 +37,8 @@ GitHub 上发布代码和镜像不会自动替 NAS 拉取镜像。旧的固定�
 桌面 Hub 显示的名称由 `TOKEN_MONITOR_DEVICE_ID` 决定。DXP4800 模板为 `DXP4800`，DH4300plus 模板为 `DH4300Plus`。改动设备 ID 后须 `docker compose up -d --force-recreate token-monitor-nas`；Hub 会将新 ID 当成另一台设备，旧记录不会自动合并。普通版本升级不要改这个值。
 
 默认每 5 分钟采集一次，也监听 Hermes 文件变化；文件事件防抖 60 秒。Compose 为 `Asia/Shanghai` 时区，保留 512 MiB 内存上限、只读根文件系统、Hermes 只读挂载、最小能力以及独立状态目录。额度和项目统计默认关闭，历史和会话归档开启。Agent 对未变化的记录去重，并保留心跳；上传总时限默认 30 秒。
+
+NAS 模板启用 `TOKEN_MONITOR_WATCH_IN_PROCESS: "1"`，将少量固定 Hermes 路径的原生文件监听放到采集进程，避免第二个 Node 的固定内存开销；仍保留事件防抖和五分钟周期采集。需要独立监听进程隔离时可设为 `"0"`，该模式同样只加载轻量监听依赖。历史归档、会话明细和标题策略保持原设置。
 
 健康检查按本次 Agent 进程启动标识验证采集与上传时间。重启后首次采集成功前不会沿用旧健康状态，未来时间戳也不会判为正常。
 

@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { performance } = require('node:perf_hooks');
 const test = require('node:test');
@@ -381,6 +383,12 @@ function canonicalLiveSummary() {
   return summary;
 }
 
+// Archive copies use the JSON contract; normalization may recreate null-prototype
+// maps that JSON deliberately does not preserve. Compare the published content.
+function archiveContent(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 test('canonical capture does not copy a session that has not changed', () => {
   const archive = captureSessionUsageArchive({}, liveSummary(), new Date('2026-07-09T08:15:00.000Z'));
   const summary = canonicalLiveSummary();
@@ -467,6 +475,82 @@ test('canonical summary apply can reuse the caller-owned normalized record', () 
 
   assert.equal(visible, summary);
   assert.equal(visible.allTime.sessions['opencode:o1'].archived, true);
+});
+
+test('canonical summary apply preserves history restoration and keeps every input detached', () => {
+  const now = new Date('2026-07-09T08:20:00.000Z');
+  const archive = captureSessionUsageArchive({}, liveSummary(), now);
+  const summary = summaryAfterOpenCodeDelete();
+  for (const name of ['today', 'month', 'allTime']) summary[name] = normalizePeriod(summary[name]);
+  summary.history = { daily: [{ date: '2026-07-09', tokens: 150 }] };
+  const originalSummary = archiveContent(summary);
+  const originalArchive = archiveContent(archive);
+
+  const visible = applySessionUsageArchive(summary, archive, { now, canonical: true, canonicalSummary: true });
+  const previousPath = applySessionUsageArchive(summary, archive, { now, canonical: true });
+  assert.deepEqual(archiveContent(visible), archiveContent(previousPath));
+  assert.deepEqual(archiveContent(summary), originalSummary);
+  assert.deepEqual(archiveContent(archive), originalArchive);
+  for (const name of ['today', 'month', 'allTime']) {
+    assert.equal(visible[name].totalTokens, 150);
+    assert.equal(visible[name].sessions['opencode:o1'].archived, true);
+    visible[name].sessions['opencode:o1'].models['claude-3-5-sonnet'] = 999;
+  }
+  visible.today.sessions['codex:c1'].models['gpt-5'] = 999;
+  visible.history.daily[0].tokens = 999;
+  assert.deepEqual(archiveContent(summary), originalSummary);
+  assert.deepEqual(archiveContent(archive), originalArchive);
+
+  const projected = applySessionUsageArchive(summary, archive, { now, canonical: true, canonicalSummary: true });
+  summary.today.sessions['codex:c1'].models['gpt-5'] = 888;
+  summary.history.daily[0].tokens = 888;
+  archive.sessions['opencode:o1'].periods.today.models['claude-3-5-sonnet'] = 888;
+  assert.deepEqual(archiveContent(projected), archiveContent(previousPath));
+});
+
+test('canonical summary previews preserve omitted windows and nested record shape', () => {
+  const now = new Date('2026-07-09T08:20:00.000Z');
+  const archive = captureSessionUsageArchive({}, liveSummary(), now);
+  const summary = { periods: { today: normalizePeriod(summaryAfterOpenCodeDelete().today) } };
+  const visible = applySessionUsageArchive(summary, archive, { now, canonical: true, canonicalSummary: true });
+  assert.deepEqual(archiveContent(visible), archiveContent(applySessionUsageArchive(summary, archive, { now, canonical: true })));
+  assert.deepEqual(Object.keys(visible.periods), ['today']);
+  assert.equal(visible.periods.today.totalTokens, 150);
+  assert.equal(summary.periods.today.totalTokens, 50);
+});
+
+test('collector full scans, previews and watch deltas satisfy the canonical archive contract', async (t) => {
+  const { collectUsageOnce, localTodayKey } = require('../../src/shared/collector');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-archive-collector-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const now = new Date('2026-07-09T08:20:00.000Z');
+  let tokens = 100;
+  let captured;
+  const previews = [];
+  const options = {
+    clients: 'hermes', homeDir: dir, env: { HERMES_HOME: dir },
+    osInfo: { name: 'synthetic' }, now, allTimeSince: '2024-01-01',
+    historyEnabled: false, projectsEnabled: false, wslScanEnabled: false,
+    codexLocalUsageEnabled: false, dailyHistoryArchiveEnabled: false,
+    runTokscale: async () => ({ entries: [{ client: 'hermes', sessionId: 'one', model: 'gpt-5', input: tokens, output: 20, cost: 1 }] }),
+    onProgress: (preview) => previews.push(preview),
+    onAnchorComputed: (value) => { captured = value; }
+  };
+  const full = await collectUsageOnce(options);
+  const anchor = { dateKey: localTodayKey(now), ...captured.windowsPeriods, todayPartitions: captured.todayPartitions };
+  const archived = captureSessionUsageArchive({}, full, now);
+  tokens = 125;
+  const watch = await collectUsageOnce({ ...options, todayOnlyAnchor: anchor });
+  const anchorBefore = archiveContent(anchor);
+  for (const summary of [full, ...previews, watch]) {
+    for (const name of ['today', 'month', 'allTime']) {
+      if (summary[name]) assert.deepEqual(archiveContent(summary[name]), archiveContent(normalizePeriod(summary[name])));
+    }
+    const canonical = applySessionUsageArchive(summary, archived, { now, canonical: true, canonicalSummary: true });
+    assert.deepEqual(archiveContent(canonical), archiveContent(applySessionUsageArchive(summary, archived, { now, canonical: true })));
+    canonical.today.sessions['hermes:one'].models['gpt-5'] = 999;
+  }
+  assert.deepEqual(archiveContent(anchor), anchorBefore);
 });
 
 test('persists archive data outside settings via injectable storage helpers', () => {

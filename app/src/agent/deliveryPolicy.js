@@ -46,12 +46,12 @@ function createDeduplicatingDelivery(options = {}) {
   const onSuccess = typeof options.onSuccess === 'function' ? options.onSuccess : null;
   const heartbeatMs = Math.max(1, Number(options.heartbeatMs) || 5 * 60 * 1000);
   let lastFingerprint = null;
-  let lastSentAt = Number.NEGATIVE_INFINITY;
+  let lastSuccessfulAttemptAt = Number.NEGATIVE_INFINITY;
 
   async function deliver(record) {
     const fingerprint = semanticRecordFingerprint(record);
     const attemptedAt = now();
-    const elapsed = attemptedAt - lastSentAt;
+    const elapsed = attemptedAt - lastSuccessfulAttemptAt;
     const heartbeatDue = !Number.isFinite(elapsed) || elapsed < 0 || elapsed >= heartbeatMs;
     if (fingerprint === lastFingerprint && !heartbeatDue) {
       return { sent: false, duplicate: true, fingerprint };
@@ -60,7 +60,11 @@ function createDeduplicatingDelivery(options = {}) {
     const result = await send(record);
     const sentAt = now();
     lastFingerprint = fingerprint;
-    lastSentAt = sentAt;
+    // Collection schedules its next tick independently of this upload. Starting
+    // the heartbeat at completion can skip the next interval whenever the
+    // upload takes longer than that tick, delaying an idle device by a full
+    // extra interval. Only a successful send commits its original start time.
+    lastSuccessfulAttemptAt = attemptedAt;
     onSuccess?.({ fingerprint, record, sentAt });
     return { sent: true, duplicate: false, fingerprint, result, sentAt };
   }

@@ -11,6 +11,7 @@ const { REASONIX_CLIENT } = require('./providers/reasonix/paths');
 const { filterReasonixSyntheticSessions, isReasonixSyntheticSession } = require('./providers/reasonix/sessionGuard');
 const { canonicalProjectKey, deterministicProjectLabel } = require('./projectKey');
 const { normalizeSyncUploadIntervalMs, staleAfterMsForSyncUpload } = require('./syncUploadInterval');
+const { recordTimestamp } = require('./recordTimestamp');
 const TOKEN_KEYS = ['totalTokens', 'total_tokens', 'totalTokenCount', 'total_token_count', 'tokens', 'tokenCount', 'token_count'];
 // Additive components for a token total. `reasoning` is deliberately excluded
 // from the generic fallback because most Tokscale clients either leave it at 0
@@ -142,7 +143,7 @@ function stripSessionTextFromPeriod(period, { preserveSessionTitles = false } = 
   const sessions = {};
   for (const [key, value] of Object.entries(period.sessions)) {
     if (!value || typeof value !== 'object') {
-      sessions[key] = value;
+      setMapValue(sessions, key, value);
       continue;
     }
     const session = { ...value };
@@ -150,7 +151,7 @@ function stripSessionTextFromPeriod(period, { preserveSessionTitles = false } = 
     if (preserveSessionTitles && typeof value.title === 'string' && value.title) {
       session.title = normalizeSessionTitle(value.title);
     }
-    sessions[key] = session;
+    setMapValue(sessions, key, session);
   }
   return { ...period, sessions };
 }
@@ -304,6 +305,30 @@ function hasOwn(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
 }
 
+// Client/model names are data, including keys inherited by ordinary objects.
+// Keep the public JSON/object shape while never reading or mutating prototypes.
+function mapValue(map, key) {
+  return hasOwn(map, key) ? map[key] : undefined;
+}
+
+function setMapValue(map, key, value) {
+  if (key === '__proto__') {
+    Object.defineProperty(map, key, { value, enumerable: true, writable: true, configurable: true });
+  } else {
+    map[key] = value;
+  }
+  return value;
+}
+
+function addMapValue(map, key, value) {
+  return setMapValue(map, key, (hasOwn(map, key) ? map[key] || 0 : 0) + value);
+}
+
+function clientModelMap(map, client) {
+  if (!hasOwn(map, client)) setMapValue(map, client, {});
+  return map[client];
+}
+
 function emptyProject(label = '') {
   return {
     label: String(label || '').trim().normalize('NFC'),
@@ -438,7 +463,7 @@ function normalizeClientStatus(value) {
   if (!value || typeof value !== 'object') return status;
   for (const [client, state] of Object.entries(value)) {
     const name = normalizeClientName(client);
-    if (name && CLIENT_STATUS_VALUES.has(state)) status[name] = state;
+    if (name && CLIENT_STATUS_VALUES.has(state)) setMapValue(status, name, state);
   }
   return status;
 }
@@ -453,6 +478,7 @@ function normalizeWslStatus(value) {
 }
 
 function validDate(value) {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
   const date = new Date(value || '');
   return Number.isNaN(date.getTime()) ? null : date;
 }
@@ -660,15 +686,15 @@ function mergeSession(target, source) {
   }
   for (const [model, tokens] of Object.entries(source.models || {})) {
     const key = normalizeModelNameForClient(model, target.client);
-    if (key) target.models[key] = (target.models[key] || 0) + Math.max(0, Math.round(asNumber(tokens)));
+    if (key) addMapValue(target.models, key, Math.max(0, Math.round(asNumber(tokens))));
   }
   for (const [model, cost] of Object.entries(source.modelCosts || {})) {
     const key = normalizeModelNameForClient(model, target.client);
-    if (key) target.modelCosts[key] = (target.modelCosts[key] || 0) + asNumber(cost);
+    if (key) addMapValue(target.modelCosts, key, asNumber(cost));
   }
   for (const [provider, tokens] of Object.entries(source.providers || {})) {
     const key = normalizeProviderName(provider);
-    if (key) target.providers[key] = (target.providers[key] || 0) + Math.max(0, Math.round(asNumber(tokens)));
+    if (key) addMapValue(target.providers, key, Math.max(0, Math.round(asNumber(tokens))));
   }
   const sourceArchived = source.archived === true || source.deleted === true || source.sourceDeleted === true;
   if (!sourceArchived) {
@@ -708,10 +734,10 @@ function sessionFromRow(row) {
   session.title = normalizeSessionTitle(firstString(row, SESSION_TITLE_KEYS));
   session.sessionKind = normalizeSessionKind(row.sessionKind || row.session_kind);
   const model = detectModel(row, client);
-  if (model && session.totalTokens > 0) session.models[model] = (session.models[model] || 0) + session.totalTokens;
-  if (model && session.costUsd > 0) session.modelCosts[model] = (session.modelCosts[model] || 0) + session.costUsd;
+  if (model && session.totalTokens > 0) addMapValue(session.models, model, session.totalTokens);
+  if (model && session.costUsd > 0) addMapValue(session.modelCosts, model, session.costUsd);
   const provider = normalizeProviderName(row.provider);
-  if (provider && session.totalTokens > 0) session.providers[provider] = (session.providers[provider] || 0) + session.totalTokens;
+  if (provider && session.totalTokens > 0) addMapValue(session.providers, provider, session.totalTokens);
   return session;
 }
 
@@ -762,19 +788,19 @@ function normalizeSession(input, fallbackKey) {
   if (input.models && typeof input.models === 'object') {
     for (const [model, value] of Object.entries(input.models)) {
       const key = normalizeModelNameForClient(model, client);
-      if (key) session.models[key] = (session.models[key] || 0) + Math.max(0, Math.round(asNumber(value)));
+      if (key) addMapValue(session.models, key, Math.max(0, Math.round(asNumber(value))));
     }
   }
   if (input.modelCosts && typeof input.modelCosts === 'object') {
     for (const [model, value] of Object.entries(input.modelCosts)) {
       const key = normalizeModelNameForClient(model, client);
-      if (key) session.modelCosts[key] = (session.modelCosts[key] || 0) + asNumber(value);
+      if (key) addMapValue(session.modelCosts, key, asNumber(value));
     }
   }
   if (input.providers && typeof input.providers === 'object') {
     for (const [provider, value] of Object.entries(input.providers)) {
       const key = normalizeProviderName(provider);
-      if (key) session.providers[key] = (session.providers[key] || 0) + Math.max(0, Math.round(asNumber(value)));
+      if (key) addMapValue(session.providers, key, Math.max(0, Math.round(asNumber(value))));
     }
   }
   if (input.archived === true || input.deleted === true || input.sourceDeleted === true) session.archived = true;
@@ -906,10 +932,10 @@ function normalizePeriod(input, options = {}) {
     for (const [client, value] of Object.entries(input.clients)) {
       const key = normalizeClientName(client);
       if (key) {
-        period.clients[key] = (period.clients[key] || 0) + Math.max(0, Math.round(asNumber(value)));
-        if (input.clientCacheReads?.[client]) period.clientCacheReads[key] = (period.clientCacheReads[key] || 0) + Math.max(0, Math.round(asNumber(input.clientCacheReads[client])));
-        if (input.clientCacheWrites?.[client]) period.clientCacheWrites[key] = (period.clientCacheWrites[key] || 0) + Math.max(0, Math.round(asNumber(input.clientCacheWrites[client])));
-        if (input.clientOutputs?.[client]) period.clientOutputs[key] = (period.clientOutputs[key] || 0) + Math.max(0, Math.round(asNumber(input.clientOutputs[client])));
+        addMapValue(period.clients, key, Math.max(0, Math.round(asNumber(value))));
+        if (mapValue(input.clientCacheReads, client)) addMapValue(period.clientCacheReads, key, Math.max(0, Math.round(asNumber(input.clientCacheReads[client]))));
+        if (mapValue(input.clientCacheWrites, client)) addMapValue(period.clientCacheWrites, key, Math.max(0, Math.round(asNumber(input.clientCacheWrites[client]))));
+        if (mapValue(input.clientOutputs, client)) addMapValue(period.clientOutputs, key, Math.max(0, Math.round(asNumber(input.clientOutputs[client]))));
         const known = Math.min(
           period.clients[key],
           asNumber(period.clientCacheReads[key])
@@ -920,27 +946,27 @@ function normalizePeriod(input, options = {}) {
         const unclassified = Math.min(
           period.clients[key] - known,
           Math.max(0, Math.round(asNumber(hasExplicitUnclassified
-            ? input.clientUnclassifiedTokens?.[client]
+            ? mapValue(input.clientUnclassifiedTokens, client)
             : (period.capabilities.tokenComponents ? 0 : period.clients[key] - known))))
         );
-        if (unclassified > 0) period.clientUnclassifiedTokens[key] = unclassified;
+        if (unclassified > 0) setMapValue(period.clientUnclassifiedTokens, key, unclassified);
       }
     }
   }
   if (input.clientCosts && typeof input.clientCosts === 'object') {
     for (const [client, value] of Object.entries(input.clientCosts)) {
       const key = normalizeClientName(client);
-      if (key) period.clientCosts[key] = (period.clientCosts[key] || 0) + asNumber(value);
+      if (key) addMapValue(period.clientCosts, key, asNumber(value));
     }
   }
   if (input.models && typeof input.models === 'object') {
     for (const [model, value] of Object.entries(input.models)) {
       const key = normalizeModelName(model);
       if (key) {
-        period.models[key] = (period.models[key] || 0) + Math.max(0, Math.round(asNumber(value)));
-        if (input.modelCacheReads?.[model]) period.modelCacheReads[key] = (period.modelCacheReads[key] || 0) + Math.max(0, Math.round(asNumber(input.modelCacheReads[model])));
-        if (input.modelCacheWrites?.[model]) period.modelCacheWrites[key] = (period.modelCacheWrites[key] || 0) + Math.max(0, Math.round(asNumber(input.modelCacheWrites[model])));
-        if (input.modelOutputs?.[model]) period.modelOutputs[key] = (period.modelOutputs[key] || 0) + Math.max(0, Math.round(asNumber(input.modelOutputs[model])));
+        addMapValue(period.models, key, Math.max(0, Math.round(asNumber(value))));
+        if (mapValue(input.modelCacheReads, model)) addMapValue(period.modelCacheReads, key, Math.max(0, Math.round(asNumber(input.modelCacheReads[model]))));
+        if (mapValue(input.modelCacheWrites, model)) addMapValue(period.modelCacheWrites, key, Math.max(0, Math.round(asNumber(input.modelCacheWrites[model]))));
+        if (mapValue(input.modelOutputs, model)) addMapValue(period.modelOutputs, key, Math.max(0, Math.round(asNumber(input.modelOutputs[model]))));
         const known = Math.min(
           period.models[key],
           asNumber(period.modelCacheReads[key])
@@ -951,10 +977,10 @@ function normalizePeriod(input, options = {}) {
         const unclassified = Math.min(
           period.models[key] - known,
           Math.max(0, Math.round(asNumber(hasExplicitUnclassified
-            ? input.modelUnclassifiedTokens?.[model]
+            ? mapValue(input.modelUnclassifiedTokens, model)
             : (period.capabilities.tokenComponents ? 0 : period.models[key] - known))))
         );
-        if (unclassified > 0) period.modelUnclassifiedTokens[key] = unclassified;
+        if (unclassified > 0) setMapValue(period.modelUnclassifiedTokens, key, unclassified);
       }
     }
   }
@@ -963,7 +989,7 @@ function normalizePeriod(input, options = {}) {
   if (input.modelCosts && typeof input.modelCosts === 'object') {
     for (const [model, value] of Object.entries(input.modelCosts)) {
       const key = normalizeModelName(model);
-      if (key) period.modelCosts[key] = (period.modelCosts[key] || 0) + asNumber(value);
+      if (key) addMapValue(period.modelCosts, key, asNumber(value));
     }
   }
   if (input.clientModels && typeof input.clientModels === 'object') {
@@ -973,8 +999,8 @@ function normalizePeriod(input, options = {}) {
       for (const [model, value] of Object.entries(models)) {
         const modelKey = normalizeModelNameForClient(model, clientKey);
         if (!modelKey) continue;
-        if (!period.clientModels[clientKey]) period.clientModels[clientKey] = {};
-        period.clientModels[clientKey][modelKey] = (period.clientModels[clientKey][modelKey] || 0) + Math.max(0, Math.round(asNumber(value)));
+        clientModelMap(period.clientModels, clientKey);
+        addMapValue(period.clientModels[clientKey], modelKey, Math.max(0, Math.round(asNumber(value))));
       }
     }
   }
@@ -985,8 +1011,8 @@ function normalizePeriod(input, options = {}) {
       for (const [model, value] of Object.entries(models)) {
         const modelKey = normalizeModelNameForClient(model, clientKey);
         if (!modelKey) continue;
-        if (!period.clientModelCosts[clientKey]) period.clientModelCosts[clientKey] = {};
-        period.clientModelCosts[clientKey][modelKey] = (period.clientModelCosts[clientKey][modelKey] || 0) + asNumber(value);
+        clientModelMap(period.clientModelCosts, clientKey);
+        addMapValue(period.clientModelCosts[clientKey], modelKey, asNumber(value));
       }
     }
   }
@@ -1093,26 +1119,26 @@ function addUsageRowToPeriod(period, row, detectedClient = detectClient(row)) {
     counters.timedDurationMs += timedDurationMs;
   }
   if (client && tokens > 0) {
-    period.clients[client] = (period.clients[client] || 0) + Math.round(tokens);
-    if (cacheRead > 0) period.clientCacheReads[client] = (period.clientCacheReads[client] || 0) + cacheRead;
-    if (cacheWrite > 0) period.clientCacheWrites[client] = (period.clientCacheWrites[client] || 0) + cacheWrite;
-    if (output > 0) period.clientOutputs[client] = (period.clientOutputs[client] || 0) + output;
+    addMapValue(period.clients, client, Math.round(tokens));
+    if (cacheRead > 0) addMapValue(period.clientCacheReads, client, cacheRead);
+    if (cacheWrite > 0) addMapValue(period.clientCacheWrites, client, cacheWrite);
+    if (output > 0) addMapValue(period.clientOutputs, client, output);
   }
-  if (client && cost > 0) period.clientCosts[client] = (period.clientCosts[client] || 0) + cost;
+  if (client && cost > 0) addMapValue(period.clientCosts, client, cost);
   if (model && tokens > 0) {
-    period.models[model] = (period.models[model] || 0) + Math.round(tokens);
-    if (cacheRead > 0) period.modelCacheReads[model] = (period.modelCacheReads[model] || 0) + cacheRead;
-    if (cacheWrite > 0) period.modelCacheWrites[model] = (period.modelCacheWrites[model] || 0) + cacheWrite;
-    if (output > 0) period.modelOutputs[model] = (period.modelOutputs[model] || 0) + output;
+    addMapValue(period.models, model, Math.round(tokens));
+    if (cacheRead > 0) addMapValue(period.modelCacheReads, model, cacheRead);
+    if (cacheWrite > 0) addMapValue(period.modelCacheWrites, model, cacheWrite);
+    if (output > 0) addMapValue(period.modelOutputs, model, output);
   }
-  if (model && cost > 0) period.modelCosts[model] = (period.modelCosts[model] || 0) + cost;
+  if (model && cost > 0) addMapValue(period.modelCosts, model, cost);
   if (client && model && tokens > 0) {
-    if (!period.clientModels[client]) period.clientModels[client] = {};
-    period.clientModels[client][model] = (period.clientModels[client][model] || 0) + Math.round(tokens);
+    clientModelMap(period.clientModels, client);
+    addMapValue(period.clientModels[client], model, Math.round(tokens));
   }
   if (client && model && cost > 0) {
-    if (!period.clientModelCosts[client]) period.clientModelCosts[client] = {};
-    period.clientModelCosts[client][model] = (period.clientModelCosts[client][model] || 0) + cost;
+    clientModelMap(period.clientModelCosts, client);
+    addMapValue(period.clientModelCosts[client], model, cost);
   }
   const session = sessionFromRow(row);
   if (session) addSession(period, session);
@@ -1190,8 +1216,8 @@ function normalizeDeviceOsName(value) {
 // history that was most of its cost and none of its output.
 function normalizeRecordHistoryFields(record, nowIso = new Date().toISOString()) {
   const fields = {
-    updatedAt: record.updatedAt || nowIso,
-    receivedAt: record.receivedAt || nowIso
+    updatedAt: recordTimestamp(record.updatedAt, nowIso),
+    receivedAt: recordTimestamp(record.receivedAt, nowIso)
   };
   if (hasOwn(record, 'historyAvailable')) fields.historyAvailable = record.historyAvailable === true;
   if (hasOwn(record, 'history')) {
@@ -1257,38 +1283,38 @@ function normalizeDeviceRecord(record) {
 }
 
 function addClientModelUsage(target, source, client) {
-  const models = source.clientModels?.[client];
-  const costs = source.clientModelCosts?.[client];
+  const models = mapValue(source.clientModels, client);
+  const costs = mapValue(source.clientModelCosts, client);
   for (const [model, tokens] of Object.entries(models || {})) {
-    target.models[model] = (target.models[model] || 0) + tokens;
-    if (!target.clientModels[client]) target.clientModels[client] = {};
-    target.clientModels[client][model] = (target.clientModels[client][model] || 0) + tokens;
+    addMapValue(target.models, model, tokens);
+    clientModelMap(target.clientModels, client);
+    addMapValue(target.clientModels[client], model, tokens);
 
     // Model component maps are not client×model maps. They can be carried only
     // when this preserved client owns the whole source model bucket; otherwise
     // retain the model total and mark just that contribution unknown.
-    if (asNumber(source.models?.[model]) === asNumber(tokens)) {
-      const cacheRead = Math.min(tokens, asNumber(source.modelCacheReads?.[model]));
-      const cacheWrite = Math.min(tokens - cacheRead, asNumber(source.modelCacheWrites?.[model]));
-      const output = Math.min(tokens - cacheRead - cacheWrite, asNumber(source.modelOutputs?.[model]));
+    if (asNumber(mapValue(source.models, model)) === asNumber(tokens)) {
+      const cacheRead = Math.min(tokens, asNumber(mapValue(source.modelCacheReads, model)));
+      const cacheWrite = Math.min(tokens - cacheRead, asNumber(mapValue(source.modelCacheWrites, model)));
+      const output = Math.min(tokens - cacheRead - cacheWrite, asNumber(mapValue(source.modelOutputs, model)));
       const unclassified = Math.min(
         tokens - cacheRead - cacheWrite - output,
-        asNumber(source.modelUnclassifiedTokens?.[model])
+        asNumber(mapValue(source.modelUnclassifiedTokens, model))
       );
-      if (cacheRead > 0) target.modelCacheReads[model] = (target.modelCacheReads[model] || 0) + cacheRead;
-      if (cacheWrite > 0) target.modelCacheWrites[model] = (target.modelCacheWrites[model] || 0) + cacheWrite;
-      if (output > 0) target.modelOutputs[model] = (target.modelOutputs[model] || 0) + output;
-      if (unclassified > 0) target.modelUnclassifiedTokens[model] = (target.modelUnclassifiedTokens[model] || 0) + unclassified;
+      if (cacheRead > 0) addMapValue(target.modelCacheReads, model, cacheRead);
+      if (cacheWrite > 0) addMapValue(target.modelCacheWrites, model, cacheWrite);
+      if (output > 0) addMapValue(target.modelOutputs, model, output);
+      if (unclassified > 0) addMapValue(target.modelUnclassifiedTokens, model, unclassified);
       if (unclassified > 0) target.capabilities.tokenComponents = false;
     } else if (tokens > 0) {
-      target.modelUnclassifiedTokens[model] = (target.modelUnclassifiedTokens[model] || 0) + tokens;
+      addMapValue(target.modelUnclassifiedTokens, model, tokens);
       target.capabilities.tokenComponents = false;
     }
   }
   for (const [model, cost] of Object.entries(costs || {})) {
-    target.modelCosts[model] = (target.modelCosts[model] || 0) + cost;
-    if (!target.clientModelCosts[client]) target.clientModelCosts[client] = {};
-    target.clientModelCosts[client][model] = (target.clientModelCosts[client][model] || 0) + cost;
+    addMapValue(target.modelCosts, model, cost);
+    clientModelMap(target.clientModelCosts, client);
+    addMapValue(target.clientModelCosts[client], model, cost);
   }
 }
 
@@ -1336,20 +1362,20 @@ function preserveUntrackedClientUsage(existingRecord, incomingRecord, trackedCli
     incomingRecord.periods[periodName] = target;
     for (const [client, tokens] of Object.entries(source.clients || {})) {
       if (active.has(client) || hasOwn(target.clients, client)) continue;
-      const cost = source.clientCosts?.[client] || 0;
+      const cost = mapValue(source.clientCosts, client) || 0;
       target.totalTokens += tokens;
       target.costUsd += cost;
-      target.clients[client] = tokens;
+      setMapValue(target.clients, client, tokens);
       preservedClients.add(client);
-      if (cost > 0) target.clientCosts[client] = cost;
+      if (cost > 0) setMapValue(target.clientCosts, client, cost);
       // Global model buckets may include live clients too. Restore only this
       // client's explicit missing-price attribution, not the global bucket.
-      const unpriced = Math.min(tokens, asNumber(source.clientUnpricedTokens?.[client]));
+      const unpriced = Math.min(tokens, asNumber(mapValue(source.clientUnpricedTokens, client)));
       addUnpricedTokens(target, { unpricedTokens: unpriced }, tokens);
       const modelUnpriced = Object.create(null);
       let remainingUnpriced = unpriced;
-      for (const [model, count] of Object.entries(source.clientModelUnpricedTokens?.[client] || {})) {
-        const retained = Math.min(remainingUnpriced, asNumber(source.clientModels?.[client]?.[model]), count);
+      for (const [model, count] of Object.entries(mapValue(source.clientModelUnpricedTokens, client) || {})) {
+        const retained = Math.min(remainingUnpriced, asNumber(mapValue(source.clientModels, client)?.[model]), count);
         if (retained <= 0) continue;
         modelUnpriced[model] = retained;
         remainingUnpriced -= retained;
@@ -1359,21 +1385,21 @@ function preserveUntrackedClientUsage(existingRecord, incomingRecord, trackedCli
         modelUnpricedTokens: modelUnpriced,
         clientModelUnpricedTokens: { [client]: modelUnpriced }
       });
-      const cacheRead = Math.min(tokens, asNumber(source.clientCacheReads?.[client]));
-      const cacheWrite = Math.min(tokens - cacheRead, asNumber(source.clientCacheWrites?.[client]));
-      const output = Math.min(tokens - cacheRead - cacheWrite, asNumber(source.clientOutputs?.[client]));
+      const cacheRead = Math.min(tokens, asNumber(mapValue(source.clientCacheReads, client)));
+      const cacheWrite = Math.min(tokens - cacheRead, asNumber(mapValue(source.clientCacheWrites, client)));
+      const output = Math.min(tokens - cacheRead - cacheWrite, asNumber(mapValue(source.clientOutputs, client)));
       const unclassified = Math.min(
         tokens - cacheRead - cacheWrite - output,
-        asNumber(source.clientUnclassifiedTokens?.[client])
+        asNumber(mapValue(source.clientUnclassifiedTokens, client))
       );
       target.cacheReadTokens += cacheRead;
       target.cacheWriteTokens += cacheWrite;
       target.outputTokens += output;
       target.unclassifiedTokens += unclassified;
-      if (cacheRead > 0) target.clientCacheReads[client] = cacheRead;
-      if (cacheWrite > 0) target.clientCacheWrites[client] = cacheWrite;
-      if (output > 0) target.clientOutputs[client] = output;
-      if (unclassified > 0) target.clientUnclassifiedTokens[client] = unclassified;
+      if (cacheRead > 0) setMapValue(target.clientCacheReads, client, cacheRead);
+      if (cacheWrite > 0) setMapValue(target.clientCacheWrites, client, cacheWrite);
+      if (output > 0) setMapValue(target.clientOutputs, client, output);
+      if (unclassified > 0) setMapValue(target.clientUnclassifiedTokens, client, unclassified);
       if (unclassified > 0) target.capabilities.tokenComponents = false;
       addClientModelUsage(target, source, client);
       addClientSessionUsage(target, client, source.sessions, restoredSessions, projectsEnabled);
@@ -1654,31 +1680,31 @@ function addPeriodInto(target, source) {
     }
   }
   for (const [client, tokens] of Object.entries(source.clients)) {
-    target.clients[client] = (target.clients[client] || 0) + tokens;
-    if (source.clientCacheReads?.[client]) target.clientCacheReads[client] = (target.clientCacheReads[client] || 0) + source.clientCacheReads[client];
-    if (source.clientCacheWrites?.[client]) target.clientCacheWrites[client] = (target.clientCacheWrites[client] || 0) + source.clientCacheWrites[client];
-    if (source.clientOutputs?.[client]) target.clientOutputs[client] = (target.clientOutputs[client] || 0) + source.clientOutputs[client];
-    if (source.clientUnclassifiedTokens?.[client]) target.clientUnclassifiedTokens[client] = (target.clientUnclassifiedTokens[client] || 0) + source.clientUnclassifiedTokens[client];
+    addMapValue(target.clients, client, tokens);
+    if (mapValue(source.clientCacheReads, client)) addMapValue(target.clientCacheReads, client, source.clientCacheReads[client]);
+    if (mapValue(source.clientCacheWrites, client)) addMapValue(target.clientCacheWrites, client, source.clientCacheWrites[client]);
+    if (mapValue(source.clientOutputs, client)) addMapValue(target.clientOutputs, client, source.clientOutputs[client]);
+    if (mapValue(source.clientUnclassifiedTokens, client)) addMapValue(target.clientUnclassifiedTokens, client, source.clientUnclassifiedTokens[client]);
   }
-  for (const [client, cost] of Object.entries(source.clientCosts)) target.clientCosts[client] = (target.clientCosts[client] || 0) + cost;
+  for (const [client, cost] of Object.entries(source.clientCosts)) addMapValue(target.clientCosts, client, cost);
   for (const [model, tokens] of Object.entries(source.models)) {
-    target.models[model] = (target.models[model] || 0) + tokens;
-    if (source.modelCacheReads?.[model]) target.modelCacheReads[model] = (target.modelCacheReads[model] || 0) + source.modelCacheReads[model];
-    if (source.modelCacheWrites?.[model]) target.modelCacheWrites[model] = (target.modelCacheWrites[model] || 0) + source.modelCacheWrites[model];
-    if (source.modelOutputs?.[model]) target.modelOutputs[model] = (target.modelOutputs[model] || 0) + source.modelOutputs[model];
-    if (source.modelUnclassifiedTokens?.[model]) target.modelUnclassifiedTokens[model] = (target.modelUnclassifiedTokens[model] || 0) + source.modelUnclassifiedTokens[model];
+    addMapValue(target.models, model, tokens);
+    if (mapValue(source.modelCacheReads, model)) addMapValue(target.modelCacheReads, model, source.modelCacheReads[model]);
+    if (mapValue(source.modelCacheWrites, model)) addMapValue(target.modelCacheWrites, model, source.modelCacheWrites[model]);
+    if (mapValue(source.modelOutputs, model)) addMapValue(target.modelOutputs, model, source.modelOutputs[model]);
+    if (mapValue(source.modelUnclassifiedTokens, model)) addMapValue(target.modelUnclassifiedTokens, model, source.modelUnclassifiedTokens[model]);
   }
-  for (const [model, cost] of Object.entries(source.modelCosts)) target.modelCosts[model] = (target.modelCosts[model] || 0) + cost;
+  for (const [model, cost] of Object.entries(source.modelCosts)) addMapValue(target.modelCosts, model, cost);
   for (const [client, models] of Object.entries(source.clientModels)) {
-    if (!target.clientModels[client]) target.clientModels[client] = {};
+    clientModelMap(target.clientModels, client);
     for (const [model, tokens] of Object.entries(models)) {
-      target.clientModels[client][model] = (target.clientModels[client][model] || 0) + tokens;
+      addMapValue(target.clientModels[client], model, tokens);
     }
   }
   for (const [client, models] of Object.entries(source.clientModelCosts)) {
-    if (!target.clientModelCosts[client]) target.clientModelCosts[client] = {};
+    clientModelMap(target.clientModelCosts, client);
     for (const [model, cost] of Object.entries(models)) {
-      target.clientModelCosts[client][model] = (target.clientModelCosts[client][model] || 0) + cost;
+      addMapValue(target.clientModelCosts[client], model, cost);
     }
   }
   for (const [key, project] of Object.entries(source.projects || {})) addProjectInto(target.projects, key, project);
@@ -1868,12 +1894,12 @@ function deltaValue(base, fresh, anchor, key) {
     const keys = new Set([...Object.keys(base || {}), ...Object.keys(fresh || {}), ...Object.keys(anchor || {})]);
     const result = Object.getPrototypeOf(sample) === null ? Object.create(null) : {};
     for (const childKey of keys) {
-      result[childKey] = deltaValue(
-        base ? base[childKey] : undefined,
-        fresh ? fresh[childKey] : undefined,
-        anchor ? anchor[childKey] : undefined,
+      setMapValue(result, childKey, deltaValue(
+        hasOwn(base, childKey) ? base[childKey] : undefined,
+        hasOwn(fresh, childKey) ? fresh[childKey] : undefined,
+        hasOwn(anchor, childKey) ? anchor[childKey] : undefined,
         childKey
-      );
+      ));
     }
     return result;
   }

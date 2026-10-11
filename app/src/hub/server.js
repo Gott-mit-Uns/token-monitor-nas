@@ -25,7 +25,6 @@ const { currentHubBuild } = require('../shared/hubBuildIdentity');
 const {
   freshnessEvent,
   acceptsEncoding,
-  hubStatsContentKey,
   wantsFreshnessEvents,
   wantsMinimalResponse
 } = require('../shared/hubProtocol');
@@ -37,6 +36,8 @@ const { createSseChannel } = require('./sse');
 const { createWindowsStream } = require('./windowsStream');
 const { windowsStreamPolicy } = require('./windowsSchedule');
 const { createWindowsMetrics } = require('./windowsMetrics');
+const { deviceFreshness } = require('./deviceFreshness');
+const { hubStatsContentDigest } = require('./statsContentDigest');
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -124,6 +125,10 @@ function createHub({
     return Object.values(store.devices);
   }
 
+  function getFreshness(nowMs) {
+    return deviceFreshness(Object.values(store.devices), staleAfterMs, nowMs);
+  }
+
   const sseClients = new Set();
   const statsListeners = new Set();
   let broadcastTimer = null;
@@ -158,7 +163,7 @@ function createHub({
     const stats = getStats();
     const at = new Date().toISOString();
     if (sseClients.size > 0) {
-      lastSseContentKey = hubStatsContentKey(stats);
+      lastSseContentKey = hubStatsContentDigest(stats);
       for (const client of sseClients) {
         if (client.windowsStream) client.windowsStream.notify(reason, true, stats);
         else writeSse(client, 'stats', { type: 'stats', reason, stats, at });
@@ -171,7 +176,7 @@ function createHub({
     broadcastTimer = null;
     if (sseClients.size === 0) return;
     const stats = getStats();
-    const nextContentKey = hubStatsContentKey(stats);
+    const nextContentKey = hubStatsContentDigest(stats);
     const at = new Date().toISOString();
     if (!lastSseContentKey || nextContentKey !== lastSseContentKey) {
       lastSseContentKey = nextContentKey;
@@ -431,7 +436,7 @@ function createHub({
         ...(gzip ? { 'content-encoding': 'gzip' } : {})
       });
       const client = { res, freshnessEvents: wantsFreshnessEvents(req), gzip };
-      if (sseClients.size === 0) lastSseContentKey = hubStatsContentKey(stats);
+      if (sseClients.size === 0) lastSseContentKey = hubStatsContentDigest(stats);
       sseClients.add(client);
       let heartbeat;
       const cleanup = () => {
@@ -449,7 +454,7 @@ function createHub({
         ...(windowsRequest ? { onFrame: windowsMetrics.frame, onBodyBytes: windowsMetrics.body } : {}) });
       if (windowsRequest) {
         windowsMetrics.open();
-        client.windowsStream = createWindowsStream({ channel: client.channel, getStats,
+        client.windowsStream = createWindowsStream({ channel: client.channel, getStats, getFreshness,
           freshnessEvents: client.freshnessEvents, ...windowsStreamClock, policy: getWindowsPolicy, onFull: windowsMetrics.full });
         if (!sseClients.has(client)) { client.windowsStream.dispose(); return; }
       } else if (!client.channel.send('snapshot', { type: 'stats', reason: 'snapshot', stats, at: new Date().toISOString() })) return;

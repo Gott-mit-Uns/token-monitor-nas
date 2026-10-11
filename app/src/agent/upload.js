@@ -21,6 +21,12 @@ async function postAgentUsage({ fetchFn, url, headers, summary, logger, timeoutM
       if (!response.ok) throw new Error(`Hub responded ${response.status}`);
       return response.json();
     })()]);
+  } catch (error) {
+    // An error status can arrive before its response body finishes. Abort the
+    // request before clearing its deadline so an unread error stream cannot
+    // keep its connection alive after this upload has already failed.
+    controller.abort();
+    throw error;
   } finally {
     clearTimeout(timer);
   }

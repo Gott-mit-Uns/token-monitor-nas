@@ -1,6 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const http = require('node:http');
 const { postAgentUsage } = require('../../src/agent/upload');
 const { createOrderedSink } = require('../../src/shared/orderedSink');
 
@@ -28,9 +29,58 @@ test('deadline covers a stalled response body and releases the upload queue', as
 });
 
 test('HTTP failure does not read or disclose the response body', async () => {
+  let signal;
   await assert.rejects(postAgentUsage({url: 'http://fixture.invalid', summary: {},
-    fetchFn: async () => ({ok: false, status: 503, text: () => {throw new Error('must not read');}})
+    fetchFn: async (_, options) => {
+      signal = options.signal;
+      return {ok: false, status: 503, text: () => {throw new Error('must not read');}};
+    }
   }), /Hub responded 503/);
+  assert.equal(signal.aborted, true);
+});
+
+test('a slow HTTP error body is closed immediately after upload failure', { timeout: 10_000 }, async t => {
+  let chunkTimer;
+  let resolveClosed;
+  const responseClosed = new Promise(resolve => { resolveClosed = resolve; });
+  const server = http.createServer((request, response) => {
+    request.resume();
+    response.writeHead(503, { 'content-type': 'text/plain' });
+    response.write('synthetic error body that must not be logged');
+    // This error body deliberately never ends until the client closes it.
+    chunkTimer = setInterval(() => response.write('.'), 25);
+    response.on('close', () => { clearInterval(chunkTimer); resolveClosed(); });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(async () => {
+    clearInterval(chunkTimer);
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  });
+  let signal;
+  const messages = [];
+  await assert.rejects(postAgentUsage({
+    // Allow cold fetch initialization on native CI; the failure must come from
+    // the actual status, not an artificially short request deadline.
+    timeoutMs: 5_000,
+    url: `http://127.0.0.1:${server.address().port}/api/ingest`,
+    summary: { deviceId: 'synthetic' },
+    logger: message => messages.push(message),
+    fetchFn: (url, options) => { signal = options.signal; return fetch(url, options); }
+  }), /^Error: Hub responded 503$/);
+  assert.equal(signal.aborted, true);
+  let closeTimer;
+  try {
+    await Promise.race([
+      responseClosed,
+      new Promise((_, reject) => {
+        closeTimer = setTimeout(() => reject(new Error('error response remained open')), 2_000);
+      })
+    ]);
+  } finally {
+    clearTimeout(closeTimer);
+  }
+  assert.deepEqual(messages, []);
 });
 
 test('aggregate-only upload preserves source and replaces old Hub session detail including retry', async () => {

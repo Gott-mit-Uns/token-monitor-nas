@@ -33,6 +33,7 @@ test('official 0.68 status handling suppresses fallback HTTP reads without refre
     devices: [{ deviceId: 'a', updatedAt: '2026-10-09T10:00:00Z', receivedAt: '2026-10-09T10:00:00Z', stale: false }] };
   const original = structuredClone(cached);
   const stream = createWindowsStream({ now: () => clock, getStats: () => cached,
+    getFreshness: () => cached.devices,
     setTimer: () => 1, clearTimer: noop,
     channel: { send(event, data) {
       const wire = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;

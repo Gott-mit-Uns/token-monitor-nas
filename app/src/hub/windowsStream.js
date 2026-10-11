@@ -1,9 +1,9 @@
 'use strict';
 
-const { hubStatsContentKey } = require('../shared/hubProtocol');
+const { hubStatsContentDigest } = require('./statsContentDigest');
 const { windowsStreamPolicy } = require('./windowsSchedule');
 
-function createWindowsStream({ channel, getStats, freshnessEvents = true, now = Date.now,
+function createWindowsStream({ channel, getStats, getFreshness, freshnessEvents = true, now = Date.now,
   policy = windowsStreamPolicy, setTimer = setTimeout, clearTimer = clearTimeout, onFull = () => {} }) {
   let closed = false;
   let timer = null;
@@ -19,7 +19,7 @@ function createWindowsStream({ channel, getStats, freshnessEvents = true, now = 
       type: 'stats', reason, stats, at: new Date(at).toISOString()
     })) { closed = true; clearTimer(timer); timer = null; return; }
     lastFullAt = at;
-    lastContentKey = hubStatsContentKey(stats);
+    lastContentKey = hubStatsContentDigest(stats);
     visibleIds = new Set((stats.devices || []).map(device => device.deviceId));
     pending = false;
     onFull(reason, at);
@@ -42,7 +42,7 @@ function createWindowsStream({ channel, getStats, freshnessEvents = true, now = 
     if (pending && at >= lastFullAt + policy(at).intervalMs) {
       const stats = getStats();
       pending = false;
-      if (hubStatsContentKey(stats) !== lastContentKey) full(pendingReason, stats);
+      if (hubStatsContentDigest(stats) !== lastContentKey) full(pendingReason, stats);
     }
     schedule();
   }
@@ -58,15 +58,16 @@ function createWindowsStream({ channel, getStats, freshnessEvents = true, now = 
     if (closed) return;
     // Reevaluate after clock corrections or a delayed boundary timer as well.
     pump();
-    const at = new Date(now()).toISOString();
+    const nowMs = now();
+    const at = new Date(nowMs).toISOString();
     if (!channel.send('status', { connected: true, mode: 'sync' })) return;
     if (!freshnessEvents) return;
-    const stats = getStats();
+    const devices = getFreshness(nowMs);
     // Only admission/liveness metadata travels here. In particular, never stamp
     // delayed usage, sessions, limits or History with a newer source timestamp.
     channel.send('freshness', {
       type: 'freshness', reason: 'liveness', at,
-      stats: { devices: (stats.devices || []).filter(device => visibleIds.has(device.deviceId)).map(device => ({
+      stats: { devices: devices.filter(device => visibleIds.has(device.deviceId)).map(device => ({
         deviceId: device.deviceId, receivedAt: device.receivedAt, ageMs: device.ageMs, stale: device.stale
       })) }
     });

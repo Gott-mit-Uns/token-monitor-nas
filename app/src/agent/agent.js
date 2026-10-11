@@ -140,7 +140,10 @@ function summaryWithSessionUsageArchive(summary, now = new Date()) {
     }
     visibleSummary = applySessionUsageArchive(summary, sessionUsageArchive, {
       now: archiveDate,
-      canonical: !dryRun
+      canonical: !dryRun,
+      // Collector periods are normalized already. Keep the default detached
+      // summary copy, but do not normalize and copy those periods again.
+      canonicalSummary: true
     });
   }
   if (syncSessionTitles) visibleSummary = applyHermesSessionTitles(visibleSummary, { logger: message => console.warn(message) });

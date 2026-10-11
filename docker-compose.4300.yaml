@@ -30,6 +30,8 @@ services:
       # Native events speed up updates; the 5-minute collector interval remains
       # as a fallback when no filesystem event arrives.
       TOKEN_MONITOR_WATCH: "1"
+      # Small, fixed Hermes roots share the collector's Node runtime.
+      TOKEN_MONITOR_WATCH_IN_PROCESS: "1"
       TOKEN_MONITOR_WATCH_DEBOUNCE_MS: "60000"
     mem_limit: 512m
     cpus: 0.50

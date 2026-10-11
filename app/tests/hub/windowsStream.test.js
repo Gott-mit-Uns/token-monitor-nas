@@ -14,6 +14,7 @@ function fixture(start = '2026-10-09T08:00:00+08:00') {
   const deps = { now: () => time,
     setTimer: (fn, delay) => { const id = ++sequence; timers.set(id, { fn, at: time + delay }); return id; },
     clearTimer: id => timers.delete(id), getStats: () => structuredClone(stats),
+    getFreshness: () => structuredClone(stats.devices),
     channel: { send: (event, data) => { frames.push({ event, data: structuredClone(data) }); return true; } } };
   const stream = createWindowsStream(deps);
   return { stream, frames, timers, deps, get stats() { return stats; }, set stats(value) { stats = value; },
@@ -44,6 +45,30 @@ test('latest changes are coalesced until ten minutes, and unchanged content is s
   assert.equal(f.full().length, 2);
   assert.ok(f.timers.size <= 1);
   f.stream.dispose(); assert.equal(f.timers.size, 0);
+});
+
+test('timestamp-only refreshes remain quiet while a changed title and its revocation reach the client', () => {
+  const f = fixture();
+  f.stats.updatedAt = '2026-10-09T00:05:00Z';
+  f.stats.devices[0].updatedAt = f.stats.updatedAt;
+  f.stats.devices[0].receivedAt = f.stats.updatedAt;
+  f.stats.devices[0].ageMs = 50;
+  f.stream.notify();
+  f.advance(600000);
+  assert.equal(f.full().length, 1);
+
+  f.stats.periods.today.sessions.a.title = 'changed synthetic title';
+  f.stream.notify();
+  assert.equal(f.full().length, 2);
+  assert.equal(f.full().at(-1).data.stats.periods.today.sessions.a.title, 'changed synthetic title');
+
+  f.stats.periods.today.sessions.a.title = '';
+  f.stream.notify('sync-titles', true);
+  assert.equal(f.full().length, 3);
+  assert.equal(f.full().at(-1).data.reason, 'sync-titles');
+  assert.equal(f.full().at(-1).data.stats.periods.today.sessions.a.title, '');
+  assert.equal(f.full().at(-1).data.stats.periods.today.totalTokens, 1);
+  f.stream.dispose();
 });
 
 test('outside work hours updates wait thirty minutes; manual read does not reset SSE', () => {
@@ -135,5 +160,30 @@ test('old stream consumers receive status but no unsupported freshness payload',
   const stream = createWindowsStream({ ...f.deps, freshnessEvents: false });
   stream.heartbeat();
   assert.deepEqual(f.frames.map(frame => frame.event), ['snapshot', 'status']);
+  stream.dispose();
+});
+
+test('heartbeats use only the liveness reader until a changed full snapshot is due', () => {
+  const f = fixture('2026-10-09T18:00:00+08:00');
+  f.stream.dispose(); f.frames.length = 0;
+  let fullReads = 0;
+  let livenessReads = 0;
+  const stream = createWindowsStream({ ...f.deps,
+    getStats: () => { fullReads++; return f.deps.getStats(); },
+    getFreshness: at => { assert.equal(at, f.now()); livenessReads++; return f.deps.getFreshness(); }
+  });
+  f.stats.periods.today.totalTokens = 42;
+  stream.notify();
+  for (let i = 0; i < 59; i++) { f.advance(30000); stream.heartbeat(); }
+  assert.equal(fullReads, 1);
+  assert.equal(livenessReads, 59);
+  assert.equal(f.full().length, 1);
+  f.advance(30000); stream.heartbeat();
+  assert.equal(fullReads, 2);
+  assert.equal(livenessReads, 60);
+  assert.equal(f.full().at(-1).data.stats.periods.today.totalTokens, 42);
+  // Without another notification, even a later heartbeat has no full work.
+  f.advance(1800000); stream.heartbeat();
+  assert.equal(fullReads, 2);
   stream.dispose();
 });

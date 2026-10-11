@@ -72,14 +72,13 @@ function databaseWithRowsHook(hook) {
       if (!/SELECT session_key, entry_json FROM sessions/.test(sql)) return statement;
       return new Proxy(statement, {
         get(target, property) {
-          if (property !== 'all') {
+          if (property !== 'iterate') {
             const value = target[property];
             return typeof value === 'function' ? value.bind(target) : value;
           }
-          return (...args) => {
-            const rows = target.all(...args);
+          return function* (...args) {
+            yield* target.iterate(...args);
             hook();
-            return rows;
           };
         }
       });
@@ -87,6 +86,60 @@ function databaseWithRowsHook(hook) {
 
     close() {
       return this.database.close();
+    }
+  };
+}
+
+function streamedDatabaseProbe() {
+  const state = { fullReads: 0, revisedReads: 0, active: 0, closed: 0, failAfterRows: null };
+  return {
+    state,
+    DatabaseSync: class {
+      constructor(filePath, options) {
+        this.database = options === undefined
+          ? new DatabaseSync(filePath)
+          : new DatabaseSync(filePath, options);
+      }
+
+      exec(sql) { return this.database.exec(sql); }
+
+      prepare(sql) {
+        const statement = this.database.prepare(sql);
+        if (!/SELECT\s+session_key,\s*entry_json\s+FROM\s+sessions/i.test(sql)) return statement;
+        return {
+          all() { throw new Error('session rows must not be materialized as one array'); },
+          iterate(...args) {
+            if (/WHERE revision/.test(sql)) state.revisedReads += 1;
+            else state.fullReads += 1;
+            const rows = statement.iterate(...args);
+            state.active += 1;
+            let released = false;
+            let count = 0;
+            return {
+              [Symbol.iterator]() { return this; },
+              next() {
+                if (state.failAfterRows === count) {
+                  state.failAfterRows = null;
+                  throw Object.assign(new Error('interrupted row read'), { code: 'EIO' });
+                }
+                const row = rows.next();
+                if (!row.done) count += 1;
+                return row;
+              },
+              return() {
+                if (!released) { state.active -= 1; released = true; }
+                return rows.return();
+              }
+            };
+          }
+        };
+      }
+
+      close() {
+        assert.equal(state.active, 0, 'iterators must be released before closing SQLite');
+        this.database.close();
+        state.closed += 1;
+      }
     }
   };
 }
@@ -183,6 +236,107 @@ test('persists and refreshes only revised session rows between processes', (t) =
 
   writer.close();
   reader.close();
+});
+
+test('streams full archive reads, read-only snapshots and revised rows without a row array', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-archive-store-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const options = { env: { TOKEN_MONITOR_SHARED_DIR: dir } };
+  const at = new Date('2026-09-15T08:00:00.000Z');
+  const writer = createSessionUsageArchiveStore(options);
+  t.after(() => writer.close());
+  writer.capture(summary(100, 'one'), at);
+  writer.capture(summary(200, 'two'), at);
+
+  const probe = streamedDatabaseProbe();
+  const reader = createSessionUsageArchiveStore({ ...options, DatabaseSync: probe.DatabaseSync });
+  t.after(() => reader.close());
+  assert.equal(Object.keys(reader.read(at).sessions).length, 2);
+  assert.equal(Object.keys(readSessionUsageArchiveSnapshot({ ...options, DatabaseSync: probe.DatabaseSync }).sessions).length, 2);
+
+  writer.capture(summary(125, 'one'), at);
+  assert.equal(reader.refresh().sessions['codex:one'].periods.allTime.totalTokens, 125);
+  writer.capture(summary(225, 'two'), at);
+  const captured = reader.capture(summary(300, 'three'), at);
+  assert.equal(captured.error, null);
+  assert.equal(captured.archive.sessions['codex:two'].periods.allTime.totalTokens, 225);
+  assert.equal(captured.archive.sessions['codex:three'].periods.allTime.totalTokens, 300);
+  assert.equal(probe.state.fullReads, 2);
+  assert.equal(probe.state.revisedReads, 2);
+  assert.equal(probe.state.active, 0);
+});
+
+test('an interrupted initial scan releases its statement and never publishes a partial archive', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-archive-store-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const options = { env: { TOKEN_MONITOR_SHARED_DIR: dir } };
+  const at = new Date('2026-09-15T08:00:00.000Z');
+  const writer = createSessionUsageArchiveStore(options);
+  writer.capture(summary(100, 'one'), at);
+  writer.capture(summary(200, 'two'), at);
+  writer.close();
+
+  const probe = streamedDatabaseProbe();
+  const reader = createSessionUsageArchiveStore({ ...options, DatabaseSync: probe.DatabaseSync });
+  t.after(() => reader.close());
+  probe.state.failAfterRows = 1;
+  const interrupted = reader.capture(summary(300, 'three'), at);
+  assert.equal(interrupted.error?.code, 'EIO');
+  assert.deepEqual(interrupted.archive.sessions, {});
+  assert.equal(probe.state.active, 0);
+
+  const retried = reader.capture(summary(300, 'three'), at);
+  assert.equal(retried.error, null);
+  assert.deepEqual(Object.keys(retried.archive.sessions).sort(), ['codex:one', 'codex:three', 'codex:two']);
+  assert.equal(retried.archive.sessions['codex:one'].periods.allTime.totalTokens, 100);
+  assert.equal(retried.archive.sessions['codex:two'].periods.allTime.totalTokens, 200);
+  assert.equal(probe.state.active, 0);
+});
+
+test('an interrupted read-only snapshot closes SQLite and can be retried completely', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-archive-store-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const options = { env: { TOKEN_MONITOR_SHARED_DIR: dir } };
+  const at = new Date('2026-09-15T08:00:00.000Z');
+  const writer = createSessionUsageArchiveStore(options);
+  writer.capture(summary(100, 'one'), at);
+  writer.capture(summary(200, 'two'), at);
+  writer.close();
+
+  const probe = streamedDatabaseProbe();
+  probe.state.failAfterRows = 1;
+  // Snapshot fallback retries the database when no legacy file exists.
+  const loaded = readSessionUsageArchiveSnapshot({ ...options, DatabaseSync: probe.DatabaseSync });
+  assert.equal(Object.keys(loaded.sessions).length, 2);
+  assert.equal(probe.state.closed, 2);
+  assert.equal(probe.state.active, 0);
+});
+
+test('an interrupted revision scan is released and retries all outstanding revisions', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'session-archive-store-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const options = { env: { TOKEN_MONITOR_SHARED_DIR: dir } };
+  const at = new Date('2026-09-15T08:00:00.000Z');
+  const writer = createSessionUsageArchiveStore(options);
+  t.after(() => writer.close());
+  writer.capture(summary(100, 'one'), at);
+  writer.capture(summary(200, 'two'), at);
+  const probe = streamedDatabaseProbe();
+  const reader = createSessionUsageArchiveStore({ ...options, DatabaseSync: probe.DatabaseSync });
+  t.after(() => reader.close());
+  reader.read(at);
+  writer.capture(summary(125, 'one'), at);
+  writer.capture(summary(225, 'two'), at);
+  probe.state.failAfterRows = 1;
+  assert.throws(() => reader.refresh(), { code: 'EIO' });
+  assert.equal(probe.state.active, 0);
+
+  writer.capture(summary(300, 'three'), at);
+  const recovered = reader.refresh();
+  assert.equal(recovered.sessions['codex:one'].periods.allTime.totalTokens, 125);
+  assert.equal(recovered.sessions['codex:two'].periods.allTime.totalTokens, 225);
+  assert.equal(recovered.sessions['codex:three'].periods.allTime.totalTokens, 300);
+  assert.equal(probe.state.active, 0);
 });
 
 test('reopening a reader keeps its archive revision instead of skipping newer rows', (t) => {

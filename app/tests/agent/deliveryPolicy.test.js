@@ -7,6 +7,7 @@ const {
   semanticRecordFingerprint,
   writeAgentSuccess
 } = require('../../src/agent/deliveryPolicy');
+const { runAgent } = require('../../src/agent/runtime');
 
 function record(tokens, updatedAt = '2026-08-08T00:00:00.000Z') {
   return {
@@ -56,6 +57,82 @@ test('failed delivery remains eligible for retry', async () => {
   await assert.rejects(delivery.deliver(record(10)), /offline/);
   assert.equal((await delivery.deliver(record(10))).sent, true);
   assert.equal(attempts, 2);
+});
+
+test('idle Agent heartbeats retain each collection interval despite upload latency', async t => {
+  let now = 1_000;
+  let usage;
+  const starts = [];
+  const successes = [];
+  const errors = [];
+  const delivery = createDeduplicatingDelivery({
+    heartbeatMs: 300_000,
+    now: () => now,
+    async send() {
+      starts.push(now);
+      // Advance a controlled clock across the asynchronous send. The next
+      // collection is scheduled from collection completion, not this response.
+      await Promise.resolve();
+      now += 1_000;
+    },
+    onSuccess: value => successes.push(value.sentAt)
+  });
+  const runtime = runAgent({
+    envelope: { deviceId: 'nas-hermes' },
+    usageOptions: {},
+    limitsOptions: {},
+    deliver: value => delivery.deliver(value),
+    onError: error => errors.push(error)
+  }, {
+    deviceRuntimeDeps: {
+      createUsageRuntime(options) { usage = options; return { stop() {} }; },
+      createLimitsRuntime() { return { stop() {} }; }
+    }
+  });
+  t.after(() => runtime.stop());
+
+  for (const tickAt of [1_000, 301_010, 601_020]) {
+    now = tickAt;
+    usage.onUpdate(record(10, new Date(now).toISOString()), 'interval');
+    await runtime.flush();
+  }
+
+  assert.deepEqual(errors, []);
+  assert.deepEqual(starts, [1_000, 301_010, 601_020]);
+  // Health timestamps still describe successful completion, not an attempt.
+  assert.deepEqual(successes, [2_000, 302_010, 602_020]);
+});
+
+test('failed changed records and heartbeats never advance successful delivery state', async () => {
+  let now = 1_000;
+  let failNext = false;
+  const starts = [];
+  const successes = [];
+  const delivery = createDeduplicatingDelivery({
+    heartbeatMs: 300,
+    now: () => now,
+    async send() {
+      starts.push(now);
+      now += 10;
+      if (failNext) { failNext = false; throw new Error('offline'); }
+    },
+    onSuccess: value => successes.push(value.sentAt)
+  });
+  await delivery.deliver(record(10));
+
+  now = 1_100;
+  failNext = true;
+  await assert.rejects(delivery.deliver(record(11)), /offline/);
+  now = 1_111;
+  assert.equal((await delivery.deliver(record(10))).duplicate, true);
+
+  now = 1_300;
+  failNext = true;
+  await assert.rejects(delivery.deliver(record(10)), /offline/);
+  now = 1_311;
+  assert.equal((await delivery.deliver(record(10))).sent, true);
+  assert.deepEqual(starts, [1_000, 1_100, 1_300, 1_311]);
+  assert.deepEqual(successes, [1_010, 1_321]);
 });
 
 test('writes the success heartbeat atomically', () => {

@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.value }}
+      digest: ${{ steps.candidate.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,6 +28,8 @@ jobs:
         run: |
           version=$(node scripts/check-nas-version.js)
           echo "value=$version" >> "$GITHUB_OUTPUT"
+      - name: Test release promotion recovery without registry access
+        run: node --test scripts/tests/*.test.js
       - name: Build and test without NAS data
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -47,6 +50,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and publish candidate image
+        id: candidate
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -61,8 +65,10 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Verify published amd64 runtime
+        env:
+          CANDIDATE_DIGEST: ${{ steps.candidate.outputs.digest }}
         run: |
-          image=ghcr.io/gott-mit-uns/token-monitor-hermes:sha-${GITHUB_SHA}
+          image=$(node scripts/promote-nas-image.js --candidate-ref)
           docker pull --platform linux/amd64 "$image"
           docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
           docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
@@ -82,9 +88,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify arm64 runtime on native Linux
+        env:
+          CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
         run: |
           test "$(uname -m)" = aarch64
-          image=ghcr.io/gott-mit-uns/token-monitor-hermes:sha-${GITHUB_SHA}
+          image=$(node scripts/promote-nas-image.js --candidate-ref)
           docker pull --platform linux/arm64 "$image"
           docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
           docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
@@ -93,6 +101,7 @@ jobs:
     needs: [build_amd64, verify_arm64]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Log in to GitHub Container Registry
@@ -101,24 +110,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Publish immutable version after verification
+      - name: Promote verified digest with recoverable immutable version tagging
         env:
           NAS_VERSION: ${{ needs.build_amd64.outputs.version }}
-        run: |
-          version_image=ghcr.io/gott-mit-uns/token-monitor-hermes:${NAS_VERSION}
-          if docker buildx imagetools inspect "$version_image" >/tmp/version-inspect.out 2>/tmp/version-inspect.err; then
-            echo "Version already exists; refusing to overwrite or repoint latest."
-            exit 1
-          elif grep -Eqi 'manifest unknown|not found' /tmp/version-inspect.err; then
-            docker buildx imagetools create --tag "$version_image" \
-              ghcr.io/gott-mit-uns/token-monitor-hermes:sha-${GITHUB_SHA}
-          else
-            echo "Unable to confirm version absence; refusing to publish a fixed tag."
-            exit 1
-          fi
-      - name: Promote verified image to latest
-        run: |
-          docker buildx imagetools create \
-            --tag ghcr.io/gott-mit-uns/token-monitor-hermes:latest \
-            ghcr.io/gott-mit-uns/token-monitor-hermes:sha-${GITHUB_SHA}
-          docker buildx imagetools inspect ghcr.io/gott-mit-uns/token-monitor-hermes:latest
+          CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node scripts/promote-nas-image.js
