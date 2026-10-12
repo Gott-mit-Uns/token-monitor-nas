@@ -100,6 +100,9 @@ jobs:
   promote:
     needs: [build_amd64, verify_arm64]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v7
       - name: Set up Docker Buildx
@@ -116,3 +119,10 @@ jobs:
           CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
           RELEASE_COMMIT: ${{ github.sha }}
         run: node scripts/promote-nas-image.js
+      - name: Complete immutable GitHub Release after image verification
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NAS_VERSION: ${{ needs.build_amd64.outputs.version }}
+          CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node scripts/ensure-nas-release.js

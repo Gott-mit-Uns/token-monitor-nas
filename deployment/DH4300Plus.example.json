@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "target": "DH4300Plus",
+  "projectRoot": "/volume4/docker/token-monitor-nas",
+  "composeFile": "/volume4/docker/token-monitor-nas/docker-compose.yaml",
+  "deviceId": "DH4300Plus",
+  "agentService": "token-monitor-nas",
+  "hubService": null,
+  "stateDir": "/volume4/docker/token-monitor-nas/state",
+  "hubDataDir": null,
+  "hermesDir": "/volume4/docker/hermes",
+  "statusTokenFile": "/REPLACE-WITH-PRIVATE-LOCAL-TOKEN-FILE",
+  "controlDir": "/volume4/docker/token-monitor-nas/deployment-control",
+  "healthTimeoutSeconds": 180,
+  "rollbackReceiptFile": null
+}

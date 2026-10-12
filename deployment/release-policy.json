@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "version": "v0.69.0-02",
+  "compatibleFrom": [
+    "v0.69.0-01"
+  ],
+  "migration": {
+    "kind": "none",
+    "rollback": "restore-snapshot",
+    "notes": "No mandatory archive schema migration. Collection can update state metadata. Restore a complete closed pre-deployment state snapshot with its old image. Automatic rollback requires a NAS-local rehearsal receipt for this exact version and digest pair."
+  }
+}
