@@ -37,6 +37,21 @@ class SandboxDocker(m.RealDocker):
     def start(self, service, ref):
         self.started.append((service, ref))
         return super().start(service, ref)
+    def verify_state(self, snapshot):
+        try:
+            return super().verify_state(snapshot)
+        except m.Refused as error:
+            if str(error) == 'agent_history_lost':
+                # Diagnostic paths only, on this explicitly synthetic sandbox.
+                def differences(a, b, prefix=''):
+                    if m.preserved(a, b): return []
+                    if isinstance(a, dict) and isinstance(b, dict):
+                        return [p for k in a for p in differences(a[k], b.get(k), prefix + '/' + k) if k not in ['updatedAt','savedAt','generatedAt']]
+                    return [prefix]
+                for file in (snapshot / 'state').rglob('*daily-history*.json'):
+                    other=Path(self.cfg['stateDir']) / file.relative_to(snapshot / 'state')
+                    print(json.dumps({'syntheticHistoryDifferencePaths': differences(json.loads(file.read_text()),json.loads(other.read_text()))[:20]}), flush=True)
+            raise
     def verify_hub(self):
         result = super().verify_hub()
         if self.fail_hub and self.inspect(self.cfg['hubService'])['Image'] == self.image(self.candidate)['Id']:
