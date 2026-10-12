@@ -1,12 +1,14 @@
 {
   "scope": "synthetic-only; no production NAS, credentials or publishing",
-  "sourceCommit": "4e4120f19ba750d90f2e0ac8ad514fc522853359",
+  "sourceCommit": "f04eda77f3e6677d920f2f6ee074790482e45f79",
   "baselineVersion": "v0.69.0-01",
   "candidateVersion": "v0.69.0-02",
   "successfulDeploymentAndWholeStateRehearsal": "passed",
   "hubFailureStopsAgentAndVerifiedSnapshotRollback": "passed",
   "stagedHubAgentDeployment": "passed",
   "replayRejected": "passed",
+  "agentOnlyRemoteHubDeployment": "passed",
+  "fixedHermesHubAccounting": "passed",
   "statusEvents": [
     {
       "id": 1,
@@ -35,6 +37,16 @@
     },
     {
       "id": 3,
+      "state": "success",
+      "code": "all-stages-verified"
+    },
+    {
+      "id": 4,
+      "state": "in_progress",
+      "code": "preflight"
+    },
+    {
+      "id": 4,
       "state": "success",
       "code": "all-stages-verified"
     }

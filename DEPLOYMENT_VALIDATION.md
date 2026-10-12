@@ -2,7 +2,7 @@
 
 状态：开发候选 `v0.69.0-02`，生产首次接入和部署未执行。原生双架构隔离部署演练已通过，原有全量回归与性能检查单独记录。
 
-[原有全量回归 CI 38204021632](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38204021632) 的 amd64、arm64 作业均成功，与上述隔离演练使用同一 PR 源码提交。每架构 992 项 NAS 测试：990 通过、0 失败、2 项 Windows 平台条件跳过；Compose、固定 Tokscale 契约及合成固定数据性能对比均通过。性能检查通过不等于性能改善，也不代替 24 小时生产观察。
+[原有全量回归 CI 38204021632](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38204021632) 的 amd64、arm64 作业均成功，对应部署实现提交 `558e148eee8d3c11b9f01c08b8461258f4ed01cc`。每架构 992 项 NAS 测试：990 通过、0 失败、2 项 Windows 平台条件跳过；Compose、固定 Tokscale 契约及合成固定数据性能对比均通过。后续仅补充 Agent-only/准确计数演练和报告，没有更改镜像内采集与 Hub 源码或控制器实现。性能检查通过不等于性能改善，也不代替 24 小时生产观察。
 
 ## 审查
 
@@ -20,7 +20,7 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 
 ## GitHub 隔离演练
 
-[隔离部署 CI 38204021671](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38204021671) 的原生 amd64 和 arm64 作业均成功，对应 PR 源码提交 `558e148eee8d3c11b9f01c08b8461258f4ed01cc`，测试构建使用 GitHub PR 合成合并提交 `4e4120f19ba750d90f2e0ac8ad514fc522853359`。两架构均运行 Node 发布/请求测试 59 项、Python 控制器测试 36 项，并完成真实 Docker 演练。合成摘要保存在 [amd64-exercise.json](evidence/controlled-deployment/amd64-exercise.json) 与 [arm64-exercise.json](evidence/controlled-deployment/arm64-exercise.json)，只含版本、来源与合成验收结果。
+[隔离部署 CI 38205225968](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38205225968) 的原生 amd64 和 arm64 作业均成功，对应 PR 源码提交 `1bff0ac9ef7ba89259a02d7c1fa4810ac8843525`，测试构建使用 GitHub PR 合成合并提交 `f04eda77f3e6677d920f2f6ee074790482e45f79`。两架构均运行 Node 发布/请求测试 59 项、Python 控制器测试 36 项，并完成真实 Docker 演练。合成摘要保存在 [amd64-exercise.json](evidence/controlled-deployment/amd64-exercise.json) 与 [arm64-exercise.json](evidence/controlled-deployment/arm64-exercise.json)，只含版本、来源与合成验收结果。
 
 | 演练项目 | amd64 | arm64 |
 | --- | --- | --- |
@@ -28,6 +28,8 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 | Hub 失败阻止新版 Agent，凭据有效时恢复旧镜像和完整状态 | 通过 | 通过 |
 | Hub 验收后再更新 Agent，采集/上传/独立 Watcher/历史验收 | 通过 | 通过 |
 | 相同部署请求重放拒绝 | 通过 | 通过 |
+| Agent-only 独立 Compose/状态，连接现有远端 Hub | 通过 | 通过 |
+| Hermes 今日/月/累计 125 Token，output 20/cache-read 5，Hub 实际接收准确 | 通过 | 通过 |
 
 演练揭示并修复了运行元数据、定价修订及正常标题策略代次变化被误判为数据丢失的问题。采集时间变化和合法窗口切换分别验证；实际 Token 减少、会话丢失、许可翻转及代次下降仍拒绝。回报网络失败只进入待补报状态，不扰动已健康的服务；旧镜像实际身份与配置也进入回滚证明。
 
