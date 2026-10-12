@@ -230,7 +230,7 @@ class RealDocker:
             require(old['Config'].get('Labels', {}).get('org.opencontainers.image.version') == req['fromVersion'], 'old_image_version_mismatch')
             require(any(d.startswith(IMAGE + '@sha256:') for d in old.get('RepoDigests', [])), 'old_image_digest_missing')
             require(canonical(sorted([{k: m[k] for k in ['Type', 'Source', 'Destination', 'RW']} for m in info['Mounts'] if m['Type'] == 'bind'], key=lambda x: x['Destination'])) == canonical(sorted(self._expected_mounts(spec), key=lambda x: x['Destination'])), 'actual_mounts_differ_from_compose')
-            result[service] = {'imageId': info['Image'], 'repoDigests': old['RepoDigests']}
+            result[service] = {'imageId': info['Image'], 'repoDigests': old['RepoDigests'], 'sourceCommit': old['Config'].get('Labels', {}).get('org.opencontainers.image.revision')}
             if service == self.cfg['agentService']:
                 require(env.get('TOKEN_MONITOR_DEVICE_ID') == self.cfg['deviceId'] and env.get('TOKEN_MONITOR_CLIENTS') == 'hermes' and env.get('TOKEN_MONITOR_WATCH_IN_PROCESS') == '0', 'agent_identity_or_scope')
                 binds = {m['Destination']: m for m in info['Mounts'] if m['Type'] == 'bind'}
@@ -371,7 +371,7 @@ def accounting(value):
     if isinstance(value, list):
         return [accounting(x) for x in value]
     if isinstance(value, dict):
-        skip = {'version', 'agentVersion', 'generatedAt', 'updatedAt', 'collectedAt', 'timestamp', 'active', 'activity', 'sessionTitle', 'title', 'nasVersion'}
+        skip = {'version', 'agentVersion', 'generatedAt', 'updatedAt', 'collectedAt', 'timestamp', 'capturedAt', 'startedAt', 'lastUsedAt', 'active', 'activity', 'sessionTitle', 'title', 'nasVersion'}
         return {k: accounting(v) for k, v in value.items() if k not in skip}
     return value
 
@@ -396,6 +396,59 @@ def sqlite_rows(path):
 def sqlite_keys(path):
     return set(sqlite_rows(path))
 
+def local_window(period, now=None):
+    now = now or dt.datetime.now(dt.timezone.utc)
+    local = now.astimezone(dt.timezone(dt.timedelta(hours=8)))
+    return local.strftime('%Y-%m-%d' if period == 'today' else '%Y-%m')
+
+def window_key(record, period, archive=False):
+    window = record.get('periodWindows', {}).get(period, {})
+    value = window.get('day' if period == 'today' else 'month') if archive else window.get('key')
+    if archive:
+        value = value or record.get('day' if period == 'today' else 'month')
+    if isinstance(value, str) and re.fullmatch(r'\d{4}-\d{2}-\d{2}' if period == 'today' else r'\d{4}-\d{2}', value):
+        try:
+            dt.date.fromisoformat(value if period == 'today' else value + '-01')
+            return value
+        except ValueError:
+            return None
+    if not archive:
+        for field in ['updatedAt', 'collectedAt', 'receivedAt']:
+            try:
+                timestamp = dt.datetime.fromisoformat(record.get(field, '').replace('Z', '+00:00'))
+                if timestamp.tzinfo:
+                    return local_window(period, timestamp)
+            except (ValueError, TypeError, AttributeError):
+                pass
+    return None
+
+def expired_window(old, new, period, archive=False, now=None):
+    previous = window_key(old, period, archive)
+    current = window_key(new, period, archive)
+    today = local_window(period, now)
+    return bool(previous and previous < today and (current == today or (archive and period not in new.get('periods', {}))))
+
+def archive_preserved(old, new, now=None):
+    if 'periods' not in old:
+        return preserved(accounting(old), accounting(new))
+    if old.get('client') != new.get('client') or old.get('sessionId') != new.get('sessionId'):
+        return False
+    before, after = old.get('periods', {}), new.get('periods', {})
+    if 'allTime' in before and not preserved(accounting(before['allTime']), accounting(after.get('allTime'))):
+        return False
+    for period in ['today', 'month']:
+        if period not in before:
+            continue
+        if expired_window(old, new, period, archive=True, now=now):
+            # Window expiry cannot stand in for loss of the lifetime session.
+            if 'allTime' not in before or 'allTime' not in after:
+                return False
+            continue
+        old_key, new_key = window_key(old, period, True), window_key(new, period, True)
+        if old_key != new_key or not preserved(accounting(before[period]), accounting(after.get(period))):
+            return False
+    return True
+
 def verify_state(cfg, snapshot):
     old_archives = list((snapshot / 'state').rglob('session-usage-archive.sqlite'))
     require(len(old_archives) == 1, 'archive_missing_or_ambiguous')
@@ -403,7 +456,7 @@ def verify_state(cfg, snapshot):
     new = Path(cfg['stateDir']) / old.relative_to(snapshot / 'state')
     previous_rows, current_rows = sqlite_rows(old), sqlite_rows(new)
     require(set(previous_rows) <= set(current_rows), 'archive_sessions_lost')
-    require(all(preserved(accounting(value), accounting(current_rows[key])) for key, value in previous_rows.items()), 'archive_accounting_regressed')
+    require(all(archive_preserved(value, current_rows[key]) for key, value in previous_rows.items()), 'archive_accounting_regressed')
     for file in (snapshot / 'state').rglob('*daily-history*.json'):
         before = json.loads(file.read_text())
         after = json.loads((Path(cfg['stateDir']) / file.relative_to(snapshot / 'state')).read_text())
@@ -419,6 +472,8 @@ def verify_state(cfg, snapshot):
                 previous = record.get('periods', {}).get(period, record.get(period, {}))
                 next_record = after['devices'][device]
                 current = next_record.get('periods', {}).get(period, next_record.get(period, {}))
+                if period != 'allTime' and expired_window(record, next_record, period):
+                    continue
                 for counter in ['totalTokens', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens']:
                     if isinstance(previous.get(counter), (int, float)):
                         require(current.get(counter, -1) >= previous[counter], 'hub_accounting_regressed')
@@ -427,7 +482,7 @@ def verify_state(cfg, snapshot):
 
 def preserved(old, new):
     if isinstance(old, dict):
-        return isinstance(new, dict) and all(k in new and preserved(v, new[k]) for k, v in old.items() if k not in ['updatedAt', 'savedAt', 'generatedAt'])
+        return isinstance(new, dict) and all(k in new and preserved(v, new[k]) for k, v in old.items() if k not in ['updatedAt', 'savedAt', 'generatedAt', 'pricingRevision'])
     if isinstance(old, list):
         return all(x in new for x in old) if isinstance(new, list) else False
     if isinstance(old, (int, float)) and not isinstance(old, bool):
@@ -444,7 +499,14 @@ class Engine:
         fields['composeHash'] = file_hash(self.cfg['composeFile'])
         fields['envHash'] = file_hash(Path(self.cfg['projectRoot']) / '.env')
         return canonical(fields)
-    def receipt_valid(self, req):
+    def receipt_value(self, req, old):
+        # Retention tag names contain a deployment ID and are not image identity.
+        identities = {service: {'imageId': value['imageId'], 'repoDigests': sorted(value['repoDigests']),
+            'sourceCommit': value.get('sourceCommit')} for service, value in old.items()}
+        return {'schemaVersion': 1, 'result': 'restore-verified', 'fromVersion': req['fromVersion'],
+            'version': req['version'], 'sourceCommit': req['sourceCommit'], 'imageDigest': req['imageDigest'],
+            'oldImages': identities, 'configFingerprint': self.fingerprint()}
+    def receipt_valid(self, req, old):
         path = self.cfg.get('rollbackReceiptFile')
         if not path:
             return False
@@ -452,7 +514,7 @@ class Engine:
             value = json.loads(check_private(path).read_text())
         except (Refused, OSError, ValueError):
             return False
-        return value == {'schemaVersion': 1, 'result': 'restore-verified', 'fromVersion': req['fromVersion'], 'version': req['version'], 'imageDigest': req['imageDigest'], 'configFingerprint': self.fingerprint()}
+        return value == self.receipt_value(req, old)
     def snapshot(self, directory):
         directory.mkdir(mode=0o700)
         for name, source in [('state', self.cfg['stateDir']), ('hub-data', self.cfg.get('hubDataDir'))]:
@@ -501,13 +563,14 @@ class Engine:
             stopped = False
             snapshot = None
             old = None
-            automatic = self.receipt_valid(req) and req['manifest']['migration']['rollback'] == 'restore-snapshot'
+            automatic = False
             try:
                 phase('preflight')
                 self.api.report(req['deploymentId'], 'in_progress', 'preflight')
-                if req['manifest']['migration']['kind'] == 'state-format':
-                    require(automatic, 'migration_requires_verified_restore_plan')
                 old = self.adapter.preflight(req)
+                automatic = self.receipt_valid(req, old) and req['manifest']['migration']['rollback'] == 'restore-snapshot'
+                if req['manifest']['migration']['kind'] == 'state-format':
+                    require(rehearse or automatic, 'migration_requires_verified_restore_plan')
                 record['oldImages'] = old
                 fingerprint = self.fingerprint()
                 ref = self.adapter.pull(req)
@@ -535,7 +598,7 @@ class Engine:
                     phase('rehearsal-restore-intent')
                     self.restore(snapshot, old)
                     phase('restored')
-                    private_json(self.control / 'rollback-rehearsal.json', {'schemaVersion': 1, 'result': 'restore-verified', 'fromVersion': req['fromVersion'], 'version': req['version'], 'imageDigest': req['imageDigest'], 'configFingerprint': fingerprint})
+                    private_json(self.control / 'rollback-rehearsal.json', self.receipt_value(req, old))
                     self.api.report(req['deploymentId'], 'failure', 'sandbox-rehearsal-restored')
                 else:
                     # Report first. A network failure leaves a non-success journal

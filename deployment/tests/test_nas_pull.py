@@ -92,7 +92,8 @@ class ControllerTest(unittest.TestCase):
         return m.Engine(self.cfg, adapter, api or API()), adapter
     def receipt(self, engine):
         receipt = Path(self.cfg['controlDir']) / 'receipt.json'
-        m.private_json(receipt, {'schemaVersion': 1, 'result': 'restore-verified', 'fromVersion': self.req['fromVersion'], 'version': self.req['version'], 'imageDigest': self.req['imageDigest'], 'configFingerprint': engine.fingerprint()})
+        m.private_json(receipt, engine.receipt_value(self.req, engine.adapter.preflight(self.req)))
+        engine.adapter.calls.clear()
         self.cfg['rollbackReceiptFile'] = str(receipt)
     def test_success_orders_closed_backup_frozen_hub_agent(self):
         engine, adapter = self.engine()
@@ -146,7 +147,7 @@ class ControllerTest(unittest.TestCase):
         engine, adapter = self.engine()
         with self.assertRaisesRegex(m.Refused, 'migration_requires_verified_restore_plan'):
             engine.deploy(self.req)
-        self.assertEqual(adapter.calls, [])
+        self.assertNotIn('stop', adapter.calls)
     def test_verified_rollback_restores_snapshot_and_preserves_failed_state(self):
         engine, adapter = self.engine('sandbox-hub')
         self.receipt(engine)
@@ -236,3 +237,114 @@ class FrozenAccountingTest(unittest.TestCase):
         self.assertEqual(m.frozen_accounting(old), m.frozen_accounting(new))
         new['today']['sessions']['hermes:x']['totalTokens'] = 0
         self.assertNotEqual(m.frozen_accounting(old), m.frozen_accounting(new))
+
+class ArchiveWindowTest(unittest.TestCase):
+    def entry(self, day=None, month=None):
+        day = day or m.local_window('today')
+        month = month or day[:7]
+        return {'client': 'hermes', 'sessionId': 'synthetic', 'capturedAt': day + 'T00:00:00Z',
+            'day': day, 'month': month, 'periodWindows': {
+                'today': {'day': day, 'capturedAt': day + 'T00:00:00Z'},
+                'month': {'month': month, 'capturedAt': day + 'T00:00:00Z'},
+                'allTime': {'capturedAt': day + 'T00:00:00Z'}},
+            'periods': {name: {'client': 'hermes', 'sessionId': 'synthetic', 'totalTokens': 100, 'models': {'synthetic': 100}}
+                for name in ['today', 'month', 'allTime']}}
+    def test_existing_session_growth_advances_capture_metadata(self):
+        import copy
+        old = self.entry(); new = copy.deepcopy(old)
+        new['capturedAt'] = m.local_window('today') + 'T12:00:00Z'
+        for period in new['periods']:
+            new['periodWindows'][period]['capturedAt'] = new['capturedAt']
+            new['periods'][period]['lastUsedAt'] = new['capturedAt']
+            new['periods'][period]['totalTokens'] = 101
+            new['periods'][period]['models']['synthetic'] = 101
+        self.assertTrue(m.archive_preserved(old, new))
+        new['periods']['allTime']['totalTokens'] = 99
+        self.assertFalse(m.archive_preserved(old, new))
+    def test_expired_day_prune_requires_lifetime_accounting(self):
+        import copy
+        yesterday = (dt.date.fromisoformat(m.local_window('today')) - dt.timedelta(days=1)).isoformat()
+        old = self.entry(yesterday); new = copy.deepcopy(old)
+        del new['periods']['today']; del new['periodWindows']['today']
+        self.assertTrue(m.archive_preserved(old, new))
+        new['periods']['allTime']['totalTokens'] = 99
+        self.assertFalse(m.archive_preserved(old, new))
+    def test_current_day_reset_is_not_expiry(self):
+        import copy
+        old = self.entry(); new = copy.deepcopy(old)
+        new['periods']['today']['totalTokens'] = 0
+        self.assertFalse(m.archive_preserved(old, new))
+        del new['periods']['today']
+        self.assertFalse(m.archive_preserved(old, new))
+    def test_month_window_can_advance_only_to_actual_current_month(self):
+        import copy
+        first = dt.date.fromisoformat(m.local_window('month') + '-01')
+        last_month = (first - dt.timedelta(days=1)).strftime('%Y-%m')
+        old = self.entry(last_month + '-01', last_month); new = copy.deepcopy(old)
+        new['day'] = m.local_window('today'); new['month'] = m.local_window('month')
+        new['periodWindows']['today']['day'] = new['day']
+        new['periodWindows']['month']['month'] = new['month']
+        new['periods']['today']['totalTokens'] = 0
+        new['periods']['month']['totalTokens'] = 0
+        self.assertTrue(m.archive_preserved(old, new))
+        new['periodWindows']['month']['month'] = '2099-01'
+        self.assertFalse(m.archive_preserved(old, new))
+    def test_pricing_revision_is_not_accounting_but_tokens_are(self):
+        old = {'daily': {'2026-10-01': {'totalTokens': 100, 'pricingRevision': 'old'}},
+            'liveDays': {'2026-10-01': {'observations': {'hermes': {'synthetic': {'totalTokens': 100, 'pricingRevision': 'old'}}}}}}
+        import copy
+        new = copy.deepcopy(old)
+        new['daily']['2026-10-01']['pricingRevision'] = 'new'
+        new['liveDays']['2026-10-01']['observations']['hermes']['synthetic']['pricingRevision'] = 'new'
+        self.assertTrue(m.preserved(old, new))
+        new['daily']['2026-10-01']['totalTokens'] = 99
+        self.assertFalse(m.preserved(old, new))
+
+class BoundReceiptTest(unittest.TestCase):
+    setUp = ControllerTest.setUp
+    tearDown = ControllerTest.tearDown
+    engine = ControllerTest.engine
+    receipt = ControllerTest.receipt
+    def test_same_version_different_old_image_invalidates_receipt(self):
+        engine, adapter = self.engine('sandbox-hub')
+        self.receipt(engine)
+        original = adapter.preflight
+        def changed(req):
+            values = original(req)
+            values['sandbox-agent']['imageId'] = 'other-old-image'
+            return values
+        adapter.preflight = changed
+        with patch.object(m, 'check_private', lambda p, root=True: Path(p)):
+            with self.assertRaisesRegex(m.Refused, 'health_timeout'):
+                engine.deploy(self.req)
+        result = json.loads((Path(self.cfg['controlDir']) / 'deployment-1.json').read_text())
+        self.assertEqual(result['phase'], 'failed-stopped')
+        self.assertFalse(any(isinstance(x, tuple) and x[0] == 'start' and x[2].startswith('old-') for x in adapter.calls))
+    def test_hub_day_rollover_retains_history_and_lifetime_accounting(self):
+        import copy
+        today = m.local_window('today')
+        yesterday = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
+        record = {'periodWindows': {'today': {'key': yesterday}, 'month': {'key': today[:7]}},
+            'periods': {'today': {'totalTokens': 100}, 'month': {'totalTokens': 200}, 'allTime': {'totalTokens': 300}},
+            'history': {'daily': {yesterday: {'totalTokens': 100}}}}
+        file = Path(self.cfg['hubDataDir'], 'devices.json')
+        hub = json.loads(file.read_text()); hub['devices']['DXP4800'] = record; file.write_text(json.dumps(hub))
+        engine, _ = self.engine(); snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'window-snapshot')
+        after = copy.deepcopy(hub); current = after['devices']['DXP4800']
+        current['periodWindows']['today']['key'] = today; current['periods']['today']['totalTokens'] = 0
+        file.write_text(json.dumps(after)); m.verify_state(self.cfg, snapshot)
+        current['periods']['allTime']['totalTokens'] = 299; file.write_text(json.dumps(after))
+        with self.assertRaisesRegex(m.Refused, 'hub_accounting_regressed'):
+            m.verify_state(self.cfg, snapshot)
+        current['periods']['allTime']['totalTokens'] = 300; current['periodWindows']['today']['key'] = yesterday
+        file.write_text(json.dumps(after))
+        with self.assertRaisesRegex(m.Refused, 'hub_accounting_regressed'):
+            m.verify_state(self.cfg, snapshot)
+    def test_isolated_migration_rehearsal_can_bootstrap_receipt(self):
+        self.req['manifest']['migration']['kind'] = 'state-format'
+        engine, adapter = self.engine()
+        result = engine.deploy(self.req, rehearse=True)
+        self.assertEqual(result['phase'], 'restored')
+        receipt = json.loads(Path(self.cfg['controlDir'], 'rollback-rehearsal.json').read_text())
+        self.assertIn('sandbox-agent', receipt['oldImages'])
+        self.assertEqual(receipt['sourceCommit'], self.req['sourceCommit'])

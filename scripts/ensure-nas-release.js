@@ -56,7 +56,8 @@ function githubApi(repository, token) {
     } catch (_) { throw new Error('GitHub request failed; release completion stopped.'); }
     if (response.status === 404 && method === 'GET' && !binary) return null;
     if (!response.ok) throw new Error(`GitHub release request failed with HTTP ${response.status}; no response details logged.`);
-    return binary ? Buffer.from(await response.arrayBuffer()) : response.json();
+    if (binary) return Buffer.from(await response.arrayBuffer());
+    try { return await response.json(); } catch (_) { throw new Error('GitHub release returned invalid JSON; no response details logged.'); }
   };
 }
 async function resolveTag(api, version) {
