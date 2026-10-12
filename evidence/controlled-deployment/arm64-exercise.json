@@ -1,0 +1,42 @@
+{
+  "scope": "synthetic-only; no production NAS, credentials or publishing",
+  "sourceCommit": "4e4120f19ba750d90f2e0ac8ad514fc522853359",
+  "baselineVersion": "v0.69.0-01",
+  "candidateVersion": "v0.69.0-02",
+  "successfulDeploymentAndWholeStateRehearsal": "passed",
+  "hubFailureStopsAgentAndVerifiedSnapshotRollback": "passed",
+  "stagedHubAgentDeployment": "passed",
+  "replayRejected": "passed",
+  "statusEvents": [
+    {
+      "id": 1,
+      "state": "in_progress",
+      "code": "preflight"
+    },
+    {
+      "id": 1,
+      "state": "failure",
+      "code": "sandbox-rehearsal-restored"
+    },
+    {
+      "id": 2,
+      "state": "in_progress",
+      "code": "preflight"
+    },
+    {
+      "id": 2,
+      "state": "failure",
+      "code": "injected_hub_validation_failure"
+    },
+    {
+      "id": 3,
+      "state": "in_progress",
+      "code": "preflight"
+    },
+    {
+      "id": 3,
+      "state": "success",
+      "code": "all-stages-verified"
+    }
+  ]
+}

@@ -35,11 +35,11 @@ DH4300Plus 当前 Compose 和状态目录存在组/其他用户可写权限，�
 3. 按目标摘要拉取镜像，验证本机架构、OCI 版本和源码 SHA、RepoDigest。记录各旧镜像 ID/摘要并保留本地回滚标签。
 4. 停止本项目 Hub 和 Agent，确认已经停止。备份原 Compose、私有 `.env`、完整 Agent 状态和本地 Hub 状态，包括 SQLite WAL/SHM，保留权限和所有者。所有备份与详细验收记录仅存 NAS 本地。
 5. 对 root/profile Hermes 数据库作只读 SQLite 快照，在独立状态副本上运行旧、新 Agent dry-run，核对固定数据下会话、Token 和历史。正式 Hermes 数据不被修改。
-6. DXP4800 先更新 Hub，Agent 保持停止。验证 Docker 健康、认证 API、SSE 断线重连、已启用时的 Windows gzip，以及历史、设备、标题策略、共享设置和订阅。失败则不开始 Agent 阶段。
+6. DXP4800 先更新 Hub，Agent 保持停止。验证 Docker 健康、认证 API、SSE 断线重连、已启用时的 Windows gzip，以及历史、设备、标题许可不变、策略代次不下降、共享设置和订阅。正常重启可以推进隐私代次。失败则不开始 Agent 阶段。
 7. 更新 Agent，等待本次启动后成功采集和上传、Hub 新鲜接收设备记录及真正的独立 Watcher 子进程。核对 SQLite 完整性、旧会话键、历史与统计。DH4300Plus 跳过本地 Hub 阶段，但必须验收现有远端 Hub 接收结果。
 8. 全部验证后 GitHub Deployment 才记为 success；NAS 私有日志记录时间、旧/目标摘要及各阶段结果。queued 表示等待，in_progress 表示执行，均不是成功。回报失败会留下 `verified-report-pending` 并阻止下一次部署，但保留已经验收健康的新版服务运行。使用 `--retry-report DEPLOYMENT_ID` 重新核实运行镜像、配置、健康和数据后，仅补发并读回确认结果，不重新部署。
 
-中断、验收失败或崩溃均停止后续动作。已经进入停机阶段而没有安全恢复证明时，相关服务保持停止供调查；这是明确的可用性取舍，不会盲目继续或通过提高内存限制掩盖问题。应在维护窗口执行，避免午夜/月初的周期切换干扰严格统计验收。
+中断、验收失败或崩溃均停止后续动作。已经进入停机阶段而没有安全恢复证明时，相关服务保持停止供调查；这是明确的可用性取舍，不会盲目继续或通过提高内存限制掩盖问题。应在维护窗口执行；跨日/月时按统计窗口验证，过期 today/month 的正常清理必须同时满足累计统计和完整历史保留。
 
 ## 数据迁移和回滚
 
@@ -62,6 +62,18 @@ DH4300Plus 当前 Compose 和状态目录存在组/其他用户可写权限，�
 7. 从 GitHub Actions 手动执行 `Approve controlled NAS deployment`，指定单台 NAS、实际当前版本和正式目标版本。分台执行：先 DXP4800，再观察并执行 DH4300Plus。等待 NAS 主动拉取和最终状态；不要把工作流成功视为 NAS 成功。
 
 控制程序使用 Docker 权限，具有主机级能力，安装目录、本地配置及其维护者必须可信。此权限由首次接入授权授予，不能把控制程序当成普通低权限用户服务。公开 GitHub Deployment 状态只包含通用验收代码，不回传真实会话、用量、文件、日志或密钥。
+
+## 回报重试与受阻请求
+
+GitHub 暂时不可用而现场已验收时，用固定本地程序执行 `--config /私有配置路径 --retry-report DEPLOYMENT_ID`。该操作重新检查镜像、配置、健康及数据，只补发并读回确认状态，不拉取镜像、不停止或重建服务。
+
+未完成日志必须先核查现场及备份，不能通过删除日志跳过检查。过期且从未执行的 queued 请求，可在核查后由维护者结束：
+
+```sh
+gh api --silent --method POST repos/Gott-mit-Uns/token-monitor-nas/deployments/DEPLOYMENT_ID/statuses -f state=inactive -f description='Expired unexecuted request; reviewed by maintainer' -F auto_inactive=false
+```
+
+这只结束 GitHub 请求，不恢复 NAS 数据或容器，不能替代部署或回滚验收。所有命令都从既有私有凭据文件读取认证，不在命令行放令牌。
 
 ## 证据与演练
 
