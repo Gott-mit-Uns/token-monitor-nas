@@ -1,8 +1,6 @@
 name: Validate controlled deployment
 on:
   pull_request:
-  push:
-    branches: ['automation/**']
   workflow_dispatch:
 permissions:
   contents: read
