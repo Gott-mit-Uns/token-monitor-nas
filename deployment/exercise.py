@@ -89,6 +89,7 @@ def main():
     digest='sha256:'+'c'*64
     manifest={'schemaVersion':1,'version':'v0.69.0-02','sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'platforms':[{'os':'linux','architecture':a,'digest':'sha256:'+'a'*64} for a in ['amd64','arm64']],'compatibleFrom':['v0.69.0-01'],'migration':{'kind':'none','rollback':'restore-snapshot','notes':'Synthetic whole-state restore rehearsal'}}
     def request(identity):return {'schemaVersion':1,'target':'DXP4800','deploymentId':identity,'workflowRunId':1,'version':manifest['version'],'fromVersion':'v0.69.0-01','sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'manifest':manifest,'expiresAt':(dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=1)).isoformat()}
+    secondary = None
     try:
         m.run(['docker','pull',BASELINE],600)
         adapter.compose('up','-d')
@@ -111,11 +112,36 @@ def main():
         try:m.Engine(cfg,SandboxDocker(cfg,args.candidate,args.source),api).deploy(request(3))
         except m.Refused as error:assert str(error)=='deployment_already_recorded'
         else:raise AssertionError('Replay was accepted')
-        result['replayRejected']='passed';result['statusEvents']=api.events
+        result['replayRejected']='passed'
+        # DH4300Plus shape: separate Compose/state, Agent only, remote Hub.
+        second=root/'agent-only-project';second.mkdir(mode=0o700)
+        second_state=second/'state';second_state.mkdir(mode=0o700)
+        second_cache=second_state/'tokscale'/'cache';second_cache.mkdir(parents=True)
+        for provider in ['litellm','openrouter','models-dev']:
+            (second_cache/f'pricing-{provider}.json').write_text(json.dumps({'timestamp':int(time.time()),'data':{}}))
+        m.copy_file(env,second/'.env')
+        agent_only=json.loads(json.dumps(agentspec))
+        agent_only['environment']['TOKEN_MONITOR_DEVICE_ID']='sandbox-dh-device'
+        agent_only['volumes']=[str(second_state)+':/config',str(hermes)+':/hermes:ro']
+        remote_network=next(iter(adapter.inspect('sandbox-hub')['NetworkSettings']['Networks']))
+        compose_only=second/'compose.json'
+        compose_only.write_text(json.dumps({'name':'sandbox-agentonly-'+secrets.token_hex(4),'services':{'sandbox-agent':agent_only},'networks':{'default':{'external':True,'name':remote_network}}}))
+        second_cfg={**cfg,'target':'DH4300Plus','projectRoot':str(second),'composeFile':str(compose_only),'deviceId':'sandbox-dh-device','stateDir':str(second_state),'hubService':None,'hubDataDir':None,'controlDir':str(second/'control'),'rollbackReceiptFile':None}
+        secondary=SandboxDocker(second_cfg,args.candidate,args.source)
+        secondary.compose('up','-d');secondary.wait_health('sandbox-agent');secondary.verify_agent(0)
+        remote_request={**request(4),'target':'DH4300Plus'}
+        remote_result=m.Engine(second_cfg,secondary,api).deploy(remote_request)
+        assert remote_result['phase']=='success'
+        assert not any(stage['phase'].startswith('hub-') for stage in remote_result['stages'])
+        result['agentOnlyRemoteHubDeployment']='passed';result['statusEvents']=api.events
         Path(args.output).parent.mkdir(parents=True,exist_ok=True);Path(args.output).write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps({k:v for k,v in result.items() if k!='statusEvents'}))
     finally:
         # This project is generated only under /tmp with sandbox service names.
+        if secondary:
+            second_override=Path(secondary.cfg['controlDir'])/'image-override.json'
+            try:m.run(secondary.base+(['-f',str(second_override)] if second_override.exists() else [])+['down'],120)
+            except m.Refused:pass
         override=Path(cfg['controlDir'])/'image-override.json'
         extra=['-f',str(override)] if override.exists() else []
         try:m.run(adapter.base+extra+['down'],120)
