@@ -43,6 +43,11 @@ class Adapter:
         if self.fail == service:
             self.fail = None
             raise m.Refused('health_timeout')
+    def verify_target(self, record):
+        self.calls.append('target-identity')
+        if self.fail == 'runtime':
+            raise m.Refused('report_retry_runtime_identity_changed')
+        return {'runtimeIdentity': 'verified'}
     def verify_state(self, snapshot):
         self.calls.append('state')
         return m.verify_state(self.cfg, snapshot)
@@ -186,12 +191,102 @@ class ControllerTest(unittest.TestCase):
         self.assertEqual(adapter.calls, [])
     def test_api_failure_never_reports_success_or_leaks_exception(self):
         engine, adapter = self.engine(api=API(fail_success=True))
-        with self.assertRaisesRegex(m.Refused, '^internal_failure$'):
+        with self.assertRaisesRegex(m.Refused, '^remote_report_failed$'):
             engine.deploy(self.req)
         text = Path(self.cfg['controlDir'], 'deployment-1.json').read_text()
         for forbidden in ['sensitive token', 'never-print-this', 'a-private-status-token']:
             self.assertNotIn(forbidden, text)
-        self.assertEqual(json.loads(text)['phase'], 'failed-stopped')
+        self.assertEqual(json.loads(text)['phase'], 'verified-report-pending')
+        self.assertEqual(adapter.calls.count('stop'), 1)
+    def pending_report(self):
+        engine, adapter = self.engine(api=API(fail_success=True))
+        with self.assertRaisesRegex(m.Refused, 'remote_report_failed'):
+            engine.deploy(self.req)
+        return engine, adapter
+    def test_retry_report_reverifies_without_container_mutations(self):
+        engine, adapter = self.pending_report()
+        adapter.calls.clear()
+        engine.api = API()
+        with patch.object(m, 'check_private', lambda p, root=True: Path(p)):
+            result = engine.retry_report(1)
+        self.assertEqual(result['phase'], 'success')
+        self.assertIn('target-identity', adapter.calls)
+        self.assertIn('hub-protocol', adapter.calls)
+        self.assertIn('agent-business', adapter.calls)
+        self.assertNotIn('stop', adapter.calls)
+        self.assertNotIn('pull', adapter.calls)
+        self.assertFalse(any(isinstance(x, tuple) and x[0] == 'start' for x in adapter.calls))
+        self.assertEqual(engine.api.calls[-1], ('success', 'all-stages-verified-report-retry'))
+    def test_pending_report_blocks_next_deployment(self):
+        engine, adapter = self.pending_report()
+        request = dict(self.req, deploymentId=2)
+        with self.assertRaisesRegex(m.Refused, 'interrupted_deployment'):
+            engine.deploy(request)
+    def test_retry_report_refuses_changed_config(self):
+        engine, adapter = self.pending_report()
+        adapter.calls.clear()
+        Path(self.cfg['composeFile']).write_text('changed')
+        with patch.object(m, 'check_private', lambda p, root=True: Path(p)):
+            with self.assertRaisesRegex(m.Refused, 'report_retry_config_changed'):
+                engine.retry_report(1)
+        self.assertEqual(adapter.calls, [])
+    def test_retry_report_refuses_changed_runtime(self):
+        engine, adapter = self.pending_report()
+        adapter.calls.clear()
+        adapter.fail = 'runtime'
+        with patch.object(m, 'check_private', lambda p, root=True: Path(p)):
+            with self.assertRaisesRegex(m.Refused, 'report_retry_runtime_identity_changed'):
+                engine.retry_report(1)
+        self.assertEqual(adapter.calls, ['target-identity'])
+    def test_retry_reporting_outage_leaves_verified_services_running(self):
+        engine, adapter = self.pending_report()
+        adapter.calls.clear()
+        with patch.object(m, 'check_private', lambda p, root=True: Path(p)):
+            with self.assertRaisesRegex(m.Refused, 'remote_report_failed'):
+                engine.retry_report(1)
+        self.assertNotIn('stop', adapter.calls)
+        self.assertEqual(json.loads(Path(self.cfg['controlDir'], 'deployment-1.json').read_text())['phase'], 'verified-report-pending')
+    def test_reporting_outage_does_not_use_even_valid_rollback_receipt(self):
+        engine, adapter = self.engine(api=API(fail_success=True))
+        self.receipt(engine)
+        adapter.calls.clear()
+        with patch.object(m, 'check_private', lambda p, root=True: Path(p)):
+            with self.assertRaisesRegex(m.Refused, 'remote_report_failed'):
+                engine.deploy(self.req)
+        self.assertEqual(adapter.calls.count('stop'), 1)
+        self.assertFalse(any(isinstance(x, tuple) and x[0] == 'start' and x[2].startswith('old-') for x in adapter.calls))
+    def test_title_policy_generation_advance_preserves_consent(self):
+        file = Path(self.cfg['hubDataDir'], 'devices.json')
+        value = json.loads(file.read_text())
+        value['syncTitlePolicies'] = {'DXP4800': {'enabled': False, 'generation': 1}}
+        file.write_text(json.dumps(value))
+        engine, adapter = self.engine()
+        snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'manual-snapshot')
+        value['syncTitlePolicies']['DXP4800']['generation'] = 2
+        file.write_text(json.dumps(value))
+        m.verify_state(self.cfg, snapshot)
+        value['syncTitlePolicies']['DXP4800']['enabled'] = True
+        file.write_text(json.dumps(value))
+        with self.assertRaisesRegex(m.Refused, 'hub_title_consent_changed'):
+            m.verify_state(self.cfg, snapshot)
+    def test_title_policy_generation_decrease_refused(self):
+        file = Path(self.cfg['hubDataDir'], 'devices.json')
+        value = json.loads(file.read_text())
+        value['syncTitlePolicies'] = {'DXP4800': {'enabled': False, 'generation': 2}}
+        file.write_text(json.dumps(value))
+        engine, adapter = self.engine()
+        snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'manual-snapshot')
+        value['syncTitlePolicies']['DXP4800']['generation'] = 1
+        file.write_text(json.dumps(value))
+        with self.assertRaisesRegex(m.Refused, 'hub_title_generation_regressed'):
+            m.verify_state(self.cfg, snapshot)
+    def test_github_status_requires_matching_readback(self):
+        api = m.GitHub(self.cfg)
+        with patch.object(api, 'request', side_effect=[{'id': 23, 'state': 'success'}, [{'id': 23, 'state': 'success'}]]):
+            api.report(1, 'success', 'all-stages-verified')
+        with patch.object(api, 'request', side_effect=[{'id': 23, 'state': 'success'}, [{'id': 24, 'state': 'failure'}]]):
+            with self.assertRaisesRegex(m.Refused, 'github_status_readback_failed'):
+                api.report(1, 'success', 'all-stages-verified')
     def test_state_detects_lost_archive_key(self):
         engine, adapter = self.engine()
         snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'manual-snapshot')

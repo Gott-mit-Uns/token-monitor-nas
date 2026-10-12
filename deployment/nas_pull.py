@@ -179,9 +179,11 @@ class GitHub:
         require(ref['type'] == 'commit' and ref['sha'] == req['sourceCommit'], 'release_tag_sha_mismatch')
         return req
     def report(self, deployment_id, state, code):
-        self.request('/deployments/' + str(deployment_id) + '/statuses', {
+        posted = self.request('/deployments/' + str(deployment_id) + '/statuses', {
             'state': state, 'description': 'NAS controlled deployment: ' + code,
             'auto_inactive': False, 'environment': 'production-' + self.cfg['target']})
+        statuses = self.request('/deployments/' + str(deployment_id) + '/statuses?per_page=1')
+        require(bool(statuses) and statuses[0].get('id') == posted.get('id') and statuses[0].get('state') == state, 'github_status_readback_failed')
 
 def run(args, timeout=60):
     try:
@@ -294,6 +296,23 @@ class RealDocker:
             require(state['Running'], 'target_container_stopped')
             time.sleep(3)
         raise Refused('health_timeout')
+    def verify_target(self, record):
+        config = json.loads(self.compose('config', '--format', 'json'))
+        expected = {self.cfg['agentService']} | ({self.cfg['hubService']} if self.cfg.get('hubService') else set())
+        require(set(config['services']) == expected, 'unknown_compose_services')
+        for service in expected:
+            info = self.inspect(service)
+            require(info['State']['Running'] and info['State'].get('Health', {}).get('Status') == 'healthy', 'report_retry_runtime_unhealthy')
+            image = self.image(info['Image'])
+            labels = image['Config'].get('Labels', {})
+            env = dict(x.split('=', 1) for x in info['Config']['Env'] if '=' in x)
+            require(labels.get('org.opencontainers.image.version') == record['version'] and labels.get('org.opencontainers.image.revision') == record['sourceCommit'] and env.get('TOKEN_MONITOR_NAS_VERSION') == record['version'], 'report_retry_runtime_identity_changed')
+            require(IMAGE + '@' + record['imageDigest'] in image.get('RepoDigests', []), 'report_retry_runtime_digest_changed')
+            actual = [{k: mount[k] for k in ['Type', 'Source', 'Destination', 'RW']} for mount in info['Mounts'] if mount['Type'] == 'bind']
+            require(canonical(sorted(actual, key=lambda x: x['Destination'])) == canonical(sorted(self._expected_mounts(config['services'][service]), key=lambda x: x['Destination'])), 'report_retry_runtime_mounts_changed')
+            if service == self.cfg['agentService']:
+                require(env.get('TOKEN_MONITOR_DEVICE_ID') == self.cfg['deviceId'] and env.get('TOKEN_MONITOR_CLIENTS') == 'hermes' and env.get('TOKEN_MONITOR_WATCH_IN_PROCESS') == '0', 'report_retry_agent_scope_changed')
+        return {'runtimeIdentity': 'verified', 'targetDigest': 'verified', 'healthy': True}
     def verify_state(self, snapshot):
         return verify_state(self.cfg, snapshot)
     def verify_hub(self):
@@ -464,8 +483,15 @@ def verify_state(cfg, snapshot):
     if cfg.get('hubDataDir'):
         before = json.loads((snapshot / 'hub-data' / 'devices.json').read_text())
         after = json.loads((Path(cfg['hubDataDir']) / 'devices.json').read_text())
-        for key in ['syncSettings', 'syncTitlePolicies', 'subscriptions']:
+        for key in ['syncSettings', 'subscriptions']:
             require(before.get(key) == after.get(key), 'hub_policy_changed')
+        previous_policies, current_policies = before.get('syncTitlePolicies', {}), after.get('syncTitlePolicies', {})
+        require(set(previous_policies) <= set(current_policies), 'hub_title_policy_lost')
+        for device, policy in previous_policies.items():
+            current = current_policies[device]
+            require(isinstance(policy, dict) and isinstance(current, dict) and isinstance(policy.get('enabled'), bool) and current.get('enabled') is policy['enabled'], 'hub_title_consent_changed')
+            generations = [policy.get('generation'), current.get('generation')]
+            require(all(isinstance(g, int) and not isinstance(g, bool) and 0 <= g <= 9007199254740991 for g in generations) and generations[1] >= generations[0], 'hub_title_generation_regressed')
         require(set(before['devices']) <= set(after['devices']), 'hub_devices_lost')
         for device, record in before['devices'].items():
             for period in ['today', 'month', 'allTime']:
@@ -543,6 +569,39 @@ class Engine:
         self.adapter.verify_agent(0)
         for service, baseline in old.items():
             require(self.adapter.inspect(service)['Image'] == baseline['imageId'], 'restored_image_mismatch')
+    def retry_report(self, deployment_id):
+        require(isinstance(deployment_id, int) and deployment_id > 0, 'invalid_deployment_id')
+        require(self.cfg.get('statusTokenFile'), 'status_credential_required')
+        with open(self.control / 'controller.lock', 'a') as lock:
+            os.chmod(self.control / 'controller.lock', 0o600)
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            journal = check_private(self.control / ('deployment-' + str(deployment_id) + '.json'))
+            record = json.loads(journal.read_text())
+            require(record.get('phase') == 'verified-report-pending' and record.get('deploymentId') == deployment_id and record.get('target') == self.cfg['target'], 'no_verified_pending_report')
+            require(record.get('configFingerprint') == self.fingerprint(), 'report_retry_config_changed')
+            require(VERSION.fullmatch(record.get('version', '')) and SHA.fullmatch(record.get('sourceCommit', '')) and DIGEST.fullmatch(record.get('imageDigest', '')), 'report_retry_identity_invalid')
+            for other in self.control.glob('deployment-*.json'):
+                if other != journal:
+                    require(json.loads(other.read_text()).get('phase') in ['success', 'restored', 'preflight-refused'], 'interrupted_deployment_requires_manual_review')
+            snapshot = no_links(self.control / ('snapshot-' + str(deployment_id)))
+            evidence = {'runtime': self.adapter.verify_target(record), 'data': self.adapter.verify_state(snapshot)}
+            if self.cfg.get('hubService'):
+                evidence['hub'] = self.adapter.verify_hub()
+            evidence['agent'] = self.adapter.verify_agent(record.get('agentStartedAtMs', 0))
+            require(self.fingerprint() == record['configFingerprint'], 'report_retry_config_changed')
+            record['stages'].append({'phase': 'report-retry-verified', 'at': dt.datetime.now(dt.timezone.utc).isoformat(), 'result': evidence})
+            private_json(journal, record)
+            try:
+                self.api.report(deployment_id, 'success', 'all-stages-verified-report-retry')
+            except Exception:
+                record['report'] = 'remote-report-failed'
+                private_json(journal, record)
+                raise Refused('remote_report_failed') from None
+            record['phase'] = 'success'
+            record['report'] = 'success-readback-verified'
+            record['stages'].append({'phase': 'success', 'at': dt.datetime.now(dt.timezone.utc).isoformat(), 'result': {}})
+            private_json(journal, record)
+            return record
     def deploy(self, req, rehearse=False):
         validate_request(req, self.cfg)
         require(not rehearse or (self.cfg.get('sandbox') is True and Path(self.cfg['projectRoot']).resolve().is_relative_to(Path('/tmp').resolve()) and self.cfg['agentService'].startswith('sandbox-') and (not self.cfg.get('hubService') or self.cfg['hubService'].startswith('sandbox-')) and Path(self.cfg['hermesDir']).resolve().is_relative_to(Path('/tmp').resolve())), 'rehearsal_requires_isolated_sandbox')
@@ -573,6 +632,7 @@ class Engine:
                     require(rehearse or automatic, 'migration_requires_verified_restore_plan')
                 record['oldImages'] = old
                 fingerprint = self.fingerprint()
+                record['configFingerprint'] = fingerprint
                 ref = self.adapter.pull(req)
                 phase('stop-intent')
                 stopped = True  # A partial stop is already a production mutation.
@@ -587,8 +647,9 @@ class Engine:
                     self.adapter.start(hub, ref)
                     self.adapter.wait_health(hub)
                     phase('hub-verified', {'data': self.adapter.verify_state(snapshot), 'protocol': self.adapter.verify_hub()})
-                phase('agent-start-intent')
                 started_ms = int(time.time() * 1000)
+                record['agentStartedAtMs'] = started_ms
+                phase('agent-start-intent')
                 self.adapter.start(self.cfg['agentService'], ref)
                 self.adapter.wait_health(self.cfg['agentService'])
                 phase('agent-verified', self.adapter.verify_agent(started_ms))
@@ -601,12 +662,17 @@ class Engine:
                     private_json(self.control / 'rollback-rehearsal.json', self.receipt_value(req, old))
                     self.api.report(req['deploymentId'], 'failure', 'sandbox-rehearsal-restored')
                 else:
-                    # Report first. A network failure leaves a non-success journal
-                    # and blocks future runs instead of claiming remote success.
+                    # Persist before posting. A reporting/network failure cannot
+                    # stop or roll back a completely verified running deployment.
+                    phase('verified-report-pending')
                     self.api.report(req['deploymentId'], 'success', 'all-stages-verified')
                     phase('success')
                 return record
             except Exception as error:
+                if record.get('phase') == 'verified-report-pending':
+                    record['report'] = 'remote-report-failed'
+                    private_json(journal, record)
+                    raise Refused('remote_report_failed') from None
                 code = str(error) if isinstance(error, Refused) else 'internal_failure'
                 code = code if re.fullmatch(r'[a-z0-9_-]+', code) else 'internal_failure'
                 if stopped:
@@ -631,6 +697,7 @@ class Engine:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True)
+    parser.add_argument('--retry-report', type=int, metavar='DEPLOYMENT_ID', help='Re-verify and retry only a pending final report; never mutate containers')
     parser.add_argument('--check', action='store_true', help='Check only local permission/path configuration; no Docker mutation')
     args = parser.parse_args()
     try:
@@ -639,6 +706,10 @@ def main():
             print(json.dumps({'result': 'local-configuration-valid'}))
             return 0
         api = GitHub(cfg)
+        if args.retry_report is not None:
+            result = Engine(cfg, RealDocker(cfg), api).retry_report(args.retry_report)
+            print(json.dumps({'result': result['phase'], 'deploymentId': args.retry_report}))
+            return 0
         req = api.discover()
         if not req:
             print(json.dumps({'result': 'no-approved-deployment'}))
