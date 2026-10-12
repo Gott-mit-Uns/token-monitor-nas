@@ -9,7 +9,7 @@
 - 原 NAS 发布工作流 `38121255462` 成功。这是旧版 CI 证据，不能视为本候选版通过。
 - 官方旧 tag `v0.68.0` 对应 commit `5d2db368d8313415763860d594de00e46a663418`。
 - 官方目标 tag `v0.69.0` 对应 commit `3f106ae3d4712b26cced8272f0d488eaab0de1e6`。
-- 比较输入固定在本地 `refs/upstream-lock/v0.68.0` 和 `refs/upstream-lock/v0.69.0`；后续同步以 SHA 为准，不读取上游浮动 `main`。实现分支为 `upgrade/upstream-v0.69.0`。
+- 初始比较使用本地 `refs/upstream-lock/v0.68.0` 和 `refs/upstream-lock/v0.69.0`；最终清单以以上两个冻结 SHA 再次核对，后续同步也以 SHA 为准，不读取上游浮动 `main`。实现分支为 `upgrade/upstream-v0.69.0`。
 - 两个 SHA 间有 16 个提交、141 个差异文件，14,070 行新增、727 行删除；覆盖上游整个仓库，包括不进入 NAS 镜像的 Electron 和 Worker。
 
 NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/agent`、`app/src/hub`，NAS 包装、部署模板和发布流程保留独立边界。上游 `src/hub`、`src/agent/agent.js`、`seedClients.js`、`shared/syncPayload.js`、SQLite archive store、Watcher host/worker 在此次官方比较中没有变更；不能据此跳过 shared 协议和 NAS 补丁回归。
@@ -33,7 +33,7 @@ NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/age
 | Electron、Edge Dock、桌面展示、图标 | 排除生产代码 | 父子会话折叠、Grok Bot 分组、设备名称、额度条、Windows topmost 和图标属于展示。NAS 提供 wire metadata，不移植 UI。桌面 SSE 消费契约可用测试摘录验证，不能因此纳入完整 Electron。 |
 | Worker 副本与 Worker npm 清单 | 排除 | 本仓库运行 Node Hub，直接复用主 shared 模块；引入第二套 Worker 拷贝增加维护漂移。本次 Worker diff 的 portable 语义已经由主 shared 覆盖。 |
 | 官方文档、Release 模板 | 参考并更新 NAS 文档 | 官方 headless 指南确认 headless 的安装、状态和退出行为；安装/卸载步骤不能替换保留 NAS 数据的 Compose 升级步骤。API 新字段语义记录于本文和兼容测试；不照搬桌面 Release 或删除状态指南。 |
-| 官方 shared/agent tests 与 fixture/helper | 引入 NAS 可执行范围 | 覆盖父子 wire、活动 TTL、锚点、watch scope、历史和元数据。Electron/Worker 专属测试不伪装为 NAS 已执行。NAS 原有测试继续保留。 |
+| 官方 shared/agent tests 与 fixture/helper | 按运行边界选择合入 | 保留 Node 核心的父子 wire、活动 TTL、锚点、watch scope、历史和元数据断言；部分 shared 测试也混入桌面/Worker 断言，需剥离。`antigravityThroughput.test.js` 仅依赖桌面 rate，完全排除。没有 Electron 测试文件进入 NAS 仓库。NAS 原有测试继续保留。 |
 
 ## 16 个提交的业务覆盖
 
@@ -64,7 +64,17 @@ NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/age
 4. Tokscale fork commit 和 sha256 全量同步，保持 `baseVersion:4.18.0`；官方清单说明 Codex cache 会重解析一次。Hermes Token 准确性要用固定合成 DB 比较 today/month/allTime、cache/output 与历史，不能拿一个 Hub 健康响应代替计数证明。
 5. 默认 Hermes-only 不触发 Claude/Codex 活动读者；新增 portable 模块仍可能有固定加载成本。保留 NAS Watcher 轻量依赖边界、SQLite streaming rows、canonicalSummary 归档复用与 Hub digest/SSE 缓冲限制。性能必须分别测 Agent/Watcher/Hub 的冷启动、稳定空闲、采集峰值和持续窗口；短时合成数据测试不能称为生产长期稳定或改善。
 6. Windows 0.69 官方 UI 更丰富的会话状态不要求 Hub 提高完整快照频率。保留现有轻量在线信息和实际 usage 时间戳分离、首次与重连完整快照、即时标题撤销通知。独立 Adapter 的发布/真实 Windows 和公网 gzip 流验证属于单独验收，不能从本地 Linux 测试推断。
-7. 本机未提供 Docker daemon，原生 amd64/arm64 候选运行必须由 PR CI 或对应原生 Linux 完成；本机 Node 测试不是双架构 Docker 通过证据。发布 Tag/镜像与生产部署都不得越过这些门槛。
+7. 本机未提供 Docker daemon，原生 amd64/arm64 候选运行必须由 PR CI 或对应原生 Linux 完成；本机 Node 测试不是双架构 Docker 通过证据。此次本地 NAS suite 实测 992 项，其中 987 通过、5 项平台条件跳过，没有失败；两架构 CI 此刻仍等待结果，不得描述为通过。最新 CI 状态和结果以 `VALIDATION.md` 为准。发布 Tag/镜像与生产部署都不得越过这些门槛。
+
+## 最终 NAS 适配与测试边界
+
+- 固定 Node slim 镜像增加 `procps`，为官方 `processStarts.js` 使用的 `ps` 以及按进程采样 benchmark 提供运行依赖；不能依赖开发机预装命令。本变更不引入 Electron。进程性能采样分别标识 Agent、独立 Watcher 和 Hub，统计短时 fixture 数据，不代替生产持续运行观察。
+- 容器验证使用 `--init` 与既有 Compose `init:true` 对齐，确保退出/子进程回收的测试前提一致；默认独立 Watcher `TOKEN_MONITOR_WATCH_IN_PROCESS=0` 不变。
+- Linux 活动身份测试使用临时合成 machine-id 和真实 `/proc` 进程身份，不读取主机 machine-id 后写入报告；macOS 无 Linux `/proc` 的相关分支明确按平台条件跳过。
+- 新增 `app/tests/agent/hermesTokenContract.test.js`，以真实 checksum 锁定 Tokscale 读取合成 root/profile SQLite，验证输入/输出/cache、跨库去重、multi-model/task、session-totals fallback、单日/月度/全量与冷/热缓存、共享历史归一化以及源 DB SHA256 与无 sidecar 写入。全量/月度预期 1,828 Tokens、单日 1,701 Tokens；不接触生产 Hermes 数据。
+- `claudeSessionActivity`、`codexSessionActivity`、`codexWaiting`、`sessionActivityProjection`、`t3SessionParents`、`sessionActivityRegistry`、`collectorAnchorPersistence`、`tokscaleSessionMetadata` 保留 Node 核心断言，去除混入的 Electron 展示/集成断言；`sessionRelationshipWire` 保留 Node Hub/shared 断言，去除 Cloudflare Worker 专属断言。`antigravityThroughput` 完全排除，因为它验证桌面 rate 呈现；NAS 的 Hermes/历史/throughput 核心覆盖不依赖它。
+
+初始 67 项核心/清单/测试导入决定经过上述边界审阅后，最终文件分类见下表。“选择合入”包括精简依赖清单与混合环境测试文件；排除某个环境的断言不表示该环境的功能已验收。真实 Windows 客户端、公网 SSE/gzip 和生产 NAS 持续运行仍需单独证据。
 
 ## 全部 141 个文件的逐项处理表
 
@@ -180,12 +190,12 @@ NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/age
 | M | `tests/fixtures/usageWorkerScriptedCollector.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | M | `tests/helpers/sourceEnv.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | A | `tests/shared/antigravitySessionMetadata.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/antigravityThroughput.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/claudeSessionActivity.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/codexSessionActivity.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
+| A | `tests/shared/antigravityThroughput.test.js` | 排除 | 仅验证桌面 rate 展示、依赖 Electron；共享 Token/history 由独立核心测试覆盖 |
+| A | `tests/shared/claudeSessionActivity.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
+| A | `tests/shared/codexSessionActivity.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
 | A | `tests/shared/codexSessionIdentity.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/codexWaiting.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| M | `tests/shared/collectorAnchorPersistence.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
+| A | `tests/shared/codexWaiting.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
+| M | `tests/shared/collectorAnchorPersistence.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
 | M | `tests/shared/collectorLoadGuards.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | A | `tests/shared/collectorParentLinks.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | M | `tests/shared/cursorSessionMetadata.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
@@ -193,15 +203,15 @@ NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/age
 | M | `tests/shared/history.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | A | `tests/shared/processStarts.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | M | `tests/shared/releaseArtifactNames.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/sessionActivityProjection.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/sessionActivityRegistry.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
+| A | `tests/shared/sessionActivityProjection.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
+| A | `tests/shared/sessionActivityRegistry.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
 | A | `tests/shared/sessionActivityScheduler.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | A | `tests/shared/sessionActivityWatch.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/sessionRelationshipWire.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
+| A | `tests/shared/sessionRelationshipWire.test.js` | 选择合入 | 保留 Node Hub/shared wire 断言；排除 Cloudflare Worker 副本断言 |
 | A | `tests/shared/t3SessionIdentity.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | M | `tests/shared/t3SessionMetadata.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| A | `tests/shared/t3SessionParents.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
-| M | `tests/shared/tokscaleSessionMetadata.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
+| A | `tests/shared/t3SessionParents.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
+| M | `tests/shared/tokscaleSessionMetadata.test.js` | 选择合入 | 保留 Node 核心状态、元数据或身份断言；排除 Electron 展示/集成断言 |
 | M | `tests/shared/usage.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | M | `tests/shared/usageDelta.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
 | M | `tests/shared/usageHost.test.js` | 引入 | 共享源码或匹配回归测试；可选客户端不自动启用 |
@@ -214,4 +224,6 @@ NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/age
 | A | `worker/src/shared/sessionLive.js` | 排除 | Cloudflare Worker 副本；Node Hub 直接使用主 shared |
 | M | `worker/src/shared/usage.js` | 排除 | Cloudflare Worker 副本；Node Hub 直接使用主 shared |
 
-核对：参考 22 项，选择合入 2 项，排除 52 项，引入 65 项；合计 141 项。
+核对：参考 22 项，选择合入 11 项，排除 53 项，引入 55 项；合计 141 项。
+
+最终原生验收：CI [38195738924](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38195738924)，源码提交 `acdad0e7d1e368a515bc67aad94e5ac0e500d421`，两架构各 992 项/990 通过/0 失败/2 个 Windows 原生平台跳过，各 15 项固定数据性能门禁通过。完整数值和限制见 [UPGRADE_0.69.md](UPGRADE_0.69.md)；不代表生产 NAS 或真实 Windows 公网验收。

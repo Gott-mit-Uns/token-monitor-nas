@@ -56,3 +56,46 @@ No mandatory SQLite schema or Hub JSON format migration from 0.68.0-05. Existing
 ## Long-term maintenance
 
 [upstream-lock.json](upstream-lock.json) freezes provenance. [NAS_PATCHES.md](NAS_PATCHES.md) records patch ownership and regression mapping; [UPSTREAM_0.69_AUDIT.md](UPSTREAM_0.69_AUDIT.md) covers every official changed path. Weekly upstream reporting fetches only public releases/source into a temporary repo, classifies file ranges and saves an Actions report; it never changes the pinned commit. For a future upgrade: audit unresolved PRs first, lock tag/SHA, compare and three-way merge official changes, update patch list, run native protocol/archive/security/performance gates, review PR, release, then separately authorize deployment. Benchmark failures need same-runner diagnosis and repeated evidence before tolerance changes.
+
+## Native Linux acceptance evidence — 2026-10-12
+
+[Upgrade CI 38195738924](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38195738924) passed for runtime/source commit `acdad0e7d1e368a515bc67aad94e5ac0e500d421`. Both native x86_64 and aarch64 use shipping Node 22.23.2. Each: 992 NAS tests, 990 passed, zero failed, two Windows-native tests skipped; 31 promotion tests passed; Compose templates, pinned Tokscale release/client/parser gates and real root/profile Hermes SQLite contract passed. Safety scan checked 1,246 historical file versions with zero pattern findings. Later documentation/evidence-only commits do not change runtime source.
+
+Three alternating baseline/candidate runs per architecture, 1,000 synthetic Hermes sessions, 1.5 seconds idle and 60 seconds forced-update soak each. Each architecture's 15/15 comparison gates passed. Raw artifacts preserve source fingerprints, dependency versions, fixture digest and per-run samples: [amd64](evidence/upstream-v0.69.0/native-x86_64-performance.json), [arm64](evidence/upstream-v0.69.0/native-aarch64-performance.json). Values below are medians across each run's sampled maximum RSS (MiB), or wall time (ms). Compare each row within its architecture; no cross-runner performance conclusion is supported.
+
+| Architecture | Metric | v0.68.0-05 | candidate |
+| --- | --- | ---: | ---: |
+| x86_64 | agent.cold.maxRssMiB | 146.44 | 151.11 |
+| x86_64 | agent.idle.maxRssMiB | 146.44 | 151.11 |
+| x86_64 | agent.peak.maxRssMiB | 172.73 | 179.43 |
+| x86_64 | agent.sustained.maxRssMiB | 252.07 | 266.55 |
+| x86_64 | watcher.cold.maxRssMiB | 55.70 | 56.17 |
+| x86_64 | watcher.idle.maxRssMiB | 55.70 | 56.17 |
+| x86_64 | watcher.peak.maxRssMiB | 55.70 | 56.17 |
+| x86_64 | watcher.sustained.maxRssMiB | 55.70 | 56.17 |
+| x86_64 | hub.cold.maxRssMiB | 89.78 | 88.86 |
+| x86_64 | hub.idle.maxRssMiB | 89.78 | 88.86 |
+| x86_64 | hub.peak.maxRssMiB | 116.28 | 114.99 |
+| x86_64 | hub.sustained.maxRssMiB | 146.59 | 144.41 |
+| x86_64 | coldMs | 679.54 | 700.63 |
+| x86_64 | peakMs | 334.55 | 341.71 |
+| x86_64 | sustainedTickMedianMs | 226.49 | 228.09 |
+| aarch64 | agent.cold.maxRssMiB | 164.94 | 170.21 |
+| aarch64 | agent.idle.maxRssMiB | 158.65 | 161.53 |
+| aarch64 | agent.peak.maxRssMiB | 176.18 | 182.76 |
+| aarch64 | agent.sustained.maxRssMiB | 257.12 | 269.20 |
+| aarch64 | watcher.cold.maxRssMiB | 53.88 | 54.00 |
+| aarch64 | watcher.idle.maxRssMiB | 53.88 | 54.00 |
+| aarch64 | watcher.peak.maxRssMiB | 53.88 | 54.00 |
+| aarch64 | watcher.sustained.maxRssMiB | 53.88 | 54.00 |
+| aarch64 | hub.cold.maxRssMiB | 90.25 | 89.42 |
+| aarch64 | hub.idle.maxRssMiB | 90.03 | 89.42 |
+| aarch64 | hub.peak.maxRssMiB | 116.80 | 115.83 |
+| aarch64 | hub.sustained.maxRssMiB | 154.50 | 144.95 |
+| aarch64 | coldMs | 730.70 | 739.97 |
+| aarch64 | peakMs | 330.96 | 324.43 |
+| aarch64 | sustainedTickMedianMs | 262.41 | 263.55 |
+
+Agent sustained RSS increased 14.48 MiB on amd64 and 12.08 MiB on arm64. Watcher is effectively unchanged; Hub is slightly lower. These are bounded short synthetic stress observations, not a performance improvement claim or a proof of real NAS leak absence. Existing 512 MiB Agent limits were not raised. Keep the independent Watcher and perform long-running actual deployment acceptance only after separate authorization.
+
+The initial CI failures (synthetic Compose env_file, missing POSIX ps, non-reaped test children and missing container machine-id) were diagnosed and corrected before this passing run. No test assertions were skipped to obtain this result. Windows-native tests require Windows and are explicitly excluded by platform conditions; actual Windows HTTPS/proxy/device acceptance is still pending deployment-stage verification. npm audit covers npm packages, not a complete OS-image CVE audit.
