@@ -1,6 +1,6 @@
 # Token Monitor NAS
 
-基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.69.0`，NAS 已发布版本是 [`v0.69.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.69.0-01)。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
+基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.69.0`，NAS 已发布版本是 [`v0.69.0-02`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.69.0-02)。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
 
 Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https://github.com/Gott-mit-Uns/token-monitor-adapter)，包括源码、Windows 构建工作流与历史 `adapter-v*` Release。本仓库维护 NAS Docker Agent 与 Node Hub；Adapter 更新与下载请使用新仓库。
 
@@ -12,11 +12,11 @@ Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https
 image: ghcr.io/gott-mit-uns/token-monitor-hermes:latest
 ```
 
-`latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.68.0-05`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
+`latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.69.0-02`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
 
 GitHub 发布不会自动更新 NAS。新受控部署能力见 [DEPLOYMENT.md](DEPLOYMENT.md)，测试和回滚演练记录见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。独立手动流程选择目标 NAS、当前/目标版本即批准部署；没有额外 Environment 审批。NAS 主动 HTTPS 拉取请求，先完整备份和副本校验，再分阶段更新 Hub、Agent，最终验收成功才回报 GitHub。生产首次接入和实际部署须另外获得所有者授权。
 
-`v0.69.0-02` 是这一能力的开发候选，尚未正式发布或生产接入。现有 `v0.69.0-01` 及固定镜像保留，不覆盖历史 Tag。升级后维护者应通过受控流程更新，保留原 Compose、私有环境、设备 ID与持久化路径；生成的镜像 override 必须用于后续重建。
+`v0.69.0-02` 已于 2026-10-12 正式发布，双架构镜像、源码 Tag 和 Release 清单一致；生产首次接入和部署未执行。现有 `v0.69.0-01` 及固定镜像保留，不覆盖历史 Tag。升级后维护者应通过受控流程更新，保留原 Compose、私有环境、设备 ID与持久化路径；生成的镜像 override 必须用于后续重建。
 
 ## Compose 与设备名称
 

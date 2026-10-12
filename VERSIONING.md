@@ -14,6 +14,6 @@ NAS 镜像和 GitHub Release 使用同一个版本号：`v<官方版本>-<两位
 
 Windows Adapter 使用独立仓库 `Gott-mit-Uns/token-monitor-adapter` 与 `adapter-v<版本>`。不要在本仓库提交 Adapter 源码或发布 Adapter EXE，也不要把 Adapter 的版本号用于 NAS 镜像。
 
-当前已发布版本为 `v0.69.0-01`，固定标签、Release 和 latest 已由双架构验收后的现有发布流程创建。后续仅文档更新不重建或覆盖这一固定版本；运行时代码变化须增加 NAS 修订号。PR 原生验证不发布镜像或改写已有标签。
+当前已发布版本为 `v0.69.0-02`，固定标签、Release 和 latest 已由双架构验收后的现有发布流程创建。后续仅文档更新不重建或覆盖这一固定版本；运行时代码变化须增加 NAS 修订号。PR 原生验证不发布镜像或改写已有标签。
 
-`v0.69.0-02` 为自动 Release 与受控部署能力的开发候选。Release manifest 将版本、固定总/子摘要、OCI版本/源码 SHA、Git Tag 和来源迁移政策绑定。发布失败可恢复草稿，但不覆盖已有固定 Tag或清单。生产部署请求只能选择正式发布且有清单的版本，不将源码分支或 latest作为部署目标。
+`v0.69.0-02` 已正式发布自动 Release 与受控部署能力，源码提交为 `ec79dc7bff697ed5568b013578a8ec8d6261e67e`；生产接入和部署未执行。Release manifest 将版本、固定总/子摘要、OCI版本/源码 SHA、Git Tag 和来源迁移政策绑定。发布失败可恢复草稿，但不覆盖已有固定 Tag或清单。生产部署请求只能选择正式发布且有清单的版本，不将源码分支或 latest作为部署目标。

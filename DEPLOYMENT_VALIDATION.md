@@ -1,6 +1,6 @@
 # 自动发布、受控部署与回滚演练报告
 
-状态：开发候选 `v0.69.0-02`，生产首次接入和部署未执行。原生双架构隔离部署演练已通过，原有全量回归与性能检查单独记录。
+状态：`v0.69.0-02` 已正式发布，生产首次接入和部署未执行。原生双架构隔离部署演练已通过，原有全量回归与性能检查单独记录。
 
 [原有全量回归 CI 38204021632](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38204021632) 的 amd64、arm64 作业均成功，对应部署实现提交 `558e148eee8d3c11b9f01c08b8461258f4ed01cc`。每架构 992 项 NAS 测试：990 通过、0 失败、2 项 Windows 平台条件跳过；Compose、固定 Tokscale 契约及合成固定数据性能对比均通过。后续仅补充 Agent-only/准确计数演练和报告，没有更改镜像内采集与 Hub 源码或控制器实现。性能检查通过不等于性能改善，也不代替 24 小时生产观察。
 
@@ -35,8 +35,25 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 
 演练仅使用合成数据和随机临时项目：真实 `v0.69.0-01` 基线镜像与本地构建的 `v0.69.0-02` 候选，验证完整备份、冻结统计、新 Hub 认证/API/gzip SSE重连、新 Agent 独立 Watcher和新鲜上传，以及旧归档会话/历史保持。正常部署后恢复旧状态生成绑定的隔离演练凭据；再次注入 Hub 验收失败，确认 Agent 新镜像从未启动、只在有效凭据下完整回滚；随后执行正常分阶段升级并拒绝请求重放。
 
-测试 Release 创建和 Deployment 状态提交通过注入的合成 GitHub API 验证，没有创建真实正式 Release或生产部署请求；真实 Docker 数据恢复结果通过 CI artifact 查验。这个区别避免把逻辑测试或容器测试误写为生产发布/部署。
+隔离演练中的 Release 创建和 Deployment 状态提交通过注入的合成 GitHub API 验证，演练没有创建真实正式 Release或生产部署请求；真实 Docker 数据恢复结果通过 CI artifact 查验。这个区别避免把逻辑测试或容器测试误写为生产发布/部署。
+
+## 正式合并与发布验收
+
+2026-10-12 经所有者明确授权，[PR #5](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/5) 已合并。正式版本源码及 Git Tag 指向 `ec79dc7bff697ed5568b013578a8ec8d6261e67e`。合并前最终源码 `26e3b3816155eb5934f2569eb3166798a949d200` 的 [隔离部署检查](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38205511351) 和 [完整原生回归](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38205511347) 均成功。
+
+合并后的 [正式发布流程 38207757130](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38207757130) 全部成功：amd64 构建及候选运行测试、原生 arm64 对同一候选摘要运行测试、不可覆盖标签推广和自动 Release 创建。正式 [v0.69.0-02 Release](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.69.0-02) 为非草稿、非预发行；发布流程上传并读回 `release-manifest.json`。独立匿名下载清单及 GHCR index、架构 manifest 和 OCI config 后再次核验，版本和源码 SHA 一致。
+
+| 对象 | 已核验摘要 |
+| --- | --- |
+| v0.69.0-02 index / latest | `sha256:e35fa4c5f050b3944698a96a5ea48e7ee65b4e851ec49c5ddd1271dc02cca4b2` |
+| linux/amd64 manifest | `sha256:8fb3e2df3b9e212c12b764d2f8c554d242a8b15f0b2d73da630fe79816622b68` |
+| linux/arm64 manifest | `sha256:ea35946b9df0f67a9115c57e08d908279f338f041f07626a38ef4c77cad031ab` |
+| Release 清单文件 | `sha256:3fbdf9de30f8e3561570e74c8831a8e939f73abc29b1422fdac73fcd180e6ef6` |
+
+旧版 `v0.69.0-01` index `sha256:849ad058facfde01a7279efd88333f7461e3bffd3655f3d082913e957c30ed07` 和 `v0.68.0-05` index `sha256:3eb6fa177134a4a6089af3d3df643d391ed730f5de3e722aba07e2a0ec563cb3` 匿名复核均未改变。发布后文档状态单独更新，不重建或改写固定版本。没有发起生产 Deployment 请求、安装控制器或修改生产 NAS。
+
+清单允许来源版本 `v0.69.0-01`，无强制状态格式迁移，但采集会更新状态元数据；回滚仍要求恢复停机前完整状态快照并使用旧镜像，自动回滚必须具有绑定实际目标摘要和配置的 NAS 本地恢复演练凭据。CI 隔离演练凭据不能用于生产。
 
 ## 未执行与首次接入
 
-新正式 Release、两台 NAS 控制器安装/权限授予、生产调度、真实首次受控部署、生产回滚演练、公网 Windows UI验收、24 小时持续运行均未执行。首次接入应先审阅 [DEPLOYMENT.md](DEPLOYMENT.md) 并获得明确授权。GitHub CI 的隔离恢复凭据不能用于生产。
+两台 NAS 控制器安装/权限授予、生产调度、真实首次受控部署、生产回滚演练、公网 Windows UI验收、24 小时持续运行均未执行。首次接入应先审阅 [DEPLOYMENT.md](DEPLOYMENT.md) 并获得明确授权。GitHub CI 的隔离恢复凭据不能用于生产。
