@@ -227,3 +227,12 @@ class ControllerTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class FrozenAccountingTest(unittest.TestCase):
+    def test_host_metadata_may_differ_but_accounting_and_sessions_may_not(self):
+        import copy
+        old = {'deviceId': 'synthetic', 'hostname': 'first', 'today': {'totalTokens': 125, 'sessions': {'hermes:x': {'client': 'hermes', 'sessionId': 'x', 'totalTokens': 125}}}, 'history': {'daily': {'2026-10-12': {'totalTokens': 125}}}}
+        new = copy.deepcopy(old); new['hostname'] = 'second'; new['agentVersion'] = '0.69.0-02'
+        self.assertEqual(m.frozen_accounting(old), m.frozen_accounting(new))
+        new['today']['sessions']['hermes:x']['totalTokens'] = 0
+        self.assertNotEqual(m.frozen_accounting(old), m.frozen_accounting(new))

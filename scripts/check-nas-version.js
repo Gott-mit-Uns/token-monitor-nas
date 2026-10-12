@@ -14,4 +14,5 @@ if (!dockerfile.includes(`ARG BUILD_VERSION=${nasVersion}`)) {
   console.error('Dockerfile default version does not match nas-version.txt.');
   process.exit(1);
 }
+require('./ensure-nas-release').validatePolicy(JSON.parse(fs.readFileSync(path.join(root, 'deployment/release-policy.json'), 'utf8')), nasVersion);
 console.log(nasVersion);

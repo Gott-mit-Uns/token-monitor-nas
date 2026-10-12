@@ -336,7 +336,7 @@ class RealDocker:
             directory = snapshot / (name + '-dry-state')
             shutil.copytree(snapshot / 'state', directory)
             args = ['docker', 'run', '--rm', '--init', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--cap-add', 'DAC_READ_SEARCH', '--user', '0', '--memory', '512m', '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m', '-v', str(directory) + ':/config', '-v', str(frozen) + ':/hermes:ro']
-            for value in ['HOME=/config', 'XDG_CONFIG_HOME=/config', 'HERMES_HOME=/hermes', 'TOKEN_MONITOR_CLIENTS=hermes', 'TOKEN_MONITOR_LIMITS_ENABLED=0', 'TOKEN_MONITOR_PROJECTS_ENABLED=0', 'TOKEN_MONITOR_HISTORY_ENABLED=1', 'TOKEN_MONITOR_SESSION_USAGE_ARCHIVE_ENABLED=1', 'TOKEN_MONITOR_TOKSCALE_PRICING_CACHE_ONLY=1', 'TZ=Asia/Shanghai']:
+            for value in ['HOME=/config', 'XDG_CONFIG_HOME=/config', 'HERMES_HOME=/hermes', 'TOKEN_MONITOR_CLIENTS=hermes', 'TOKEN_MONITOR_LIMITS_ENABLED=0', 'TOKEN_MONITOR_PROJECTS_ENABLED=0', 'TOKEN_MONITOR_HISTORY_ENABLED=1', 'TOKEN_MONITOR_SESSION_USAGE_ARCHIVE_ENABLED=1', 'TOKSCALE_PRICING_CACHE_ONLY=1', 'TZ=Asia/Shanghai']:
                 args += ['-e', value]
             args += [image, 'node', 'src/agent/agent.js', '--once', '--dry-run', '--device', self.cfg['deviceId'], '--clients', 'hermes', '--watch', '0', '--wslScan', '0', '--timeoutMs', '120000']
             raw = run(args, 180)
@@ -346,9 +346,25 @@ class RealDocker:
                 value = json.loads(raw[start:])
             except ValueError:
                 raise Refused('dry_run_output_invalid') from None
-            outputs.append(accounting(value))
+            outputs.append(frozen_accounting(value))
         require(outputs[0] == outputs[1], 'frozen_accounting_mismatch')
         return {'frozenAccounting': 'exact-match'}
+
+def frozen_accounting(record):
+    # Container hostname, startup metadata and optional live fields legitimately
+    # differ. Compare accounting identities/maps, every session and daily history.
+    result = {'deviceId': record.get('deviceId')}
+    counters = ['totalTokens', 'costUsd', 'inputTokens', 'outputTokens',
+                'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'messageCount']
+    maps = ['clients', 'models', 'clientOutputs', 'modelCosts']
+    for name in ['today', 'month', 'allTime']:
+        period = record.get(name, {})
+        result[name] = {key: period.get(key) for key in counters + maps}
+        result[name]['sessions'] = {key: {field: value.get(field)
+            for field in counters + ['client', 'sessionId', 'models', 'modelCosts']}
+            for key, value in period.get('sessions', {}).items()}
+    result['history'] = accounting(record.get('history'))
+    return result
 
 def accounting(value):
     """Accounting fields only: ignore timestamps, versions and activity metadata."""
