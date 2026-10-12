@@ -55,14 +55,24 @@ async function approveDeployment({ target, version, fromVersion, ref, event, wor
   }
   // Serialized workflow jobs prevent races between requests. Do not replace
   // an unconsumed request: operators must explicitly invalidate it first.
-  const deployments = await api(`/repos/${REPOSITORY}/deployments?task=nas-pull&environment=${encodeURIComponent(environment)}&per_page=100`);
-  if (!Array.isArray(deployments) || deployments.length === 100) throw new Error('Cannot safely enumerate production deployment requests.');
-  for (const deployment of deployments) {
-    const statuses = await api(`/repos/${REPOSITORY}/deployments/${deployment.id}/statuses?per_page=1`);
-    if (!Array.isArray(statuses) || !statuses.length) throw new Error('An existing deployment has no terminal status; resolve it before approval.');
-    if (!['success', 'failure', 'error', 'inactive'].includes(statuses[0].state)) {
-      throw new Error('An outstanding deployment request already exists for this NAS.');
+  const seenDeployments = new Set();
+  for (let page = 1; ; page += 1) {
+    const deployments = await api(`/repos/${REPOSITORY}/deployments?task=nas-pull&environment=${encodeURIComponent(environment)}&per_page=100&page=${page}`);
+    if (!Array.isArray(deployments) || deployments.length > 100 || seenDeployments.size + deployments.length > 10000) {
+      throw new Error('Cannot safely enumerate production deployment requests.');
     }
+    for (const deployment of deployments) {
+      if (!Number.isSafeInteger(deployment?.id) || deployment.id <= 0 || seenDeployments.has(deployment.id)) {
+        throw new Error('Cannot safely enumerate production deployment requests.');
+      }
+      seenDeployments.add(deployment.id);
+      const statuses = await api(`/repos/${REPOSITORY}/deployments/${deployment.id}/statuses?per_page=1`);
+      if (!Array.isArray(statuses) || !statuses.length) throw new Error('An existing deployment has no terminal status; resolve it before approval.');
+      if (!['success', 'failure', 'error', 'inactive'].includes(statuses[0].state)) {
+        throw new Error('An outstanding deployment request already exists for this NAS.');
+      }
+    }
+    if (deployments.length < 100) break;
   }
   const payload = {
     schemaVersion: 1, target, version, sourceCommit: manifest.sourceCommit,

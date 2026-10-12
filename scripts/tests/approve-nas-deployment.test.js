@@ -64,7 +64,7 @@ test('invalid versions and unsupported installed release cannot create request',
     assert.ok(!calls.some(call => call.method === 'POST'));
   }
 });
-test('outstanding, unverifiable or overlong deployment list fails closed', async () => {
+test('outstanding, unverifiable or malformed deployment list fails closed', async () => {
   for (const statuses of [[], [{ state: 'queued' }], [{ state: 'pending' }], [{ state: 'in_progress' }], [{ state: 'unknown' }]]) {
     const { calls, options } = fixture();
     const originalApi = options.api;
@@ -117,4 +117,53 @@ test('request creation never reads or configures GitHub Environment protections'
   const { calls, options } = fixture();
   await approveDeployment(options);
   assert.ok(calls.every(call => !call.path.includes('/environments/')));
+});
+
+
+test('more than 100 terminal deployment records permits a subsequent request', async () => {
+  const { calls, options } = fixture();
+  const originalApi = options.api;
+  const pages = [];
+  options.api = async (path, request) => {
+    if (path.includes('/deployments?')) {
+      const page = Number(new URL(`https://example.invalid${path}`).searchParams.get('page'));
+      pages.push({ path, page });
+      return page === 1 ? Array.from({ length: 100 }, (_, index) => ({ id: index + 1 })) : [{ id: 101 }];
+    }
+    if (path.includes('/statuses?')) return [{ state: 'success' }];
+    return originalApi(path, request);
+  };
+  assert.equal((await approveDeployment(options)).deploymentId, 99);
+  assert.deepEqual(pages.map(entry => entry.page), [1, 2]);
+  assert.ok(pages.every(entry => entry.path.includes('task=nas-pull&environment=production-DXP4800')));
+  assert.ok(calls.some(call => call.method === 'POST'));
+});
+
+test('queued request on the second page still blocks approval', async () => {
+  const { calls, options } = fixture();
+  const originalApi = options.api;
+  options.api = async (path, request) => {
+    if (path.includes('/deployments?')) return path.includes('&page=1') ? Array.from({ length: 100 }, (_, index) => ({ id: index + 1 })) : [{ id: 101 }];
+    if (path.includes('/statuses?')) return [{ state: path.includes('/101/statuses?') ? 'queued' : 'success' }];
+    return originalApi(path, request);
+  };
+  await assert.rejects(approveDeployment(options), /outstanding/);
+  assert.ok(!calls.some(call => call.method === 'POST'));
+});
+
+test('repeated pagination and unbounded deployment histories fail closed', async () => {
+  for (const repeated of [true, false]) {
+    const { calls, options } = fixture();
+    const originalApi = options.api;
+    options.api = async (path, request) => {
+      if (path.includes('/deployments?')) {
+        const page = Number(new URL(`https://example.invalid${path}`).searchParams.get('page'));
+        return Array.from({ length: 100 }, (_, index) => ({ id: (repeated ? 0 : page - 1) * 100 + index + 1 }));
+      }
+      if (path.includes('/statuses?')) return [{ state: 'success' }];
+      return originalApi(path, request);
+    };
+    await assert.rejects(approveDeployment(options), /enumerate/);
+    assert.ok(!calls.some(call => call.method === 'POST'));
+  }
 });
