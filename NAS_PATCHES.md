@@ -47,3 +47,7 @@
 自动新 Release 发现与范围报告使用独立工作流，只创建维护报告/候选范围，不发布镜像、不使用生产凭据。协议、NAS 回归和固定数据集内存/耗时门槛在 PR CI 运行；结果文件应记录 fixture、Node/OS/架构、进程角色、采样时长和阈值。性能异常先定位模块加载、重复扫描或 SSE 缓冲，不能自动扩大 Compose 内存上限。
 
 旧固定镜像、旧 Tag 与状态备份全部保留。真正升级部署必须备份状态及 Compose/.env，保持设备 ID、持久化目录和只读数据源，再在副本验证；本候选开发与 PR 不授权生产部署。
+
+## v0.69 container prerequisites
+
+Runtime procps supplies the official POSIX process-start reader and the test RSS sampler. CI and release test containers use `--init`, matching existing Compose `init: true`, to reap terminated children. Linux registry tests use a synthetic machine-id while preserving actual `/proc` identity checks; no machine-id is baked into the image. Hermes-only remains the default.

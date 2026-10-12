@@ -16,6 +16,8 @@ ARG BUILD_VERSION=v0.69.0-01
 ARG VCS_REF=unknown
 ENV NODE_ENV=production TOKEN_MONITOR_NAS_VERSION=${BUILD_VERSION} \
     TOKEN_MONITOR_CLIENTS=hermes TOKEN_MONITOR_WATCH_IN_PROCESS=0
+# Official POSIX activity identity and offline RSS sampling require ps.
+RUN apt-get update && apt-get install -y --no-install-recommends procps && rm -rf /var/lib/apt/lists/*
 WORKDIR /opt/token-monitor
 
 LABEL org.opencontainers.image.title="Token Monitor Hermes Agent" \

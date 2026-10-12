@@ -171,14 +171,18 @@ test('Linux registry validates machine, PID namespace, PID and proc start ticks'
 test('Linux live PID registry fixture matches this process on Linux CI', { skip: process.platform !== 'linux' }, async t => {
   const f = fixture(t);
   const pid = process.pid;
-  const pidDomain = linuxIdentity.readLinuxPidDomain();
+  // Containers need not contain a host machine-id. Keep real /proc PID and
+  // namespace verification, using an isolated synthetic machine identity.
+  const machineIdFile = path.join(f.home, 'machine-id');
+  fs.writeFileSync(machineIdFile, 'synthetic-ci-machine');
+  const pidDomain = linuxIdentity.readLinuxPidDomain({ machineIdFile });
   const ticks = linuxIdentity.readLinuxProcessStarts([pid]).get(pid);
   assert.ok(pidDomain);
   assert.ok(ticks);
   fs.writeFileSync(path.join(f.root, `${pid}.json`), JSON.stringify({
     pid, sessionId: 'test-session', status: 'busy', pidDomain, procStart: ticks
   }));
-  const reading = await activity.readSessionActivity(new Set(['test-session']), { homeDir: f.home, env: {}, platform: 'linux', now });
+  const reading = await activity.readSessionActivity(new Set(['test-session']), { homeDir: f.home, env: {}, platform: 'linux', now, linuxMachineIdFile: machineIdFile });
   assert.deepEqual(reading.get('test-session'), { state: 'running', observedAt: new Date(now).toISOString() });
 });
 

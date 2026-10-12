@@ -35,10 +35,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           docker build -t token-monitor-test .
-          docker run --rm -e GITHUB_TOKEN -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-release.js
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-clients.js
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" token-monitor-test node scripts/verify-vendored-tokscale.js
-          docker run --rm -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/test-nas.js
+          docker run --rm --init -e GITHUB_TOKEN -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-release.js
+          docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/verify-vendored-tokscale-clients.js
+          docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" token-monitor-test node scripts/verify-vendored-tokscale.js
+          docker run --rm --init -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-test node scripts/test-nas.js
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -70,9 +70,9 @@ jobs:
         run: |
           image=$(node scripts/promote-nas-image.js --candidate-ref)
           docker pull --platform linux/amd64 "$image"
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
-          docker run --rm -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/test-nas.js
+          docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
+          docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
+          docker run --rm --init -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/test-nas.js
   verify_arm64:
     needs: build_amd64
     runs-on: ubuntu-24.04-arm
@@ -94,9 +94,9 @@ jobs:
           test "$(uname -m)" = aarch64
           image=$(node scripts/promote-nas-image.js --candidate-ref)
           docker pull --platform linux/arm64 "$image"
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
-          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
-          docker run --rm -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/test-nas.js
+          docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
+          docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
+          docker run --rm --init -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/test-nas.js
   promote:
     needs: [build_amd64, verify_arm64]
     runs-on: ubuntu-latest
