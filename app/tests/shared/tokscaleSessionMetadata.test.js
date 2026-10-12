@@ -68,6 +68,30 @@ test('activity bounds and titles reach the extracted sessions', () => {
   assert.equal(claude.title, 'Fix the parser');
 });
 
+test('parent links reach the extracted sessions, survive merges and ignore a self link', () => {
+  const json = scan();
+  json.entries.push(
+    { client: 'codex', sessionId: 'child', model: 'gpt-5.6', input: 3, output: 1, cost: 0.1 },
+    { client: 'codex', sessionId: 'guardian', model: 'codex-auto-review', input: 2, output: 1, cost: 0.1 },
+    { client: 'codex', sessionId: 'loop', model: 'gpt-5.6', input: 1, output: 1, cost: 0.1 }
+  );
+  json.sessions.push(
+    { client: 'codex', sessionId: 'child', parentSessionId: 'session-2' },
+    { client: 'codex', sessionId: 'guardian', parentSessionId: 'session-2' },
+    { client: 'codex', sessionId: 'loop', parentSessionId: 'loop' }
+  );
+  applyTokscaleSessionMetadata(json, { resolveProjects: true });
+  const period = extractUsageFromTokscale(json);
+
+  assert.equal(period.sessions['codex:child'].parentSessionId, 'session-2');
+  assert.equal(period.sessions['codex:guardian'].parentSessionId, 'session-2');
+  assert.equal(Object.hasOwn(period.sessions['codex:loop'], 'parentSessionId'), false);
+  assert.equal(Object.hasOwn(period.sessions['codex:session-2'], 'parentSessionId'), false);
+  // Linking moves no usage: every session keeps exactly its own tokens.
+  assert.equal(period.sessions['codex:session-2'].totalTokens, 24);
+  assert.equal(period.sessions['codex:child'].totalTokens, 4);
+});
+
 test('a zero timestamp reads as unknown rather than as the epoch', () => {
   const json = scan();
   applyTokscaleSessionMetadata(json, { resolveProjects: true });
@@ -234,15 +258,4 @@ test('a scan that attributes one client leaves the other client to its own resol
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
   }
-});
-
-test('the headless agent and the widget agree on the Projects default', () => {
-  const agentSource = fs.readFileSync(path.join(__dirname, '../../src/agent/agent.js'), 'utf8');
-  const mainSource = fs.readFileSync(path.join(__dirname, '../../src/electron/main.js'), 'utf8');
-
-  // One setting, one default: a widget and an agent on the same machine post to
-  // the same hub, and a per-entry-point default would make them disagree about
-  // whether this device reports projects at all.
-  assert.match(agentSource, /TOKEN_MONITOR_PROJECTS_ENABLED,\s*true\)/);
-  assert.match(mainSource, /TOKEN_MONITOR_PROJECTS_ENABLED,\s*true\)/);
 });

@@ -50,7 +50,7 @@ const watchDebounceMs = Number(args.watchDebounceMs || process.env.TOKEN_MONITOR
 // a CSV written before the split listed the merged id and counted both products.
 // The marker therefore lives beside the collector anchor, and it is what stops
 // the seed from re-adding a client the operator deliberately removed afterwards.
-const clients = seedAgentClients(clientsCsvForSetting(args.clients ?? process.env.TOKEN_MONITOR_CLIENTS), {
+const clients = seedAgentClients(clientsCsvForSetting(args.clients ?? process.env.TOKEN_MONITOR_CLIENTS, 'hermes'), {
   persist: !(args['dry-run'] || args.dryRun)
 });
 const allTimeSince = String(args.since || args.allTimeSince || process.env.TOKEN_MONITOR_ALL_TIME_SINCE || '2024-01-01');

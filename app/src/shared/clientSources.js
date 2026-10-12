@@ -137,7 +137,7 @@ function clineCliSessionRoot(home) {
 
 // Per-client data-dir candidates, keyed by client. The collector projects these
 // into detection status and, after interval-only/self-synced filtering, the
-// chokidar watch list; it adds Antigravity's read-only source roots separately.
+// chokidar watch list; it adds native Cursor and Antigravity source roots separately.
 // The roots are tagged with a stable id for their *kind*. One id may
 // cover several paths: Copilot's workspaceStorage has a variant per platform and
 // Kiro's IDE globalStorage has four, but "the VS Code workspace storage is
@@ -491,14 +491,15 @@ function clientSourceRoots(clientsCsv, options = {}) {
 
 // The Antigravity CLI's parse-local directory is watched and checked as a
 // source; unlike the IDE cache, it is written by agy rather than our self-sync.
-function antigravityCliDataDir() {
-  const geminiHome = process.env.GEMINI_CLI_HOME || path.join(os.homedir(), '.gemini');
+function antigravityCliDataDir({ homeDir = os.homedir(), env = process.env } = {}) {
+  const geminiHome = env.GEMINI_CLI_HOME || path.join(homeDir, '.gemini');
   return path.join(geminiHome, 'antigravity-cli', 'conversations');
 }
 
 module.exports = {
   antigravityCliDataDir,
   canonicalWatchPath,
+  canonicalWatchFilePath,
   cherryStudioTranscriptRoots,
   clientSourceRoots,
   copilotExporterWatch

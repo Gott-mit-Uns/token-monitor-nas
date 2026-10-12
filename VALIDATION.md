@@ -46,3 +46,9 @@ the Hub is offline. No automatic device deletion is enabled.
 2026-10-03 部署确认：GitHub 发布工作流 37033217902 成功，固定标签及 latest 的 manifest digest 为 `sha256:e0664aee03fa5c21fc0157a274b5db99f637fee1a6e27ebe0755b081e89da4da`。DXP4800 与 DH4300Plus 实际运行版本均为 v0.65.0-01，容器健康且 collection/upload 均为 ok。4800 归档会话 3237 条、旧会话缺失 0；4300 升级前后均为 14 条；归档数据库完整性检查通过。
 
 状态及 Compose 备份存于各部署目录下 `backups/v0.63.1-01-before-0.65.0-01`（4300 完整关闭状态副本为 `state-closed`）。现有设备 ID、持久化挂载、300000ms 兜底周期、60000ms Watch 防抖与只读限制保持原样。新版 Watch 持续事件最大等待边界在该防抖配置下为 60 秒。启动后的内存快照不代表长期占用改善。
+
+## v0.69.0-01 candidate validation — 2026-10-12
+
+Official tag locked to `3f106ae3d4712b26cced8272f0d488eaab0de1e6`; NAS baseline `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`. Evidence and remaining release/deployment gates are recorded in [UPGRADE_0.69.md](UPGRADE_0.69.md). Historical deployment results above are not verification of this candidate. No production data or NAS was accessed for this upgrade.
+
+Native candidate CI 38195738924 passed at source commit acdad0e7d1e368a515bc67aad94e5ac0e500d421 on Linux amd64 and arm64, Node 22.23.2. Each architecture passed 990/992 NAS tests, with zero failures and two Windows-native platform skips, plus 31 promotion tests. Each architecture also passed all 15 fixed-workload regression gates in three repeats with 60-second soak. See UPGRADE_0.69.md and synthetic-only evidence JSON for complete measurements, source fingerprints and scope. No production deployment or fixed-tag publication occurred.

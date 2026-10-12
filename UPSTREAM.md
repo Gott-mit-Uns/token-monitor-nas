@@ -1,5 +1,13 @@
 # 官方源码基线
 
+## NAS v0.69.0-01 升级候选
+
+官方 Tag `v0.69.0`，提交 `3f106ae3d4712b26cced8272f0d488eaab0de1e6`，上一官方基线 `5d2db368d8313415763860d594de00e46a663418`。NAS 基线为 `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`（v0.68.0-05）。本次同步 shared、Agent runtime、依赖清单和固定 Tokscale manifest；Node Hub 与 Agent 使用同一共享基线，NAS 数据保护、Windows SSE/gzip/日历、Hermes 标题隐私与轻量独立 Watcher 补丁保留。
+
+新会话身份和父子字段不改变 accounting key；瞬时活动不归档。SQLite schema 与 Hub 文件格式无强制迁移，但首轮采集会更新已有锚点和附加元数据，因此仍须停机完整备份并保留旧状态副本。默认 Hermes-only；headless 活动轮询关闭，不开启额外客户端扫描。
+
+完整上游逐项决策：[UPSTREAM_0.69_AUDIT.md](UPSTREAM_0.69_AUDIT.md)。维护补丁：[NAS_PATCHES.md](NAS_PATCHES.md)。验证与发布状态：[UPGRADE_0.69.md](UPGRADE_0.69.md)。本候选尚未发布或生产部署；以下章节是历史版本记录。
+
 ## NAS v0.68.0-05
 
 两个 NAS Compose 模板默认使用 `TOKEN_MONITOR_WATCH_IN_PROCESS: "0"`，优先保留文件监听与采集进程的故障隔离。本修订将这一默认值纳入正式版本的源码标签、部署模板和发布说明，保留 v0.68.0-04 的轻量监听依赖、归档及 Hub 优化和同步修复；程序逻辑、官方 0.68.0 基线与持久化格式不变。

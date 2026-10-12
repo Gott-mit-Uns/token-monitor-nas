@@ -1,0 +1,711 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "node": "v24.19.0",
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "fixture": {
+    "sessions": 1000,
+    "initialTokens": 130000,
+    "sha256": "a9d8b9b2ff01a8fcbdd6b3b49ba14b7bf0ae221b7b87952e881f85cf94aa30c6"
+  },
+  "options": {
+    "repeats": 3,
+    "sessions": 1000,
+    "sampleMs": 50,
+    "idleMs": 1500,
+    "sustainMs": 15000,
+    "tickMs": 250
+  },
+  "scope": "real Node runtime with synthetic Hermes parser output; no Rust parser, production data or NAS deployment",
+  "limitations": [
+    "Short CI soak is not long-running NAS evidence.",
+    "ps RSS samples may miss brief allocation peaks.",
+    "Compare only the same machine, architecture and Node runtime.",
+    "SSE clients drain normally; bounded slow-reader behavior is covered by separate functional tests."
+  ],
+  "baseline": {
+    "identity": {
+      "sourceSha256": "d85ad664064bcb08eaeb0155abadc6a2b654b188a73bb8aa5ef3447d33569485",
+      "appVersion": "0.68.0",
+      "dependencies": {
+        "chokidar": "4.0.3",
+        "dotenv": "17.4.2"
+      }
+    },
+    "runs": [
+      {
+        "coldMs": 446.09837500000003,
+        "peakMs": 182.46937500000013,
+        "sustainedTickMedianMs": 139.58072949999996,
+        "sustainedTicks": 38,
+        "watcherSeparateProcess": true,
+        "hubSyntheticValidation": true,
+        "sqliteArchivePresent": true,
+        "phases": {
+          "cold": {
+            "agent": {
+              "samples": 14,
+              "medianRssMiB": 200.0234375,
+              "maxRssMiB": 213.5625,
+              "lastRssMiB": 213.5625
+            },
+            "watcher": {
+              "samples": 11,
+              "medianRssMiB": 56.828125,
+              "maxRssMiB": 56.828125,
+              "lastRssMiB": 56.828125
+            },
+            "hub": {
+              "samples": 15,
+              "medianRssMiB": 71.703125,
+              "maxRssMiB": 85.90625,
+              "lastRssMiB": 85.90625
+            }
+          },
+          "idle": {
+            "agent": {
+              "samples": 31,
+              "medianRssMiB": 213.5625,
+              "maxRssMiB": 213.5625,
+              "lastRssMiB": 213.5625
+            },
+            "watcher": {
+              "samples": 31,
+              "medianRssMiB": 56.828125,
+              "maxRssMiB": 56.828125,
+              "lastRssMiB": 56.828125
+            },
+            "hub": {
+              "samples": 31,
+              "medianRssMiB": 85.90625,
+              "maxRssMiB": 85.90625,
+              "lastRssMiB": 85.90625
+            }
+          },
+          "peak": {
+            "agent": {
+              "samples": 5,
+              "medianRssMiB": 230.75,
+              "maxRssMiB": 231.65625,
+              "lastRssMiB": 230.75
+            },
+            "watcher": {
+              "samples": 5,
+              "medianRssMiB": 56.828125,
+              "maxRssMiB": 56.828125,
+              "lastRssMiB": 56.828125
+            },
+            "hub": {
+              "samples": 5,
+              "medianRssMiB": 105.03125,
+              "maxRssMiB": 124.15625,
+              "lastRssMiB": 124.15625
+            }
+          },
+          "sustained": {
+            "agent": {
+              "samples": 340,
+              "medianRssMiB": 328.90625,
+              "maxRssMiB": 345.328125,
+              "lastRssMiB": 341.578125
+            },
+            "watcher": {
+              "samples": 340,
+              "medianRssMiB": 49.125,
+              "maxRssMiB": 56.828125,
+              "lastRssMiB": 49.171875
+            },
+            "hub": {
+              "samples": 340,
+              "medianRssMiB": 253.3828125,
+              "maxRssMiB": 279.96875,
+              "lastRssMiB": 279.96875
+            }
+          }
+        }
+      },
+      {
+        "coldMs": 551.2915829999984,
+        "peakMs": 155.1195829999997,
+        "sustainedTickMedianMs": 134.1136669999978,
+        "sustainedTicks": 37,
+        "watcherSeparateProcess": true,
+        "hubSyntheticValidation": true,
+        "sqliteArchivePresent": true,
+        "phases": {
+          "cold": {
+            "agent": {
+              "samples": 16,
+              "medianRssMiB": 175.8671875,
+              "maxRssMiB": 211.78125,
+              "lastRssMiB": 211.78125
+            },
+            "watcher": {
+              "samples": 11,
+              "medianRssMiB": 56.9375,
+              "maxRssMiB": 56.9375,
+              "lastRssMiB": 56.9375
+            },
+            "hub": {
+              "samples": 17,
+              "medianRssMiB": 61.484375,
+              "maxRssMiB": 85.875,
+              "lastRssMiB": 85.875
+            }
+          },
+          "idle": {
+            "agent": {
+              "samples": 31,
+              "medianRssMiB": 211.78125,
+              "maxRssMiB": 211.78125,
+              "lastRssMiB": 211.78125
+            },
+            "watcher": {
+              "samples": 31,
+              "medianRssMiB": 56.9375,
+              "maxRssMiB": 56.9375,
+              "lastRssMiB": 56.9375
+            },
+            "hub": {
+              "samples": 31,
+              "medianRssMiB": 85.875,
+              "maxRssMiB": 85.875,
+              "lastRssMiB": 85.875
+            }
+          },
+          "peak": {
+            "agent": {
+              "samples": 4,
+              "medianRssMiB": 241.75,
+              "maxRssMiB": 258.484375,
+              "lastRssMiB": 258.484375
+            },
+            "watcher": {
+              "samples": 4,
+              "medianRssMiB": 56.9375,
+              "maxRssMiB": 56.9375,
+              "lastRssMiB": 56.9375
+            },
+            "hub": {
+              "samples": 4,
+              "medianRssMiB": 104.4765625,
+              "maxRssMiB": 122.9375,
+              "lastRssMiB": 122.9375
+            }
+          },
+          "sustained": {
+            "agent": {
+              "samples": 338,
+              "medianRssMiB": 270.90625,
+              "maxRssMiB": 324.6875,
+              "lastRssMiB": 318.1875
+            },
+            "watcher": {
+              "samples": 338,
+              "medianRssMiB": 41.296875,
+              "maxRssMiB": 56.9375,
+              "lastRssMiB": 41.296875
+            },
+            "hub": {
+              "samples": 338,
+              "medianRssMiB": 249.546875,
+              "maxRssMiB": 276.5,
+              "lastRssMiB": 267.9375
+            }
+          }
+        }
+      },
+      {
+        "coldMs": 421.6212499999965,
+        "peakMs": 163.48304199999257,
+        "sustainedTickMedianMs": 135.89112500000192,
+        "sustainedTicks": 38,
+        "watcherSeparateProcess": true,
+        "hubSyntheticValidation": true,
+        "sqliteArchivePresent": true,
+        "phases": {
+          "cold": {
+            "agent": {
+              "samples": 14,
+              "medianRssMiB": 196.7421875,
+              "maxRssMiB": 200.359375,
+              "lastRssMiB": 200.359375
+            },
+            "watcher": {
+              "samples": 11,
+              "medianRssMiB": 56.890625,
+              "maxRssMiB": 56.890625,
+              "lastRssMiB": 56.890625
+            },
+            "hub": {
+              "samples": 15,
+              "medianRssMiB": 85.765625,
+              "maxRssMiB": 85.765625,
+              "lastRssMiB": 85.765625
+            }
+          },
+          "idle": {
+            "agent": {
+              "samples": 30,
+              "medianRssMiB": 200.359375,
+              "maxRssMiB": 200.359375,
+              "lastRssMiB": 200.359375
+            },
+            "watcher": {
+              "samples": 30,
+              "medianRssMiB": 56.890625,
+              "maxRssMiB": 56.890625,
+              "lastRssMiB": 56.890625
+            },
+            "hub": {
+              "samples": 30,
+              "medianRssMiB": 85.765625,
+              "maxRssMiB": 85.765625,
+              "lastRssMiB": 85.765625
+            }
+          },
+          "peak": {
+            "agent": {
+              "samples": 5,
+              "medianRssMiB": 224.140625,
+              "maxRssMiB": 226.984375,
+              "lastRssMiB": 226.984375
+            },
+            "watcher": {
+              "samples": 5,
+              "medianRssMiB": 56.890625,
+              "maxRssMiB": 56.890625,
+              "lastRssMiB": 56.890625
+            },
+            "hub": {
+              "samples": 5,
+              "medianRssMiB": 108.8125,
+              "maxRssMiB": 121.75,
+              "lastRssMiB": 121.75
+            }
+          },
+          "sustained": {
+            "agent": {
+              "samples": 339,
+              "medianRssMiB": 336.421875,
+              "maxRssMiB": 345.359375,
+              "lastRssMiB": 333.0625
+            },
+            "watcher": {
+              "samples": 339,
+              "medianRssMiB": 55.28125,
+              "maxRssMiB": 56.890625,
+              "lastRssMiB": 43.34375
+            },
+            "hub": {
+              "samples": 339,
+              "medianRssMiB": 258.84375,
+              "maxRssMiB": 278.90625,
+              "lastRssMiB": 270.109375
+            }
+          }
+        }
+      }
+    ]
+  },
+  "candidate": {
+    "identity": {
+      "sourceSha256": "75edeb78503f19faf9eca605a9d18046a225a2deaf86d18632291aa79bdc500c",
+      "appVersion": "0.69.0",
+      "dependencies": {
+        "chokidar": "4.0.3",
+        "dotenv": "17.4.2"
+      }
+    },
+    "runs": [
+      {
+        "coldMs": 521.6854579999999,
+        "peakMs": 196.34608300000036,
+        "sustainedTickMedianMs": 140.153707999998,
+        "sustainedTicks": 37,
+        "watcherSeparateProcess": true,
+        "hubSyntheticValidation": true,
+        "sqliteArchivePresent": true,
+        "phases": {
+          "cold": {
+            "agent": {
+              "samples": 15,
+              "medianRssMiB": 212.390625,
+              "maxRssMiB": 212.390625,
+              "lastRssMiB": 212.390625
+            },
+            "watcher": {
+              "samples": 12,
+              "medianRssMiB": 56.796875,
+              "maxRssMiB": 56.796875,
+              "lastRssMiB": 56.796875
+            },
+            "hub": {
+              "samples": 17,
+              "medianRssMiB": 77.34375,
+              "maxRssMiB": 89.84375,
+              "lastRssMiB": 89.84375
+            }
+          },
+          "idle": {
+            "agent": {
+              "samples": 30,
+              "medianRssMiB": 212.390625,
+              "maxRssMiB": 212.390625,
+              "lastRssMiB": 212.390625
+            },
+            "watcher": {
+              "samples": 30,
+              "medianRssMiB": 56.796875,
+              "maxRssMiB": 56.796875,
+              "lastRssMiB": 56.796875
+            },
+            "hub": {
+              "samples": 30,
+              "medianRssMiB": 89.84375,
+              "maxRssMiB": 89.84375,
+              "lastRssMiB": 89.84375
+            }
+          },
+          "peak": {
+            "agent": {
+              "samples": 5,
+              "medianRssMiB": 230.703125,
+              "maxRssMiB": 237.421875,
+              "lastRssMiB": 237.421875
+            },
+            "watcher": {
+              "samples": 5,
+              "medianRssMiB": 56.796875,
+              "maxRssMiB": 56.796875,
+              "lastRssMiB": 56.796875
+            },
+            "hub": {
+              "samples": 5,
+              "medianRssMiB": 105.640625,
+              "maxRssMiB": 122.28125,
+              "lastRssMiB": 122.28125
+            }
+          },
+          "sustained": {
+            "agent": {
+              "samples": 337,
+              "medianRssMiB": 329.15625,
+              "maxRssMiB": 338.546875,
+              "lastRssMiB": 335.359375
+            },
+            "watcher": {
+              "samples": 337,
+              "medianRssMiB": 42.328125,
+              "maxRssMiB": 56.796875,
+              "lastRssMiB": 42.90625
+            },
+            "hub": {
+              "samples": 337,
+              "medianRssMiB": 251.921875,
+              "maxRssMiB": 272.578125,
+              "lastRssMiB": 260.65625
+            }
+          }
+        }
+      },
+      {
+        "coldMs": 469.5514169999951,
+        "peakMs": 161.8868749999965,
+        "sustainedTickMedianMs": 137.36283399999957,
+        "sustainedTicks": 37,
+        "watcherSeparateProcess": true,
+        "hubSyntheticValidation": true,
+        "sqliteArchivePresent": true,
+        "phases": {
+          "cold": {
+            "agent": {
+              "samples": 15,
+              "medianRssMiB": 212.984375,
+              "maxRssMiB": 213.046875,
+              "lastRssMiB": 212.984375
+            },
+            "watcher": {
+              "samples": 12,
+              "medianRssMiB": 56.984375,
+              "maxRssMiB": 56.984375,
+              "lastRssMiB": 56.984375
+            },
+            "hub": {
+              "samples": 16,
+              "medianRssMiB": 77.15625,
+              "maxRssMiB": 89.34375,
+              "lastRssMiB": 89.34375
+            }
+          },
+          "idle": {
+            "agent": {
+              "samples": 30,
+              "medianRssMiB": 212.984375,
+              "maxRssMiB": 212.984375,
+              "lastRssMiB": 212.984375
+            },
+            "watcher": {
+              "samples": 30,
+              "medianRssMiB": 56.984375,
+              "maxRssMiB": 56.984375,
+              "lastRssMiB": 56.984375
+            },
+            "hub": {
+              "samples": 30,
+              "medianRssMiB": 89.34375,
+              "maxRssMiB": 89.34375,
+              "lastRssMiB": 89.34375
+            }
+          },
+          "peak": {
+            "agent": {
+              "samples": 5,
+              "medianRssMiB": 232.4375,
+              "maxRssMiB": 238.984375,
+              "lastRssMiB": 238.984375
+            },
+            "watcher": {
+              "samples": 5,
+              "medianRssMiB": 56.984375,
+              "maxRssMiB": 56.984375,
+              "lastRssMiB": 56.984375
+            },
+            "hub": {
+              "samples": 5,
+              "medianRssMiB": 105.046875,
+              "maxRssMiB": 123.9375,
+              "lastRssMiB": 123.9375
+            }
+          },
+          "sustained": {
+            "agent": {
+              "samples": 336,
+              "medianRssMiB": 325.515625,
+              "maxRssMiB": 355.0625,
+              "lastRssMiB": 348.90625
+            },
+            "watcher": {
+              "samples": 336,
+              "medianRssMiB": 41.203125,
+              "maxRssMiB": 56.984375,
+              "lastRssMiB": 41.1875
+            },
+            "hub": {
+              "samples": 336,
+              "medianRssMiB": 246.21875,
+              "maxRssMiB": 265.65625,
+              "lastRssMiB": 260.078125
+            }
+          }
+        }
+      },
+      {
+        "coldMs": 468.78895900001226,
+        "peakMs": 167.2932920000021,
+        "sustainedTickMedianMs": 135.02754149999237,
+        "sustainedTicks": 38,
+        "watcherSeparateProcess": true,
+        "hubSyntheticValidation": true,
+        "sqliteArchivePresent": true,
+        "phases": {
+          "cold": {
+            "agent": {
+              "samples": 15,
+              "medianRssMiB": 211.96875,
+              "maxRssMiB": 212.078125,
+              "lastRssMiB": 212.078125
+            },
+            "watcher": {
+              "samples": 12,
+              "medianRssMiB": 56.75,
+              "maxRssMiB": 56.75,
+              "lastRssMiB": 56.75
+            },
+            "hub": {
+              "samples": 16,
+              "medianRssMiB": 75.6171875,
+              "maxRssMiB": 89.640625,
+              "lastRssMiB": 89.640625
+            }
+          },
+          "idle": {
+            "agent": {
+              "samples": 30,
+              "medianRssMiB": 212.078125,
+              "maxRssMiB": 212.078125,
+              "lastRssMiB": 212.078125
+            },
+            "watcher": {
+              "samples": 30,
+              "medianRssMiB": 56.75,
+              "maxRssMiB": 56.75,
+              "lastRssMiB": 56.75
+            },
+            "hub": {
+              "samples": 30,
+              "medianRssMiB": 89.640625,
+              "maxRssMiB": 89.640625,
+              "lastRssMiB": 89.640625
+            }
+          },
+          "peak": {
+            "agent": {
+              "samples": 5,
+              "medianRssMiB": 229.046875,
+              "maxRssMiB": 235.34375,
+              "lastRssMiB": 235.34375
+            },
+            "watcher": {
+              "samples": 5,
+              "medianRssMiB": 56.75,
+              "maxRssMiB": 56.75,
+              "lastRssMiB": 56.75
+            },
+            "hub": {
+              "samples": 5,
+              "medianRssMiB": 103.90625,
+              "maxRssMiB": 123.90625,
+              "lastRssMiB": 123.90625
+            }
+          },
+          "sustained": {
+            "agent": {
+              "samples": 339,
+              "medianRssMiB": 320.90625,
+              "maxRssMiB": 345.3125,
+              "lastRssMiB": 341.78125
+            },
+            "watcher": {
+              "samples": 339,
+              "medianRssMiB": 41.203125,
+              "maxRssMiB": 56.75,
+              "lastRssMiB": 41.1875
+            },
+            "hub": {
+              "samples": 339,
+              "medianRssMiB": 254.140625,
+              "maxRssMiB": 272.4375,
+              "lastRssMiB": 261.109375
+            }
+          }
+        }
+      }
+    ]
+  },
+  "comparison": {
+    "status": "passed",
+    "ratio": 1.25,
+    "rssAllowanceMiB": 16,
+    "timeAllowanceMs": 100,
+    "findings": [
+      {
+        "metric": "agent.cold.maxRssMiB",
+        "baseline": 211.78125,
+        "candidate": 212.390625,
+        "limit": 280.7265625,
+        "passed": true
+      },
+      {
+        "metric": "agent.idle.maxRssMiB",
+        "baseline": 211.78125,
+        "candidate": 212.390625,
+        "limit": 280.7265625,
+        "passed": true
+      },
+      {
+        "metric": "agent.peak.maxRssMiB",
+        "baseline": 231.65625,
+        "candidate": 237.421875,
+        "limit": 305.5703125,
+        "passed": true
+      },
+      {
+        "metric": "agent.sustained.maxRssMiB",
+        "baseline": 345.328125,
+        "candidate": 345.3125,
+        "limit": 447.66015625,
+        "passed": true
+      },
+      {
+        "metric": "watcher.cold.maxRssMiB",
+        "baseline": 56.890625,
+        "candidate": 56.796875,
+        "limit": 87.11328125,
+        "passed": true
+      },
+      {
+        "metric": "watcher.idle.maxRssMiB",
+        "baseline": 56.890625,
+        "candidate": 56.796875,
+        "limit": 87.11328125,
+        "passed": true
+      },
+      {
+        "metric": "watcher.peak.maxRssMiB",
+        "baseline": 56.890625,
+        "candidate": 56.796875,
+        "limit": 87.11328125,
+        "passed": true
+      },
+      {
+        "metric": "watcher.sustained.maxRssMiB",
+        "baseline": 56.890625,
+        "candidate": 56.796875,
+        "limit": 87.11328125,
+        "passed": true
+      },
+      {
+        "metric": "hub.cold.maxRssMiB",
+        "baseline": 85.875,
+        "candidate": 89.640625,
+        "limit": 123.34375,
+        "passed": true
+      },
+      {
+        "metric": "hub.idle.maxRssMiB",
+        "baseline": 85.875,
+        "candidate": 89.640625,
+        "limit": 123.34375,
+        "passed": true
+      },
+      {
+        "metric": "hub.peak.maxRssMiB",
+        "baseline": 122.9375,
+        "candidate": 123.90625,
+        "limit": 169.671875,
+        "passed": true
+      },
+      {
+        "metric": "hub.sustained.maxRssMiB",
+        "baseline": 278.90625,
+        "candidate": 272.4375,
+        "limit": 364.6328125,
+        "passed": true
+      },
+      {
+        "metric": "coldMs",
+        "baseline": 446.09837500000003,
+        "candidate": 469.5514169999951,
+        "limit": 657.62296875,
+        "passed": true
+      },
+      {
+        "metric": "peakMs",
+        "baseline": 163.48304199999257,
+        "candidate": 167.2932920000021,
+        "limit": 304.3538024999907,
+        "passed": true
+      },
+      {
+        "metric": "sustainedTickMedianMs",
+        "baseline": 135.89112500000192,
+        "candidate": 137.36283399999957,
+        "limit": 269.8639062500024,
+        "passed": true
+      }
+    ]
+  }
+}
