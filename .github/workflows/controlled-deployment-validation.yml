@@ -1,0 +1,44 @@
+name: Validate controlled deployment
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: controlled-deployment-test-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rehearsal:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test immutable release and explicit deployment requests
+        run: |
+          node scripts/check-nas-version.js
+          node --test scripts/tests/*.test.js
+          python3 -m unittest discover -s deployment/tests -v
+          git diff --check
+      - name: Build native sandbox candidate without publishing
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: docker build --build-arg VCS_REF="$SOURCE_COMMIT" -t token-monitor-deployment-sandbox .
+      - name: Real Docker synthetic Hub Agent and full-state rollback rehearsal
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          sudo python3 deployment/exercise.py --candidate token-monitor-deployment-sandbox --source "$SOURCE_COMMIT" --output /tmp/deployment-exercise-result.json
+      - name: Save synthetic acceptance summary only
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-exercise-${{ matrix.runner }}
+          path: /tmp/deployment-exercise-result.json
+          if-no-files-found: error

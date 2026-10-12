@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "target": "DXP4800",
+  "projectRoot": "/volume1/docker/token-monitor-hermes-agent",
+  "composeFile": "/volume1/docker/token-monitor-hermes-agent/docker-compose.yaml",
+  "deviceId": "DXP4800",
+  "agentService": "token-monitor-nas",
+  "hubService": "token-monitor-hub",
+  "stateDir": "/volume1/docker/token-monitor-hermes-agent/state",
+  "hubDataDir": "/volume1/docker/token-monitor-hermes-agent/hub-data",
+  "hermesDir": "/volume1/docker/hermes",
+  "statusTokenFile": "/REPLACE-WITH-PRIVATE-LOCAL-TOKEN-FILE",
+  "controlDir": "/volume1/docker/token-monitor-hermes-agent/deployment-control",
+  "healthTimeoutSeconds": 180,
+  "rollbackReceiptFile": null
+}

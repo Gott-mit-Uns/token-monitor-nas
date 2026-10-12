@@ -14,21 +14,9 @@ image: ghcr.io/gott-mit-uns/token-monitor-hermes:latest
 
 `latest` 指向最近一次通过双架构构建和测试的版本；也可以固定到 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.68.0-05`。支持 `linux/amd64` 与 `linux/arm64`。完整版本规则写在 [VERSIONING.md](VERSIONING.md)：官方版本作为前缀，每次引入新官方版本时 NAS 修订号从 `-01` 开始；同一官方版本上的 NAS 修改递增为 `-02`、`-03`。发布检查会校验版本号、Dockerfile 与官方 `app/package.json` 一致。固定镜像标签不覆盖，GitHub Release 保留 `v` 前缀；Agent 上报省略 `v`，避免桌面显示 `vv`。
 
-仅部署 Agent 时，拉取并重新创建当前服务：
+GitHub 发布不会自动更新 NAS。新受控部署能力见 [DEPLOYMENT.md](DEPLOYMENT.md)，测试和回滚演练记录见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。独立手动流程选择目标 NAS、当前/目标版本即批准部署；没有额外 Environment 审批。NAS 主动 HTTPS 拉取请求，先完整备份和副本校验，再分阶段更新 Hub、Agent，最终验收成功才回报 GitHub。生产首次接入和实际部署须另外获得所有者授权。
 
-```sh
-docker compose pull
-docker compose up -d token-monitor-nas
-```
-
-同一个 Compose 同时部署 Hub 和 Agent 时，必须一并更新两个服务：
-
-```sh
-docker compose pull token-monitor-hub token-monitor-nas
-docker compose up -d token-monitor-hub token-monitor-nas
-```
-
-GitHub 上发布代码和镜像不会自动替 NAS 拉取镜像。旧的固定标签与提交 SHA 标签保留作回退用途。
+`v0.69.0-02` 是这一能力的开发候选，尚未正式发布或生产接入。现有 `v0.69.0-01` 及固定镜像保留，不覆盖历史 Tag。升级后维护者应通过受控流程更新，保留原 Compose、私有环境、设备 ID与持久化路径；生成的镜像 override 必须用于后续重建。
 
 ## Compose 与设备名称
 
