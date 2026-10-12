@@ -14,4 +14,4 @@ NAS 镜像和 GitHub Release 使用同一个版本号：`v<官方版本>-<两位
 
 Windows Adapter 使用独立仓库 `Gott-mit-Uns/token-monitor-adapter` 与 `adapter-v<版本>`。不要在本仓库提交 Adapter 源码或发布 Adapter EXE，也不要把 Adapter 的版本号用于 NAS 镜像。
 
-当前升级候选为 `v0.69.0-01`，仅在分支维护版本输入；固定标签、Release 和 latest 必须在验收后由现有发布流程创建。PR 原生验证不发布镜像或改写已有标签。
+当前已发布版本为 `v0.69.0-01`，固定标签、Release 和 latest 已由双架构验收后的现有发布流程创建。后续仅文档更新不重建或覆盖这一固定版本；运行时代码变化须增加 NAS 修订号。PR 原生验证不发布镜像或改写已有标签。
