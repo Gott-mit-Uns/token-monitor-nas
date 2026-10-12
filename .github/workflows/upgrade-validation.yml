@@ -1,0 +1,60 @@
+name: Validate upgrade candidate
+on:
+  pull_request:
+  push:
+    branches: ['upgrade/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: upgrade-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Validate version and source safety
+        run: |
+          node scripts/check-nas-version.js
+          python3 scripts/check-publication-safety.py
+          node --test scripts/tests/*.test.js
+      - name: Validate deployment templates without production configuration
+        run: |
+          docker compose --env-file .env.example -f docker-compose.yaml config --quiet
+          docker compose --env-file .env.example -f docker-compose.4300.yaml config --quiet
+      - name: Build native candidate without publishing
+        run: |
+          test "$(uname -m)" = "${{ matrix.arch }}"
+          docker build -t token-monitor-candidate .
+      - name: Verify pinned Tokscale and NAS regressions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          docker run --rm -e GITHUB_TOKEN -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-candidate node scripts/verify-vendored-tokscale-release.js
+          docker run --rm -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-candidate node scripts/verify-vendored-tokscale-clients.js
+          docker run --rm -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-candidate node scripts/verify-vendored-tokscale.js
+          docker run --rm -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" token-monitor-candidate node scripts/test-nas.js
+      - name: Compare fixed synthetic workload against released baseline
+        run: |
+          mkdir -p /tmp/token-monitor-baseline /tmp/token-monitor-performance
+          git archive 2fdfbc57dd11fd0838aff2820504da2d2d67fcf3 app | tar -x -C /tmp/token-monitor-baseline
+          docker run --rm -v /tmp/token-monitor-baseline/app:/baseline node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 sh -c 'cd /baseline && npm ci --omit=dev --ignore-scripts'
+          docker run --rm -v /tmp/token-monitor-baseline/app:/baseline:ro -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v /tmp/token-monitor-performance:/evidence token-monitor-candidate node scripts/benchmark-nas-regression.js --baseline /baseline --candidate /opt/token-monitor --repeats 3 --sessions 1000 --idle-ms 1500 --sustain-ms 60000 --sample-ms 50 --tick-ms 250 --output /evidence/synthetic-performance.json
+      - name: Save native performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-performance-${{ matrix.arch }}
+          path: /tmp/token-monitor-performance/synthetic-performance.json
+          if-no-files-found: warn

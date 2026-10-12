@@ -208,3 +208,14 @@ test('once can recover when a later complete snapshot uploads successfully', asy
   assert.equal(sends, 2);
   assert.equal(result.today.totalTokens, 9);
 });
+
+test('headless runtime observes status with usage scans without a local activity heartbeat', () => {
+  let configured;
+  const runtime = runAgent({ usageOptions: { clients: 'claude,codex' } }, {
+    createDeviceRuntime: options => { configured = options; return { stop() {} }; },
+    createOrderedSink: () => ({})
+  });
+  assert.equal(configured.usageOptions.sessionActivityPolling, false);
+  assert.equal(configured.usageOptions.clients, 'claude,codex');
+  runtime.stop();
+});

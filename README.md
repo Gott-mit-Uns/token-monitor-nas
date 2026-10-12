@@ -1,6 +1,6 @@
 # Token Monitor NAS
 
-基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.68.0`，NAS 发布版本是 `v0.68.0-05`。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
+基于 [Token Monitor 官方项目](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到自己配置的桌面 Hub。当前官方源码基线是 `v0.69.0`，NAS 升级候选版本是 `v0.69.0-01`（尚未发布或部署）。官方提交及源码范围见 [UPSTREAM.md](UPSTREAM.md)。
 
 Windows EXE Adapter 已迁移到独立公开仓库 [token-monitor-adapter](https://github.com/Gott-mit-Uns/token-monitor-adapter)，包括源码、Windows 构建工作流与历史 `adapter-v*` Release。本仓库维护 NAS Docker Agent 与 Node Hub；Adapter 更新与下载请使用新仓库。
 
@@ -97,3 +97,11 @@ Hub 环境变量 `TOKEN_MONITOR_WINDOWS_STREAM_ENABLED: "1"` 启用 `/windows` �
 `GET /windows/api/stream/status` 受现有密钥保护，提供当前周期、日历状态、连接压缩状态、完整事件/保活计数、编码后正文大小和按接口类别的请求数。仅在进程内累计，重启归零，不保存 URL 参数、认证头、标题或会话内容。字节数表示交给 HTTP 响应的正文，不含 HTTP/TLS、重传，不作为每字节成功送达的证明。
 
 只更新 Hub 时，先备份实际 Compose、Hub 数据及原镜像，设置开关后只重建 Hub 服务。两台 Agent 无需因此重建。Windows 先备份客户端配置；若有 Adapter，确认待上报已送达后暂停。更换 Hub 地址会改变客户端同步目标身份，需要重新核对标题许可、模型别名、自定义价格和订阅，勿用空的本地配置覆盖远端。直连验收通过后再关闭 Adapter 登录启动，保留原程序和数据作回退。回退可恢复旧 Windows 地址/Adapter，或切回 `v0.68.0-02` Hub 镜像及旧 Compose，保留当前 Hub 数据。
+
+## v0.69.0-01 升级候选与后续维护
+
+冻结基线见 [upstream-lock.json](upstream-lock.json)，完整差异决策见 [UPSTREAM_0.69_AUDIT.md](UPSTREAM_0.69_AUDIT.md)，NAS 补丁清单见 [NAS_PATCHES.md](NAS_PATCHES.md)。本候选不改变两台 NAS 的设备 ID、目录和默认采集范围；镜像与裸 Agent 入口也默认 Hermes-only、独立 Watcher。会话关系字段向前兼容，瞬时等待/活动不写会话历史归档。
+
+候选验收和升级/回退步骤见 [UPGRADE_0.69.md](UPGRADE_0.69.md)。PR 检查在原生 amd64/arm64 构建、不发布镜像，运行 NAS 回归及同机器固定数据性能对比并保存结果。发布工作流仍须双架构验证后推广不可变标签；本分支不更新 latest。性能工具与限制见 [benchmark-nas-regression.md](app/scripts/benchmark-nas-regression.md)。
+
+`Report official upstream releases` 每周一生成最新官方 Release 相对冻结基线的范围报告，只提供 Actions 摘要和 artifact，不自动升级、不发布、不访问 NAS。新版本升级时先更新差异审计，再三方合并 NAS 补丁并重新验证。Windows Adapter 继续在独立仓库维护。

@@ -6,11 +6,12 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { antigravityCliDataDir, canonicalWatchPath, clientSourceRoots, copilotExporterWatch } = require('./clientSources');
+const { antigravityCliDataDir, canonicalWatchPath, canonicalWatchFilePath, clientSourceRoots, copilotExporterWatch } = require('./clientSources');
 const { dirExists } = require('./clientSourceObservations');
 const { normalizeCustomScanPaths } = require('./customScanPaths');
 const { antigravityDataRoots } = require('./providers/antigravity/selfSync');
 const { SELF_SYNC_KINDS } = require('./selfSyncThrottle');
+const { cursorDesktopWatchRoots, isCursorDesktopStateWrite } = require('./providers/cursor/desktopState');
 
 // Sources that remain part of collection, health, and diagnostics but are too
 // broad for a persistent recursive watcher. Kiro globalStorage accepts every
@@ -263,8 +264,15 @@ function watchPolicyEntries(clientsCsv, options = {}) {
   const exporter = copilotExporterWatch(os.homedir());
   if (exporter) bound('copilot', [exporter.dir], (_parts, resolved) => resolved !== exporter.canonicalFile);
 
+  const cursorEnabled = String(clientsCsv || '').split(',').map((value) => value.trim().toLowerCase()).includes('cursor');
+  // Cursor owns this source; Tokscale only reads its credentials/titles and
+  // writes a separate usage cache. Never descend into extension storage, and
+  // never watch the wal-index our own read-only SQLite queries can recreate.
+  bound('cursor', cursorEnabled ? options.cursorDesktopRoots || cursorDesktopWatchRoots(options) : [],
+    directChildOnly(isCursorDesktopStateWrite));
+
   const antigravityEnabled = String(clientsCsv || '').split(',').map((value) => value.trim().toLowerCase()).includes('antigravity');
-  bound('antigravity', antigravityEnabled ? antigravityDataRoots() : [], (parts) => {
+  bound('antigravity', antigravityEnabled ? antigravityDataRoots(options.homeDir || os.homedir()) : [], (parts) => {
     if (parts.length === 1) {
       return !ANTIGRAVITY_SOURCE_DIRS.has(parts[0]) && !ANTIGRAVITY_SOURCE_FILES.has(parts[0]);
     }
@@ -275,11 +283,21 @@ function watchPolicyEntries(clientsCsv, options = {}) {
     if (ANTIGRAVITY_SHALLOW_SOURCE_DIRS.has(firstChild)) return parts.length > 2;
     return false;
   });
+  if (antigravityEnabled) {
+    const { antigravityConversationSummaryCandidates } = require('./providers/antigravity/sessionMetadata');
+    const summarySources = antigravityConversationSummaryCandidates({ home: options.homeDir || os.homedir(), env: options.env || process.env })
+      .map((candidate) => {
+        const file = canonicalWatchFilePath(candidate);
+        return { file, dir: path.dirname(file) };
+      });
+    for (const { file, dir } of summarySources) {
+      const name = path.basename(file);
+      bound('antigravity', [dir], directChildOnly((child) => child === name || child === `${name}-wal`));
+    }
+  }
 
   const reasonixEnabled = String(clientsCsv || '').split(',').map((value) => value.trim().toLowerCase()).includes('reasonix');
   if (reasonixEnabled) {
-    // These helpers share a module with the native-session parser. Other
-    // clients must not load that parser and its usage dependencies just to watch.
     const { isReasonixNativeSessionSidecar, reasonixNativeSessionWatchRoots } = require('./providers/reasonix/sessions');
     bound(
       'reasonix',
@@ -368,8 +386,8 @@ function watchPolicyEntries(clientsCsv, options = {}) {
           && !(claimed.get(client) || EMPTY_SET).has(dir)
         ))
         .map((dir) => ({ root: canonicalRoot(dir), custom: isCustomOnly(client, canonicalRoot(dir)) }))),
-    ...(antigravityEnabled && dirExists(antigravityCliDataDir())
-      ? [{ root: canonicalRoot(antigravityCliDataDir()), custom: false }]
+    ...(antigravityEnabled && dirExists(antigravityCliDataDir(options))
+      ? [{ root: canonicalRoot(antigravityCliDataDir(options)), custom: false }]
       : [])
   ];
   // A directory that is a built-in root for any client keeps everything, even
@@ -471,6 +489,7 @@ const WATCH_POLLING_ENTRY_LIMIT = 20000;
 // matcher — and stops as soon as the count passes `limit`, so a million-entry
 // tree costs no more than a small one. opendir rather than readdir, because a
 // single flat directory can itself hold the whole tree.
+// Overlapping roots walk each lexical directory once, just as chokidar does.
 //
 // Symlinked directories are followed, as chokidar follows them by default, and
 // every link is walked on its own: chokidar dedupes by the link's own path, not
@@ -481,9 +500,12 @@ const WATCH_POLLING_ENTRY_LIMIT = 20000;
 // the safe answer for a tree chokidar could not finish either.
 function watchEntriesExceed(dirs, ignored, limit) {
   let count = 0;
-  const pending = [...dirs];
+  const pending = dirs.map((dir) => path.resolve(dir));
+  const visited = new Set();
   while (pending.length > 0) {
     const dir = pending.pop();
+    if (visited.has(dir)) continue;
+    visited.add(dir);
     let handle;
     try { handle = fs.opendirSync(dir); } catch (_) { continue; }
     try {
@@ -536,7 +558,12 @@ const WATCH_REFUSAL_CODES = new Set([WATCH_POLLING_LIMIT_CODE, WATCH_POLLING_UNA
 // because the host can switch to polling on its own (a watch process that never
 // confirmed its exit), and a check the host can route around bounds nothing.
 function openWatch(chokidar, config = {}) {
-  const ignored = watchIgnoreMatcher(config.clients, { customScanPaths: config.customScanPaths });
+  const ignored = activityWatchIgnored(watchIgnoreMatcher(config.clients, {
+    customScanPaths: config.customScanPaths,
+    cursorDesktopRoots: config.cursorDesktopRoots,
+    homeDir: config.homeDir,
+    env: config.env
+  }), config.usageDirs || config.dirs || [], config.activitySources || []);
   const limit = Number.isInteger(config.pollingEntryLimit) && config.pollingEntryLimit >= 0
     ? config.pollingEntryLimit
     : WATCH_POLLING_ENTRY_LIMIT;
@@ -572,7 +599,48 @@ function watcherOptions(usePolling, ignored) {
   };
 }
 
+function activityWatchIgnored(usageIgnored, usageDirs, sources, pathApi = path) {
+  const path = pathApi;
+  const comparablePath = path.sep === '\\' ? (value) => value.toLowerCase() : (value) => value;
+  if (!sources.length) return usageIgnored;
+  // chokidar calls this for every path, often before and after stat. Compile the
+  // small activity allowlist once instead of allocating path.relative strings
+  // against every activity source for the whole historical transcript tree.
+  const prefix = (root) => root.endsWith(path.sep) ? root : root + path.sep;
+  const directory = (root) => {
+    const dir = comparablePath(path.resolve(root));
+    return { dir, prefix: prefix(dir) };
+  };
+  const usage = usageDirs.map(directory);
+  const ancestors = new Set();
+  const files = new Set();
+  const registries = [];
+  const roots = sources.map((source) => {
+    const target = comparablePath(path.resolve(source.target));
+    for (let dir = target; ; dir = path.dirname(dir)) {
+      ancestors.add(dir);
+      if (path.dirname(dir) === dir) break;
+    }
+    if (source.kind === 'pid-registry') registries.push(prefix(target));
+    else {
+      files.add(target);
+      files.add(`${target}-wal`);
+      if (source.runtimeFile) files.add(comparablePath(path.resolve(source.runtimeFile)));
+    }
+    return directory(source.dir);
+  });
+  return (filePath) => {
+    const resolved = comparablePath(path.resolve(filePath));
+    if (ancestors.has(resolved) || files.has(resolved)
+      || registries.some((root) => resolved.startsWith(root) && /^[1-9]\d*\.json$/.test(resolved.slice(root.length)))) return false;
+    if (roots.some((root) => resolved === root.dir || resolved.startsWith(root.prefix))
+      && !usage.some((root) => resolved === root.dir || resolved.startsWith(root.prefix))) return true;
+    return usageIgnored?.(filePath) || false;
+  };
+}
+
 module.exports = {
+  activityWatchIgnored,
   clientWatchCandidates,
   SELF_SYNCED_CLIENTS,
   resolveWatchUsePolling,
