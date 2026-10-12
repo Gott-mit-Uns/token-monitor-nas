@@ -31,8 +31,11 @@ jobs:
           node --test scripts/tests/*.test.js
       - name: Validate deployment templates without production configuration
         run: |
+          # Compose service env_file is independent of CLI interpolation env-file.
+          cp .env.example .env
           docker compose --env-file .env.example -f docker-compose.yaml config --quiet
           docker compose --env-file .env.example -f docker-compose.4300.yaml config --quiet
+          rm .env
       - name: Build native candidate without publishing
         run: |
           test "$(uname -m)" = "${{ matrix.arch }}"

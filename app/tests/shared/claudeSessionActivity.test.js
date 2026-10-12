@@ -578,5 +578,3 @@ test('the existing watcher routes registry changes into activity without schedul
   collector.stop(); watcher.emit('all', 'change', registry);
   assert.equal(scans, 3);
 });
-
-
