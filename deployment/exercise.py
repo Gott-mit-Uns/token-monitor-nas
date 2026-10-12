@@ -62,6 +62,14 @@ class SandboxDocker(m.RealDocker):
             raise m.Refused('injected_hub_validation_failure')
         return result
 
+def verify_fixture_accounting(adapter):
+    # This fixed synthetic dataset contains 100 input + 20 output + 5 cached
+    # tokens. Verify actual Hub ingress, not merely the successful upload flag.
+    script = """const assert=require('assert/strict');(async()=>{const response=await fetch(process.env.TOKEN_MONITOR_HUB_URL+'/api/devices',{headers:{authorization:'Bearer '+process.env.TOKEN_MONITOR_SECRET}});assert.equal(response.status,200);const data=await response.json();const record=data.devices.find(d=>d.deviceId===process.env.TOKEN_MONITOR_DEVICE_ID);assert.ok(record);for(const period of ['today','month','allTime']){assert.equal(record.periods[period].totalTokens,125);assert.equal(record.periods[period].outputTokens,20);assert.equal(record.periods[period].cacheReadTokens,5);}console.log(JSON.stringify({fixedAccounting:true}));})().catch(()=>process.exitCode=1);"""
+    info=adapter.inspect(adapter.cfg['agentService'])
+    result=json.loads(m.run(['docker','exec',info['Id'],'node','-e',script]))
+    assert result['fixedAccounting'] is True
+
 def fixture(path):
     with sqlite3.connect(path) as db:
         db.executescript('''CREATE TABLE sessions(id TEXT PRIMARY KEY,source TEXT NOT NULL,model TEXT,started_at REAL NOT NULL,message_count INTEGER DEFAULT 0,input_tokens INTEGER DEFAULT 0,output_tokens INTEGER DEFAULT 0,cache_read_tokens INTEGER DEFAULT 0,cache_write_tokens INTEGER DEFAULT 0,reasoning_tokens INTEGER DEFAULT 0,billing_provider TEXT,estimated_cost_usd REAL,actual_cost_usd REAL);
@@ -106,7 +114,9 @@ def main():
         candidate_id=broken.image(args.candidate)['Id'];assert ('sandbox-agent',candidate_id) not in broken.started
         assert broken.inspect('sandbox-agent')['Image']==broken.image(BASELINE)['Id']
         result['hubFailureStopsAgentAndVerifiedSnapshotRollback']='passed'
-        final=m.Engine(cfg,SandboxDocker(cfg,args.candidate,args.source),api).deploy(request(3));assert final['phase']=='success'
+        successful=SandboxDocker(cfg,args.candidate,args.source)
+        final=m.Engine(cfg,successful,api).deploy(request(3));assert final['phase']=='success'
+        verify_fixture_accounting(successful)
         assert [stage['phase'] for stage in final['stages']].index('hub-verified')<[stage['phase'] for stage in final['stages']].index('agent-start-intent')
         result['stagedHubAgentDeployment']='passed'
         try:m.Engine(cfg,SandboxDocker(cfg,args.candidate,args.source),api).deploy(request(3))
@@ -132,8 +142,9 @@ def main():
         remote_request={**request(4),'target':'DH4300Plus'}
         remote_result=m.Engine(second_cfg,secondary,api).deploy(remote_request)
         assert remote_result['phase']=='success'
+        verify_fixture_accounting(secondary)
         assert not any(stage['phase'].startswith('hub-') for stage in remote_result['stages'])
-        result['agentOnlyRemoteHubDeployment']='passed';result['statusEvents']=api.events
+        result['agentOnlyRemoteHubDeployment']='passed';result['fixedHermesHubAccounting']='passed';result['statusEvents']=api.events
         Path(args.output).parent.mkdir(parents=True,exist_ok=True);Path(args.output).write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps({k:v for k,v in result.items() if k!='statusEvents'}))
     finally:
