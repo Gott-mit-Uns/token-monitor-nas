@@ -41,6 +41,10 @@ class SandboxDocker(m.RealDocker):
         try:
             return super().verify_state(snapshot)
         except m.Refused as error:
+            if str(error) == 'hub_policy_changed':
+                before=json.loads((snapshot/'hub-data'/'devices.json').read_text())
+                after=json.loads((Path(self.cfg['hubDataDir'])/'devices.json').read_text())
+                print(json.dumps({'syntheticHubChangedPolicyFields':[k for k in ['syncSettings','syncTitlePolicies','subscriptions'] if before.get(k)!=after.get(k)]}),flush=True)
             if str(error) == 'agent_history_lost':
                 # Diagnostic paths only, on this explicitly synthetic sandbox.
                 def differences(a, b, prefix=''):
