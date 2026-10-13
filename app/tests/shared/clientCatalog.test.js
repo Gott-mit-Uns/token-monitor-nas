@@ -51,7 +51,7 @@ test('derived KNOWN_CLIENTS keeps the established id order', () => {
   assert.equal(KNOWN_CLIENTS, CLIENT_IDS.join(','));
   assert.equal(
     KNOWN_CLIENTS,
-    'claude,codex,opencode,hermes,openclaw,cursor,antigravity,cline,amp,droid,kimi,qwen,grok,copilot,pi,omp,zed,kilo,commandcode,mimo,muse,zcode,kiro,codebuddy,workbuddy,proma,qodercn,reasonix,dsh,cherrystudio,lmstudio,unsloth,devin,fx,mcode'
+    'claude,codex,opencode,hermes,openclaw,cursor,antigravity,cline,amp,droid,kimi,qwen,grok,copilot,pi,omp,zed,kilo,commandcode,mimo,muse,zcode,kiro,codebuddy,workbuddy,proma,catpaw,qodercn,reasonix,dsh,cherrystudio,lmstudio,unsloth,devin,fx,mcode'
   );
 });
 
@@ -64,7 +64,7 @@ test('derived DEFAULT_CLIENTS keeps the existing default-tracked CSV', () => {
 });
 
 test('derived FORK_ONLY_CLIENT_IDS lists exactly the clients the tokscale fork owns', () => {
-  assert.deepEqual([...FORK_ONLY_CLIENT_IDS], ['proma', 'qodercn']);
+  assert.deepEqual([...FORK_ONLY_CLIENT_IDS], ['proma', 'catpaw', 'qodercn']);
 });
 
 test('default-tracked clients are a subset of the catalog, in catalog order', () => {
@@ -93,7 +93,7 @@ test('KNOWN_CLIENT_LIST is the catalog projection the renderer consumes', () => 
   assert.deepEqual(KNOWN_CLIENT_LIST, CLIENT_CATALOG.map(({ id, label }) => ({ id, label })));
 });
 
-test('the widget renderer loads the catalog before app.js', () => {
+test('Desktop: the widget renderer loads the catalog before app.js', { skip: !fs.existsSync(path.join(rootDir, 'src/electron/renderer/index.html')) && 'NAS does not ship the Electron widget renderer' }, () => {
   // app.js destructures window.TokenMonitorClientCatalog at its top level, so a
   // missing or late script tag is a blank-window failure at load time.
   const html = fs.readFileSync(path.join(rootDir, 'src/electron/renderer/index.html'), 'utf8');

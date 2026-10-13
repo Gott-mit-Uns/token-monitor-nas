@@ -36,26 +36,14 @@ function parseArchiveRow(row) {
   }
 }
 
-// SQLite already holds the persisted JSON. Materializing all rows also kept
-// every JSON string alive while constructing the full in-memory archive.
-// Iterate so only the current row needs that extra representation, and release
-// the statement even when advancing the iterator itself fails.
-function* iterateSessionRows(database, sinceRevision) {
-  const statement = sinceRevision === undefined
-    ? database.prepare('SELECT session_key, entry_json FROM sessions')
-    : database.prepare(`
-      SELECT session_key, entry_json
-      FROM sessions
-      WHERE revision > ?
-      ORDER BY revision, session_key
-    `);
-  const rows = sinceRevision === undefined
-    ? statement.iterate()
-    : statement.iterate(sinceRevision);
+// Release the SQLite read cursor even when next() throws. for-of alone only
+// closes an iterator when its body exits early, not when stepping it fails.
+function* iterateSessionRows(statement, ...parameters) {
+  const rows = statement.iterate(...parameters);
   try {
-    yield* rows;
+    for (const row of rows) yield row;
   } finally {
-    rows.return?.();
+    rows.return();
   }
 }
 
@@ -80,7 +68,7 @@ function readMigratedArchiveSnapshot(options = {}) {
     const archive = normalizeSessionUsageArchive({});
     if (metadata.get('pruned-day')) archive.prunedDay = metadata.get('pruned-day');
     if (metadata.get('pruned-month')) archive.prunedMonth = metadata.get('pruned-month');
-    for (const row of iterateSessionRows(database)) {
+    for (const row of iterateSessionRows(database.prepare('SELECT session_key, entry_json FROM sessions'))) {
       const entry = parseArchiveRow(row);
       if (entry) archive.sessions[row.session_key] = entry;
     }
@@ -131,10 +119,20 @@ function createSessionUsageArchiveStore(options = {}) {
   }
 
   function loadRevisedRows(sinceRevision) {
-    for (const row of iterateSessionRows(database, sinceRevision)) {
-      const entry = parseRow(row);
-      if (entry) archive.sessions[row.session_key] = entry;
-      else delete archive.sessions[row.session_key];
+    // Stage parsed entries, never raw JSON rows. An interrupted cursor must not
+    // expose a partial catch-up through the archive held by existing callers.
+    const changes = new Map();
+    for (const row of iterateSessionRows(database.prepare(`
+      SELECT session_key, entry_json
+      FROM sessions
+      WHERE revision > ?
+      ORDER BY revision, session_key
+    `), sinceRevision)) {
+      changes.set(row.session_key, parseRow(row));
+    }
+    for (const [key, entry] of changes) {
+      if (entry) archive.sessions[key] = entry;
+      else delete archive.sessions[key];
     }
   }
 
@@ -246,16 +244,14 @@ function createSessionUsageArchiveStore(options = {}) {
       const loadedRevision = Number(metadataValue('revision') || 0);
       const prunedDay = metadataValue('pruned-day');
       const prunedMonth = metadataValue('pruned-month');
-      const loaded = normalizeSessionUsageArchive({});
-      for (const row of iterateSessionRows(database)) {
+      const loadedArchive = normalizeSessionUsageArchive({});
+      for (const row of iterateSessionRows(database.prepare('SELECT session_key, entry_json FROM sessions'))) {
         const entry = parseRow(row);
-        if (entry) loaded.sessions[row.session_key] = entry;
+        if (entry) loadedArchive.sessions[row.session_key] = entry;
       }
-      if (prunedDay) loaded.prunedDay = prunedDay;
-      if (prunedMonth) loaded.prunedMonth = prunedMonth;
-      // An interrupted scan must not replace the last complete archive with a
-      // partial result or advance its revision boundary.
-      archive = loaded;
+      if (prunedDay) loadedArchive.prunedDay = prunedDay;
+      if (prunedMonth) loadedArchive.prunedMonth = prunedMonth;
+      archive = loadedArchive;
       revision = loadedRevision;
       archiveSource = 'database';
       reloadRequired = false;

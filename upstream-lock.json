@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Javis603/token-monitor",
-  "tag": "v0.69.0",
-  "commit": "3f106ae3d4712b26cced8272f0d488eaab0de1e6",
-  "previousTag": "v0.68.0",
-  "previousCommit": "5d2db368d8313415763860d594de00e46a663418",
-  "nasBaseline": "2fdfbc57dd11fd0838aff2820504da2d2d67fcf3",
+  "tag": "v0.70.0",
+  "commit": "ac4eeb2c4aea239dd94b67f074c73f69aafc46f8",
+  "previousTag": "v0.69.0",
+  "previousCommit": "3f106ae3d4712b26cced8272f0d488eaab0de1e6",
+  "nasBaseline": "ec79dc7bff697ed5568b013578a8ec8d6261e67e",
   "scope": [
     "src/shared",
     "src/agent",
@@ -13,6 +13,6 @@
     "package.json",
     "package-lock.json"
   ],
-  "audit": "UPSTREAM_0.69_AUDIT.md",
+  "audit": "UPSTREAM_0.70_AUDIT.md",
   "patches": "NAS_PATCHES.md"
 }

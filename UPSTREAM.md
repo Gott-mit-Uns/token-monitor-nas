@@ -1,5 +1,15 @@
 # 官方源码基线
 
+## NAS v0.70.0-01 candidate
+
+Official `v0.70.0` is frozen at `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`; previous official baseline is `3f106ae3d4712b26cced8272f0d488eaab0de1e6`. NAS runtime baseline is released `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`, with the latest documentation-only main `9d23bed717ded9e850b2035ec55a511aaec9082c`. Hub, Agent and shared keep one baseline.
+
+Hermes reasoning normalization and the fixed Tokscale `fa5f0c13324838d1a988fda317597f9b90da7ad0` are upgraded together; corrected estimated costs may decrease while token buckets and histories must remain. Codex `.jsonl.zst` active/archive compatibility, DSH model attribution and shared T3 title lookup are included. SQLite uses the official equivalent streaming implementation, plus staged revision catch-up, retaining NAS fault-injection tests. No Electron, Dock, Windows Adapter or Worker code enters the image. CatPaw remains opt-in and has no Linux source; NAS defaults remain Hermes-only. Optional quota providers are adapted without enabling accounts.
+
+No mandatory SQLite schema or Hub JSON format migration. Codex parser caches advance from version 12 to 15 and may reparse once; StepFun's optional account identity becomes stable across access-token refresh. Existing unknown/optional fields remain handled by the unchanged shared normalization and Hub protocol. Full pre-deployment state backup and closed restore verification remain necessary.
+
+Audit: [UPSTREAM_0.70_AUDIT.md](UPSTREAM_0.70_AUDIT.md). Validation, release and deployment are distinct gates in [UPGRADE_0.70.md](UPGRADE_0.70.md). The records below describe earlier versions, not current candidate acceptance.
+
 ## NAS v0.69.0-01
 
 官方 Tag `v0.69.0`，提交 `3f106ae3d4712b26cced8272f0d488eaab0de1e6`，上一官方基线 `5d2db368d8313415763860d594de00e46a663418`。NAS 基线为 `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`（v0.68.0-05）。本次同步 shared、Agent runtime、依赖清单和固定 Tokscale manifest；Node Hub 与 Agent 使用同一共享基线，NAS 数据保护、Windows SSE/gzip/日历、Hermes 标题隐私与轻量独立 Watcher 补丁保留。
@@ -29,7 +39,7 @@
 - Hub 长期保存的统计比较值改为 SHA-256 摘要，正文及比较字段不变；普通与 Windows SSE 均沿用现有通知和调度语义。
 - 设备时间戳只接受原有标量类型，防止异常对象被持久化后阻断统计与在线状态读取。
 
-## 最近发布
+## 历史 v0.68 发布记录
 
 - 仓库：<https://github.com/Javis603/token-monitor>
 - 官方 tag：`v0.68.0`
