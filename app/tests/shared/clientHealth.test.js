@@ -326,10 +326,15 @@ test('every source-root id the collector emits is in the allowlist', () => {
   for (const id of ['antigravity-ide-source', 'antigravity-cli-data']) {
     assert.ok(CLIENT_SOURCE_CHECK_IDS.includes(id));
   }
-  // And nothing in the allowlist is dead weight. Two ids are exempt because they
-  // are discovered rather than constructed: `hermes-profile` comes from profiles
-  // found on disk, and `wsl-home` only appears on Windows with a running distro.
-  const discoveryDependent = new Set(['copilot-otel-exporter', 'hermes-profile', 'wsl-home']);
+  // And nothing in the allowlist is dead weight. Some ids are exempt because no
+  // client can construct them here: `copilot-otel-exporter` and `hermes-profile`
+  // come from files found on disk, `wsl-home` only appears on Windows with a
+  // running distro, and CatPaw is both platform- and discovery-conditional —
+  // `catpaw-data` is built only on darwin/win32, and `catpaw-db` only once an
+  // account database is actually found.
+  const discoveryDependent = new Set([
+    'copilot-otel-exporter', 'hermes-profile', 'wsl-home', 'catpaw-data', 'catpaw-db'
+  ]);
   const checked = new Set([...emitted, 'antigravity-ide-source', 'antigravity-cli-data']);
   for (const id of CLIENT_SOURCE_CHECK_IDS) {
     if (discoveryDependent.has(id)) continue;
@@ -753,11 +758,14 @@ test('deriveClientHealth reports every tracked client within the declared shape'
   assert.equal(deriveClientHealth('', {}), null);
 });
 
-// The same shape rules, against whatever this machine actually has. Asserts only
-// what holds on any filesystem — the test above pins the values.
-test('deriveClientHealth holds its own invariants against a real machine', () => {
-  const health = deriveClientHealth(KNOWN_CLIENTS, { clients: {} });
-  const checks = clientSourceChecks(KNOWN_CLIENTS);
+// Check filesystem invariants in an empty synthetic home, without inspecting
+// developer accounts or their installed source directories.
+test('deriveClientHealth holds its own invariants against a synthetic home', (t) => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-health-empty-'));
+  t.after(() => fs.rmSync(homeDir, { recursive: true, force: true }));
+  const options = { homeDir, env: {}, useEnvRoots: false };
+  const checks = clientSourceChecks(KNOWN_CLIENTS, options);
+  const health = deriveClientHealth(KNOWN_CLIENTS, { clients: {} }, { sourceChecks: checks });
   for (const [client, entry] of Object.entries(health.clients)) {
     assert.equal(entry.overall, deriveClientOverall(entry), `${client} overall must follow its own core`);
     assert.equal(entry.source.checkedCount, (checks[client] || []).length);

@@ -74,6 +74,7 @@ const { sessionActivityProvidersFor, refreshSessionActivity } = require('./sessi
 const { isSessionActivityClient } = require('./sessionActivityProviders');
 const { readT3Activities } = require('./t3SessionActivity');
 const { createProcessStartBatch } = require('./processStarts');
+const { catpawSourcesFingerprint } = require('./providers/catpaw/paths');
 const { qoderCnDataPaths } = require('./providers/qodercn/paths');
 const { readLocalUsageView, resolveLocalUsagePricing } = require('./providers/codex/localUsage');
 const { createLocalUsageSource } = require('./providers/codex/localUsageSource');
@@ -89,7 +90,8 @@ const {
   clampTimerDelayMs,
   createSelfSyncThrottle,
   createSourceSyncQueue,
-  mergeSelfSyncSelection
+  mergeSelfSyncSelection,
+  selfSyncSelected
 } = require('./selfSyncThrottle');
 const {
   LIMITS_RESET_BOUNDARY_MAX_TIMER_MS,
@@ -395,12 +397,12 @@ const tokscaleCapabilityResolver = createTokscaleCapabilityResolver({
 // appear in --help even on the pinned fork. Ask the binary instead: a scan of
 // only those ids over an empty home exits 0 on the fork and fails with the
 // unknown-client exit code on an upstream build.
-async function forkOnlyClientsAccepted(command, options = {}) {
-  if (FORK_ONLY_CLIENT_IDS.length === 0) return false;
+async function forkOnlyClientsAccepted(command, options = {}, clients = FORK_ONLY_CLIENT_IDS) {
+  if (clients.length === 0) return false;
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-tokscale-probe-'));
   try {
     await spawnTokscaleJson(
-      ['--json', '--client', FORK_ONLY_CLIENT_IDS.join(','), '--today', '--home', home, '--no-spinner'],
+      ['--json', '--client', clients.join(','), '--today', '--home', home, '--no-spinner'],
       options.timeoutMs ?? TOKSCALE_CAPABILITY_PROBE_TIMEOUT_MS,
       command,
       undefined,
@@ -423,6 +425,15 @@ async function probeTokscaleCapabilities(command, options = {}) {
   const supported = await spawnTokscaleHelp(command, options);
   if (await forkOnlyClientsAccepted(command, options)) {
     for (const client of FORK_ONLY_CLIENT_IDS) supported.add(client);
+  } else {
+    // A pre-CatPaw fork can still accept the existing client batch. Probe
+    // CatPaw separately without changing the other clients' batch rule.
+    const clientGroups = [FORK_ONLY_CLIENT_IDS.filter(client => client !== 'catpaw'), ['catpaw']];
+    for (const clients of clientGroups) {
+      if (await forkOnlyClientsAccepted(command, options, clients)) {
+        for (const client of clients) supported.add(client);
+      }
+    }
   }
   return supported;
 }
@@ -984,6 +995,7 @@ async function collectUsageOnce(options) {
     const syncClients = targetRequested ? targetClientsCsv : normalizedClients;
     await maybeSyncCursor(syncClients, options.logger, {
       minIntervalMs: selfSyncThrottle.minIntervalForTick(options, 'cursor'),
+      explicit: selfSyncSelected(options.forceSelfSync, 'cursor'),
       signal: options.signal,
       timeoutMs: options.selfSyncTimeoutMs,
       terminationOptions: options.subprocessTerminationOptions,
@@ -1767,7 +1779,7 @@ function pricingFingerprint(options = {}) {
   return hash.digest('hex');
 }
 
-function configFingerprint(clientsCsv, allTimeSince, projectsEnabled = true, qoderCnDbPath = '', qoderCnProjectsDir = '', customScanPaths = null, pricingRevision = pricingFingerprint()) {
+function configFingerprint(clientsCsv, allTimeSince, projectsEnabled = true, qoderCnDbPath = '', qoderCnProjectsDir = '', customScanPaths = null, pricingRevision = pricingFingerprint(), sourceOptions = {}, catpawRevision = catpawSourcesFingerprint(normalizeClientsCsv(clientsCsv), sourceOptions)) {
   // Deterministic string that captures the config inputs anchor correctness
   // depends on. When this changes, the persisted anchor is invalidated.
   const qoderCn = String(qoderCnDbPath || '').trim();
@@ -1780,7 +1792,8 @@ function configFingerprint(clientsCsv, allTimeSince, projectsEnabled = true, qod
   // common case.
   const scanKey = customScanPathsFingerprint(customScanPaths);
   const scanPart = scanKey ? `|scan:${scanKey}` : '';
-  return `${normalizeClientsCsv(clientsCsv)}|${allTimeSince}|projects:${projectsEnabled !== false ? 'on' : 'off'}${qoderCnPart}${qoderCnProjectsPart}${scanPart}|pricing:${pricingRevision}`;
+  const catpawPart = catpawRevision ? `|catpaw:${catpawRevision}` : '';
+  return `${normalizeClientsCsv(clientsCsv)}|${allTimeSince}|projects:${projectsEnabled !== false ? 'on' : 'off'}${qoderCnPart}${qoderCnProjectsPart}${scanPart}${catpawPart}|pricing:${pricingRevision}`;
 }
 
 function qoderCnSourcesForClients(clientsCsv, options = {}) {
@@ -1820,7 +1833,7 @@ function collectorAnchorTrust(saved, options = {}) {
   // applying a new `cursor-auto` Today delta to them would split one mode.
   if (normalizeClientsCsv(clients).split(',').includes('cursor') && saved.cursorAutoModelVersion !== 1) return null;
   const pricingRevision = options.pricingRevision ?? pricingFingerprint(options);
-  if (saved.configFingerprint !== configFingerprint(clients, allTimeSince, projectsEnabled, qoderCnDbPath, qoderCnProjectsDir, customScanPaths, pricingRevision)) return null;
+  if (saved.configFingerprint !== configFingerprint(clients, allTimeSince, projectsEnabled, qoderCnDbPath, qoderCnProjectsDir, customScanPaths, pricingRevision, options)) return null;
   const parsed = Date.parse(saved.fullScanAt || '');
   const capturedAtMs = Number.isFinite(parsed) && parsed <= now.getTime() ? parsed : null;
   return { capturedAtMs };
@@ -1861,9 +1874,9 @@ const WATCH_MAX_WAIT_MS = 5000;
 // its -wal, so a genuine change still produces an event; a client whose scan was
 // measured NOT to rewrite its sidecar (mimo) is deliberately absent here, and
 // adding a client to this list asserts a measurement rather than a hunch.
-// Cherry Studio also rewrites its wal-index on repeated read-only WAL scans.
+// Cherry Studio and CatPaw also rewrite their wal-index on repeated read-only WAL scans.
 // Cursor's read-only desktop credential/title queries change state.vscdb-shm too.
-const SELF_WATCHED_SQLITE_SIDECAR_CLIENTS = Object.freeze(['antigravity', 'cherrystudio', 'cursor', 'qodercn', 'zcode']);
+const SELF_WATCHED_SQLITE_SIDECAR_CLIENTS = Object.freeze(['antigravity', 'catpaw', 'cherrystudio', 'cursor', 'qodercn', 'zcode']);
 
 function isSelfWatchSqliteSidecarEvent(filePath, rootsByClient = {}) {
   // Match SQLite's wal-index suffix, not one client's database basename: ZCode's
@@ -1982,6 +1995,7 @@ function startCollector(options) {
   // later full/history tick instead of losing it at the tick boundary.
   let liveDailyHistoryDays = {};
   let pricingRevision = pricingFingerprint(options);
+  let sourceRevision = catpawSourcesFingerprint(normalizedClients, sourceOptions);
   let lastFullScanAt = 0;
   let pendingWaiters = [];
   let debounceTimer = null;
@@ -2095,7 +2109,8 @@ function startCollector(options) {
         qoderCnDbPath,
         qoderCnProjectsDir,
         customScanPaths: options.customScanPaths,
-        pricingRevision
+        pricingRevision,
+        ...sourceOptions
       });
       if (trust) {
         anchor = {
@@ -2126,9 +2141,10 @@ function startCollector(options) {
     } catch (_) {}
   }
 
-  function persistAnchor(tickPricingRevision) {
+  function persistAnchor(tickPricingRevision, tickSourceRevision) {
     if (options.anchorPersistenceEnabled === false) return;
     try {
+      // Bind the baseline to the scanned inputs, even if another account appears before the write.
       fs.mkdirSync(path.dirname(anchorPath), { recursive: true });
       fs.writeFileSync(anchorPath, JSON.stringify({
         dateKey: anchor.dateKey,
@@ -2145,7 +2161,7 @@ function startCollector(options) {
         wslStatus: wslStatusAnchor,
         ...(anchor.nativeSessions ? { nativeSessions: anchor.nativeSessions } : {}),
         ...(anchor.nativeProjects ? { nativeProjects: anchor.nativeProjects } : {}),
-        configFingerprint: configFingerprint(clients, allTimeSince, options.projectsEnabled, qoderCnDbPath, qoderCnProjectsDir, options.customScanPaths, tickPricingRevision),
+        configFingerprint: configFingerprint(clients, allTimeSince, options.projectsEnabled, qoderCnDbPath, qoderCnProjectsDir, options.customScanPaths, tickPricingRevision, sourceOptions, tickSourceRevision),
         fullScanAt: new Date(lastFullScanAt).toISOString()
       }));
     } catch (_) {}
@@ -2183,6 +2199,7 @@ function startCollector(options) {
   }
 
   const pricingChangedDuringScan = Symbol('pricing changed during scan');
+  const catpawSourcesChangedDuringScan = Symbol('CatPaw sources changed during scan');
 
   async function performTick(reason, tickOptions = {}) {
     const visibilityRevision = codexVisibilityRevision;
@@ -2192,7 +2209,9 @@ function startCollector(options) {
     const tickPricingRevision = pricingFingerprint(options);
     const sessionMetadataFallback = anchor;
     const pricingChanged = tickPricingRevision !== pricingRevision;
-    if (pricingChanged) {
+    const tickSourceRevision = catpawSourcesFingerprint(normalizedClients, sourceOptions);
+    const catpawSourcesChanged = tickSourceRevision !== sourceRevision;
+    if (pricingChanged || catpawSourcesChanged) {
       anchor = null;
       wslAnchor = null;
       wslStatusAnchor = null;
@@ -2200,6 +2219,7 @@ function startCollector(options) {
       lastFullScanAt = 0;
       lastHistoryAt = 0;
       pricingRevision = tickPricingRevision;
+      sourceRevision = tickSourceRevision;
     }
     // The previous live DAY becomes durable history at local midnight. Finalize
     // it before publishing the new day, even when the normal History interval
@@ -2210,7 +2230,7 @@ function startCollector(options) {
       collectedAt.getTime(),
       lastHistoryAt,
       historyIntervalMs,
-      Boolean(tickOptions.forceHistory) || localDayRolledOver || pricingChanged,
+      Boolean(tickOptions.forceHistory) || localDayRolledOver || pricingChanged || catpawSourcesChanged,
       historyEnabled
     );
     if (includeHistory) {
@@ -2229,6 +2249,7 @@ function startCollector(options) {
     try {
       let captured = null;
       let tickLocalView = null;
+      let catpawSourceChangeObserved = false;
       const summary = await collectUsageOnce({
         ...options,
         codexDotsVisible,
@@ -2284,10 +2305,12 @@ function startCollector(options) {
         refreshWsl: anchored ? refreshWsl : false,
         onAnchorComputed: (x) => { captured = x; },
         onProgress: (partial) => {
+          if (catpawSourcesFingerprint(normalizedClients, sourceOptions) !== tickSourceRevision) catpawSourceChangeObserved = true;
           if (visibilityRevision !== codexVisibilityRevision) return;
           if (visibilityRevision !== publishedCodexVisibilityRevision) return;
           if (!partial.today) return;
-          if (pricingChanged || pricingFingerprint(options) !== tickPricingRevision) return;
+          if (pricingChanged || pricingFingerprint(options) !== tickPricingRevision
+              || catpawSourcesChanged || catpawSourceChangeObserved) return;
           try {
             if (typeof onPreview === 'function') {
               // Frozen WSL snapshot, gated so a cross-day/cross-month full scan
@@ -2354,6 +2377,10 @@ function startCollector(options) {
         // its local revision starts at zero, but DeviceState keeps old history.
         summary.history = historyScanSucceeded ? normalizeHistory([], { todayKey }) : null;
       }
+      if (catpawSourceChangeObserved
+          || catpawSourcesFingerprint(normalizedClients, sourceOptions) !== tickSourceRevision) {
+        return catpawSourcesChangedDuringScan;
+      }
       // A settings save can land between the serial period scans. Discard that
       // mixed result and replay all windows against one pricing revision.
       if (pricingFingerprint(options) !== tickPricingRevision) {
@@ -2386,7 +2413,7 @@ function startCollector(options) {
         wslAnchor = captured.wslBundle;
         wslStatusAnchor = captured.wslStatus || null;
         lastFullScanAt = Date.now();
-        persistAnchor(tickPricingRevision);
+        persistAnchor(tickPricingRevision, tickSourceRevision);
       } else if (anchored && captured) {
         const identitiesUpgraded = anchor.sessionIdentityVersion !== captured.sessionIdentityVersion;
         if (identitiesUpgraded) {
@@ -2455,7 +2482,7 @@ function startCollector(options) {
           wslAnchor = captured.wslBundle;
           wslStatusAnchor = captured.wslStatus || null;
         }
-        if (titlesChanged || projectsChanged || sourcesChanged || identitiesUpgraded) persistAnchor(tickPricingRevision);
+        if (titlesChanged || projectsChanged || sourcesChanged || identitiesUpgraded) persistAnchor(tickPricingRevision, tickSourceRevision);
       }
       const transformedSummary = await onUpdate?.(summary, reason);
       publishedCodexVisibilityRevision = visibilityRevision;
@@ -2587,15 +2614,15 @@ function startCollector(options) {
       return new Promise((resolve) => pendingWaiters.push(resolve));
     }
     tickInFlight = true;
-    let pricingReplayUsed = false;
-    const performWithPricingReplay = async (tickReason, scanOptions) => {
+    let inputReplayUsed = false;
+    const performWithInputReplay = async (tickReason, scanOptions) => {
       const result = await performTick(tickReason, scanOptions);
-      if (result !== pricingChangedDuringScan || pricingReplayUsed || stopped) return result;
-      pricingReplayUsed = true;
+      if ((result !== pricingChangedDuringScan && result !== catpawSourcesChangedDuringScan) || inputReplayUsed || stopped) return result;
+      inputReplayUsed = true;
       // At most one automatic replay belongs to this initiating tick, including
       // its coalesced work. A second mismatch waits for a normal tick; neither
       // mixed result is published. Already acknowledged source sync stays consumed.
-      return performTick('pricing-change', {
+      return performTick(result === pricingChangedDuringScan ? 'pricing-change' : 'catpaw-source-change', {
         ...scanOptions,
         forceHistory: true,
         todayOnly: false,
@@ -2606,7 +2633,7 @@ function startCollector(options) {
       });
     };
     try {
-      const initialResult = await performWithPricingReplay(reason, {
+      const initialResult = await performWithInputReplay(reason, {
         ...effectiveTickOptions,
         acknowledgedSourceSync: sourceSyncQueue.acknowledge(effectiveTickOptions.forceSelfSync)
       });
@@ -2631,7 +2658,7 @@ function startCollector(options) {
         pendingTargetClients = null;
         pendingActivityRevision = null;
         const acknowledgedSourceSync = sourceSyncQueue.acknowledge(forceSelfSync);
-        const result = await performWithPricingReplay('coalesced', {
+        const result = await performWithInputReplay('coalesced', {
           forceHistory,
           rolloverHistoryRetry,
           forceSelfSync,

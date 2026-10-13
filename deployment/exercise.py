@@ -16,7 +16,17 @@ import tempfile
 import time
 import nas_pull as m
 
-BASELINE = m.IMAGE + '@sha256:849ad058facfde01a7279efd88333f7461e3bffd3655f3d082913e957c30ed07'
+BASELINES = {
+    'v0.69.0-01': 'sha256:849ad058facfde01a7279efd88333f7461e3bffd3655f3d082913e957c30ed07',
+    'v0.69.0-02': 'sha256:e35fa4c5f050b3944698a96a5ea48e7ee65b4e851ec49c5ddd1271dc02cca4b2',
+}
+
+def versions(baseline_version, version_file=None):
+    candidate = (version_file or Path(__file__).resolve().parents[1] / 'nas-version.txt').read_text().strip()
+    m.require(bool(m.VERSION.fullmatch(candidate)), 'sandbox_candidate_version')
+    m.require(baseline_version in BASELINES, 'sandbox_baseline_version')
+    m.require(candidate != baseline_version, 'sandbox_versions_equal')
+    return m.IMAGE + '@' + BASELINES[baseline_version], candidate
 
 class API:
     def __init__(self): self.events = []
@@ -78,7 +88,9 @@ def fixture(path):
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--candidate',required=True);parser.add_argument('--source',required=True);parser.add_argument('--output',required=True)
+    parser.add_argument('--baseline-version', choices=sorted(BASELINES), default='v0.69.0-02')
     args=parser.parse_args()
+    baseline, candidate_version = versions(args.baseline_version)
     m.require(os.geteuid()==0, 'sandbox_requires_root')
     m.require(bool(m.SHA.fullmatch(args.source)), 'sandbox_source')
     root=Path(tempfile.mkdtemp(prefix='token-monitor-deployment-exercise-',dir='/tmp'));project=root/'project';project.mkdir(mode=0o700)
@@ -89,17 +101,17 @@ def main():
     for provider in ['litellm','openrouter','models-dev']:(cache/f'pricing-{provider}.json').write_text(json.dumps({'timestamp':int(time.time()),'data':{}}))
     env=project/'.env';env.write_text('TOKEN_MONITOR_SECRET='+secrets.token_hex(24)+'\n');env.chmod(0o600)
     cfg={'target':'DXP4800','projectRoot':str(project),'composeFile':str(project/'compose.json'),'deviceId':'sandbox-device','agentService':'sandbox-agent','hubService':'sandbox-hub','stateDir':str(state),'hubDataDir':str(hub),'hermesDir':str(hermes),'controlDir':str(project/'control'),'statusTokenFile':'injected-test-api-no-credential','healthTimeoutSeconds':90,'sandbox':True}
-    common={'image':BASELINE,'init':True,'read_only':True,'cap_drop':['ALL'],'cap_add':['DAC_READ_SEARCH'],'tmpfs':['/tmp:rw,noexec,nosuid,size=64m'],'env_file':['.env'],'mem_limit':'512m','user':'0:0'}
+    common={'image':baseline,'init':True,'read_only':True,'cap_drop':['ALL'],'cap_add':['DAC_READ_SEARCH'],'tmpfs':['/tmp:rw,noexec,nosuid,size=64m'],'env_file':['.env'],'mem_limit':'512m','user':'0:0'}
     hubspec={**common,'command':['node','src/hub/server.js'],'volumes':[str(hub)+':/data'],'environment':{'TOKEN_MONITOR_DATA_FILE':'/data/devices.json','TOKEN_MONITOR_WINDOWS_STREAM_ENABLED':'1','TZ':'Asia/Shanghai'},'healthcheck':{'test':['CMD','node','-e',"fetch('http://127.0.0.1:17321/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"],'interval':'2s','timeout':'5s','retries':15}}
     agentspec={**common,'volumes':[str(state)+':/config',str(hermes)+':/hermes:ro'],'environment':{'HOME':'/config','XDG_CONFIG_HOME':'/config','HERMES_HOME':'/hermes','TZ':'Asia/Shanghai','TOKEN_MONITOR_DEVICE_ID':'sandbox-device','TOKEN_MONITOR_HUB_URL':'http://sandbox-hub:17321','TOKEN_MONITOR_CLIENTS':'hermes','TOKEN_MONITOR_WATCH':'1','TOKEN_MONITOR_WATCH_IN_PROCESS':'0','TOKEN_MONITOR_INTERVAL_MS':'300000','TOKEN_MONITOR_PROJECTS_ENABLED':'0','TOKEN_MONITOR_LIMITS_ENABLED':'0','TOKEN_MONITOR_HISTORY_ENABLED':'1','TOKEN_MONITOR_SESSION_USAGE_ARCHIVE_ENABLED':'1','TOKSCALE_PRICING_CACHE_ONLY':'1'},'healthcheck':{'test':['CMD','node','src/agent/nasHealth.js'],'interval':'2s','timeout':'5s','retries':15,'start_period':'30s'}}
     Path(cfg['composeFile']).write_text(json.dumps({'name':'sandbox-deploy-'+secrets.token_hex(4),'services':{'sandbox-hub':hubspec,'sandbox-agent':agentspec}}))
-    api=API();adapter=SandboxDocker(cfg,args.candidate,args.source);result={'scope':'synthetic-only; no production NAS, credentials or publishing','sourceCommit':args.source,'baselineVersion':'v0.69.0-01','candidateVersion':'v0.69.0-02'}
+    api=API();adapter=SandboxDocker(cfg,args.candidate,args.source);result={'scope':'synthetic-only; no production NAS, credentials or publishing','sourceCommit':args.source,'baselineVersion':args.baseline_version,'baselineImage':baseline,'candidateVersion':candidate_version}
     digest='sha256:'+'c'*64
-    manifest={'schemaVersion':1,'version':'v0.69.0-02','sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'platforms':[{'os':'linux','architecture':a,'digest':'sha256:'+'a'*64} for a in ['amd64','arm64']],'compatibleFrom':['v0.69.0-01'],'migration':{'kind':'none','rollback':'restore-snapshot','notes':'Synthetic whole-state restore rehearsal'}}
-    def request(identity):return {'schemaVersion':1,'target':'DXP4800','deploymentId':identity,'workflowRunId':1,'version':manifest['version'],'fromVersion':'v0.69.0-01','sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'manifest':manifest,'expiresAt':(dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=1)).isoformat()}
+    manifest={'schemaVersion':1,'version':candidate_version,'sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'platforms':[{'os':'linux','architecture':a,'digest':'sha256:'+'a'*64} for a in ['amd64','arm64']],'compatibleFrom':[args.baseline_version],'migration':{'kind':'none','rollback':'restore-snapshot','notes':'Synthetic whole-state restore rehearsal'}}
+    def request(identity):return {'schemaVersion':1,'target':'DXP4800','deploymentId':identity,'workflowRunId':1,'version':manifest['version'],'fromVersion':args.baseline_version,'sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'manifest':manifest,'expiresAt':(dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=1)).isoformat()}
     secondary = None
     try:
-        m.run(['docker','pull',BASELINE],600)
+        m.run(['docker','pull',baseline],600)
         adapter.compose('up','-d')
         adapter.wait_health('sandbox-hub');adapter.wait_health('sandbox-agent');adapter.verify_agent(0)
         receipt=m.Engine(cfg,adapter,api).deploy(request(1),rehearse=True)
@@ -112,7 +124,7 @@ def main():
         else:raise AssertionError('Injected failure was not detected')
         journal=json.loads((Path(cfg['controlDir'])/'deployment-2.json').read_text());assert journal['phase']=='restored'
         candidate_id=broken.image(args.candidate)['Id'];assert ('sandbox-agent',candidate_id) not in broken.started
-        assert broken.inspect('sandbox-agent')['Image']==broken.image(BASELINE)['Id']
+        assert broken.inspect('sandbox-agent')['Image']==broken.image(baseline)['Id']
         result['hubFailureStopsAgentAndVerifiedSnapshotRollback']='passed'
         successful=SandboxDocker(cfg,args.candidate,args.source)
         final=m.Engine(cfg,successful,api).deploy(request(3));assert final['phase']=='success'

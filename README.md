@@ -49,7 +49,7 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 升级前备份状态目录、Compose 和 `.env`，保留旧镜像；升级时保持设备 ID 和持久化路径。旧 JSON 归档迁移到 SQLite 后，回退旧版需同时恢复迁移前的状态，不能只切换镜像。不要执行 `docker compose down -v`，也不要提交真实密钥或运行数据。
 
 - [部署与更新](DEPLOYMENT.md)
-- [升级与回退](UPGRADE_0.69.md)
+- [升级与回退](UPGRADE_0.70.md)
 - [上游来源](UPSTREAM.md) · [NAS 补丁](NAS_PATCHES.md) · [版本规则](VERSIONING.md)
 - [数据安全](SECURITY.md)
 

@@ -1,6 +1,6 @@
 # NAS 专用补丁清单
 
-官方目标基线：`v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`。候选 NAS 版本：`v0.69.0-01`。接管起点为 `v0.68.0-05` / `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`。此清单根据起点相对官方 `v0.68.0` 的真实文件差异整理，升级后保留这些功能边界。
+官方目标基线：`v0.70.0` / `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。候选 NAS 版本：`v0.70.0-01`。接管起点为正式 `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`，旧官方基线 `v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`。
 
 此文件是维护契约，不是测试执行记录。每次升级须将官方新增能力与这些补丁三方合并，并在 `VALIDATION.md` 写明实际运行环境、结果与尚未完成的门槛。部署目录和设备名以实际现有配置为准，模板不是迁移工具。
 
@@ -26,7 +26,16 @@
 | NAS-16 | `scripts/check-publication-safety.py`、`.gitignore`、`.dockerignore`、`SECURITY.md` | 扫描可达 Git 历史的常见秘密和运行数据路径；不提交 .env、凭据、Hermes DB、状态、日志或备份。发布检查不接触生产 NAS。模式扫描只是有限证明，不能称为全量安全审计。 | publication-safety 检查与镜像内容审阅 |
 | NAS-17 | `app/scripts/test-nas.js`、NAS agent/hub/shared tests | 在 NAS 运行边界测试官方与自有补丁；Worker/Electron 专属依赖不进入 Docker。双架构须原生 runner，不能把 QEMU 进程身份或耗时当成真实 NAS 结果。增加上游新共享功能的测试清单，避免仅复制测试却不执行。 | 完整 NAS suite + upstream shared suite + PR CI artifacts |
 
-## 三方合并重点
+## v0.70 三方合并结果
+
+- NAS-06 的全量/增量逐行读取与异常 cursor 释放由官方等价实现承接。只保留一套 iterator；新增 staged Map 在完整 catch-up 后才写共享 archive。全量加载同样读完才替换 archive/推进 revision。保留所有 NAS fault-injection 测试，再运行官方全量/增量 capture/refresh/retry 测试。
+- `collector.js` 新 CatPaw 来源指纹、账户变化时的原子重扫及 Cursor 显式长同步标志合入；CatPaw 的 watch matcher 移至轻量 `watcherPolicy.js`。默认 Hermes-only/独立 Watcher 不变，不新增生产账户或源。
+- Hermes `history.js` disjoint reasoning 与新版固定 parser 配套；Token 不因 reasoning cost 修正而减少。
+- Codex 压缩读取与会话详情仅共享模块，plain/zst 同 ID 不重复；provider 更新只访问合成 fixtures 或显式启用的配置。
+- StepFun 续期回调异常只打印固定文本，避免异常 message 泄露凭据；失败、超时和取消测试保留。
+- 新共享测试加入实际 `test-nas.js` 执行清单，桌面 UI/Worker 断言明确排除。测试范围以 [UPGRADE_0.70.md](UPGRADE_0.70.md) 当前证据为准。
+
+## 历史 v0.69 三方合并重点
 
 上一个官方基线相对 NAS 起点，核心 shared 改动恰为：`collector.js`、`syncPayload.js`、`usage.js`、`usage/sessionUsageArchiveStore.js`、`watcherHost.js`、`watcherWorker.js`，新增 `watcherPolicy.js`、`recordTimestamp.js`。官方 v0.69.0 与这些路径的交叉为 `collector.js` 和 `usage.js`；Agent 的交叉为 `runtime.js`。不得通过整目录覆盖抹掉补丁。
 
@@ -40,7 +49,7 @@
 
 ## 长期维护方式
 
-每次升级固定旧 tag、新 tag 和 SHA，生成全仓库文件差异，再按 `UPSTREAM_0.69_AUDIT.md` 的决策表分成共享/Agent、NAS 包装、桌面、Worker、文档与测试。自动检查应报告差异，不能自动覆盖代码或部署 NAS。
+每次升级固定旧 tag、新 tag 和 SHA，生成全仓库文件差异，再按 `UPSTREAM_0.70_AUDIT.md` 的决策表分成共享/Agent、NAS 包装、桌面、Worker、文档与测试。自动检查应报告差异，不能自动覆盖代码或部署 NAS。
 
 `app/src/agent` 与 `app/src/hub` 的 NAS 能力继续模块化，官方 shared 补丁尽量限于列出的接入点。后续若上游接受 streaming archive、轻量 Watcher 或字典安全修复，先对行为与测试确认等价，再从清单删除对应补丁；不能仅因代码看起来相似取消安全边界。
 

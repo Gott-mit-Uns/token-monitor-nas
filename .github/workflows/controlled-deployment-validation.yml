@@ -12,6 +12,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        baseline: ['v0.69.0-01', 'v0.69.0-02']
+        include:
+          - runner: ubuntu-latest
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
         runner: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
     steps:
@@ -30,15 +36,23 @@ jobs:
       - name: Build native sandbox candidate without publishing
         env:
           SOURCE_COMMIT: ${{ github.sha }}
-        run: docker build --build-arg VCS_REF="$SOURCE_COMMIT" -t token-monitor-deployment-sandbox .
+        run: |
+          test "$(uname -m)" = "${{ matrix.arch }}"
+          docker build --build-arg VCS_REF="$SOURCE_COMMIT" -t token-monitor-deployment-sandbox .
+      - name: Frozen real Hermes SQLite old new accounting and Hub ingress
+        run: |
+          python3 deployment/frozen_hermes.py --candidate token-monitor-deployment-sandbox --baseline-version '${{ matrix.baseline }}' --output /tmp/frozen-hermes-result.json
       - name: Real Docker synthetic Hub Agent and full-state rollback rehearsal
         env:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
-          sudo python3 deployment/exercise.py --candidate token-monitor-deployment-sandbox --source "$SOURCE_COMMIT" --output /tmp/deployment-exercise-result.json
+          sudo python3 deployment/exercise.py --candidate token-monitor-deployment-sandbox --source "$SOURCE_COMMIT" --baseline-version '${{ matrix.baseline }}' --output /tmp/deployment-exercise-result.json
       - name: Save synthetic acceptance summary only
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-exercise-${{ matrix.runner }}
-          path: /tmp/deployment-exercise-result.json
+          name: deployment-exercise-${{ matrix.runner }}-${{ matrix.baseline }}
+          path: |
+            /tmp/deployment-exercise-result.json
+            /tmp/frozen-hermes-result.json
           if-no-files-found: error

@@ -73,13 +73,13 @@ test('KNOWN_CLIENTS is a superset of DEFAULT_CLIENTS and still includes opt-in q
 // the catalog against itself. That the renderer actually consumes the catalog is
 // guarded in tests/electron/rendererClientLabels.test.js. README stays a real
 // cross-check because it is hand-authored.
-test('tracked client defaults and README share one display order', () => {
+test('Desktop: tracked client defaults and README share one display order', { skip: !fs.existsSync(path.join(rootDir, 'README.md')) && 'NAS does not ship the upstream desktop README' }, () => {
   const known = KNOWN_CLIENTS.split(',');
   assert.deepEqual(readmeTrackedClientIds(), known);
-  assert.deepEqual(DEFAULT_CLIENTS.split(','), known.filter((client) => client !== 'qodercn'));
+  assert.deepEqual(DEFAULT_CLIENTS.split(','), known.filter((client) => !['catpaw', 'qodercn'].includes(client)));
 });
 
-test('documented client CSV follows the canonical catalog order', () => {
+test('Desktop: documented client CSV follows the canonical catalog order', { skip: !fs.existsSync(path.join(rootDir, '.env.example')) && 'NAS uses its own Hermes-only environment example' }, () => {
   const envExample = fs.readFileSync(path.join(rootDir, '.env.example'), 'utf8');
   const documented = envExample.match(/^TOKEN_MONITOR_CLIENTS=(.*)$/m)?.[1].split(',') || [];
   const documentedSet = new Set(documented);
@@ -115,4 +115,11 @@ test('a saved micode selection migrates to the mimo client id', () => {
   // `pinnedClients`, since main.js routes all four through normalizeClientsCsv.
   assert.equal(clientsCsvForSetting('claude,micode'), 'claude,mimo');
   assert.equal(clientsCsvForSetting('micode,mimo'), 'mimo');
+});
+
+// Preserve the catalog default contract separately from desktop documentation.
+test('CatPaw and Qoder CN stay opt-in without changing tracked-client order', () => {
+  const known = KNOWN_CLIENTS.split(',');
+  assert.ok(known.includes('catpaw'));
+  assert.deepEqual(DEFAULT_CLIENTS.split(','), known.filter(client => !['catpaw', 'qodercn'].includes(client)));
 });

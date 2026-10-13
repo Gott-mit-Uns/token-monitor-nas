@@ -52,3 +52,7 @@ the Hub is offline. No automatic device deletion is enabled.
 Official tag locked to `3f106ae3d4712b26cced8272f0d488eaab0de1e6`; NAS baseline `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`. Evidence and remaining release/deployment gates are recorded in [UPGRADE_0.69.md](UPGRADE_0.69.md). Historical deployment results above are not verification of this candidate. No production data or NAS was accessed for this upgrade.
 
 Native candidate CI 38195738924 passed at source commit acdad0e7d1e368a515bc67aad94e5ac0e500d421 on Linux amd64 and arm64, Node 22.23.2. Each architecture passed 990/992 NAS tests, with zero failures and two Windows-native platform skips, plus 31 promotion tests. Each architecture also passed all 15 fixed-workload regression gates in three repeats with 60-second soak. See UPGRADE_0.69.md and synthetic-only evidence JSON for complete measurements, source fingerprints and scope. No production deployment or fixed-tag publication occurred.
+
+## v0.70.0-01 candidate — 2026-10-14
+
+Current validation/release/deployment stages are recorded in [UPGRADE_0.70.md](UPGRADE_0.70.md). Historical production results above do not verify the current candidate. Shipping Linux/native Docker checks and production acceptance are separate from local macOS tests.

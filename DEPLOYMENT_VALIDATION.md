@@ -57,3 +57,7 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 ## 未执行与首次接入
 
 两台 NAS 控制器安装/权限授予、生产调度、真实首次受控部署、生产回滚演练、公网 Windows UI验收、24 小时持续运行均未执行。首次接入应先审阅 [DEPLOYMENT.md](DEPLOYMENT.md) 并获得明确授权。GitHub CI 的隔离恢复凭据不能用于生产。
+
+## v0.70 candidate continuation — 2026-10-14
+
+New native per-source exercises and frozen-data comparisons are required for v0.70.0-01; see [UPGRADE_0.70.md](UPGRADE_0.70.md). Earlier v0.69 test runs are historical evidence, not acceptance of this candidate. No production controller installation, permission change, deployment or production rollback rehearsal is included in the source upgrade. CI sandbox receipts remain invalid for production.
