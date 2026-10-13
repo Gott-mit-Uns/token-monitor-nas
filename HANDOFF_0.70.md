@@ -14,7 +14,7 @@
 | 独立工作区 | `work/token-monitor-nas-070` |
 | NAS 源码起点 | `9d23bed717ded9e850b2035ec55a511aaec9082c`；本地工作区审计开始 clean |
 | 最新旧正式版本记录 | `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e` |
-| 候选版本 | `v0.70.0-01`；须再次核验远端 tag、Release、固定 GHCR 标签占用 |
+| 已发布版本 | `v0.70.0-01`；远端 Tag/Release/固定 GHCR 摘要已核验，见末节 |
 
 旧正式记录的 index digest 为 `sha256:e35fa4c5f050b3944698a96a5ea48e7ee65b4e851ec49c5ddd1271dc02cca4b2`，来源是 `DEPLOYMENT_VALIDATION.md`。它是历史发布身份，不能当成两台 NAS 当前运行镜像的实际摘要，也不能当成这轮实时 GHCR 验证结果。NAS 当前实际版本必须只读核实。
 
@@ -42,11 +42,11 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 | 阶段 | 当前状态 | 改为完成所需证据 |
 | --- | --- | --- |
 | 源码 | 差异审计完成，候选适配完成；待最终commit绑定 | 同一上游lock、精确版本、NAS补丁逐项复核、完整diff和最终commit |
-| 测试 | 本地suite通过；原生CI/冻结Docker对照pending，旧版0.69报告不复用 | 本轮最终commit的单元/集成/真实Docker、原生amd64与arm64、冻结旧新对照、全状态恢复及性能artifact |
-| 镜像/Release | pending | 正式发布commit/tag、双架构候选验证、index及子digest、OCI一致、release-manifest读回、迁移信息与固定tag |
+| 测试 | 本地及本轮原生CI/冻结Docker对照通过（完成记录见末节） | 本轮最终commit的单元/集成/真实Docker、原生amd64与arm64、冻结旧新对照、全状态恢复及性能artifact |
+| 镜像/Release | v0.70.0-01正式发布并读回核验（见末节） | 正式发布commit/tag、双架构候选验证、index及子digest、OCI一致、release-manifest读回、迁移信息与固定tag |
 | NAS实际部署 | pending；本轮部署尚未授权 | 两台设备只读来源核验、完整部署报告、所有者明确确认、私有一致性备份、顺序升级及业务验收 |
 
-目标版Release URL、index digest、架构digest、发布commit尚未作为成功结果填写。发布或验证受权限/签名/流程阻碍时停在对应阶段，保留证据和准确限制。
+目标版Release URL、index digest、架构digest、发布commit已作为核验结果记录在末节。发布或验证受权限/签名/流程阻碍时停在对应阶段，保留证据和准确限制。
 
 本地本轮NAS suite1296项：1285通过、0失败、11跳过；跳过为5项桌面断言、1项Windows roots、3项Linux本机行为、2项Windows PID行为。SQLite store采用完整上游v0.70等价实现并保留NAS及新官方fault tests，专项42/42通过。CatPawwatch边界已合到轻量watcherPolicy，collector源指纹保持；StepFun续期持久化失败日志改为固定文本以保护敏感异常内容。本地平台结果不代替新镜像两架构Docker实测，最终结果见 [UPGRADE_0.70.md](UPGRADE_0.70.md) 和 [VALIDATION.md](VALIDATION.md)。
 
@@ -82,3 +82,9 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 5. 服务已验健康而GitHub补报失败时只补报，不能再次部署。完成后分别报告源码、测试、发布、两台NAS部署结果及失败/未验项目，然后停止。
 
 当前备份位置、控制器receipt、两台新版生产验收记录均未填写，因为本轮尚未执行。已核实的旧运行证据和生产私有路径留在主任务私有记录，不把私有配置目录写入公开仓库；DH4300Plus身份/权限仍未证实。继续者不得将这些空项补成推测的成功结果。
+
+## 本轮完成记录（后于前述实施门槛）
+
+PR #6 已合并至 `02413928fef06abc99e181f253228e549fb4582f`。原生完整回归38476097610、四组合冻结/恢复38476097653、正式发布38477243551全部通过。固定v0.70.0-01 / latest index `sha256:848d6c0b59c35be8e5d9f69d29d347404f2b2988964c8b4838579e24e8621e64`，amd64 `sha256:32cd4993c3c21c43133d53c88cee48beae06a5477a63ad3c17941818af66a9da`，arm64 `sha256:fdc33c32014c794cf7e233aa56093a8c2292843da0cbca95b97430873f93d86b`。release-manifest、OCI、Git Tag、来源迁移政策和两个旧固定标签已独立核验，完整证据见 [UPGRADE_0.70.md](UPGRADE_0.70.md)。前述测试/发布待办已完成；剩余门槛仅为明确列出的生产来源核查、授权、私有备份和部署验收。
+
+所有者选择先完成发布，DH4300Plus核查稍后。DXP已只读确认v0.69.0-01 Hub+Agent、独立Watcher、健康采集/上传；DH SSH拒绝，角色/版本/digest/权限尚未核实。没有停止/重建容器，没有新生产备份，没有控制器安装/权限或长期凭据/调度变更。待DH来源核查后一次性报告两设备具体方案并获得本轮生产确认。不能把正式发布或CI回滚凭据当成生产授权。

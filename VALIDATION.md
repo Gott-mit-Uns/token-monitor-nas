@@ -56,3 +56,5 @@ Native candidate CI 38195738924 passed at source commit acdad0e7d1e368a515bc67aa
 ## v0.70.0-01 candidate — 2026-10-14
 
 Current validation/release/deployment stages are recorded in [UPGRADE_0.70.md](UPGRADE_0.70.md). Historical production results above do not verify the current candidate. Shipping Linux/native Docker checks and production acceptance are separate from local macOS tests.
+
+本轮源码与原生容器/冻结/恢复/性能检查和正式发布已完成，证据见 UPGRADE_0.70.md；生产仍未升级，两台实际部署验收均不计为通过。

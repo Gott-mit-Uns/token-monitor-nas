@@ -1,6 +1,8 @@
 # 自动发布、受控部署与回滚演练报告
 
-状态：`v0.69.0-02` 已正式发布，生产首次接入和部署未执行。原生双架构隔离部署演练已通过，原有全量回归与性能检查单独记录。
+当前状态：`v0.70.0-01` 已正式发布，本轮生产部署未执行。原生两来源版本×两架构冻结与部署恢复演练通过，见 [UPGRADE_0.70.md](UPGRADE_0.70.md)。下列 v0.69.0-02 内容是保留的历史记录。
+
+历史状态：`v0.69.0-02` 已正式发布，生产首次接入和部署未执行。原生双架构隔离部署演练已通过，原有全量回归与性能检查单独记录。
 
 [原有全量回归 CI 38204021632](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38204021632) 的 amd64、arm64 作业均成功，对应部署实现提交 `558e148eee8d3c11b9f01c08b8461258f4ed01cc`。每架构 992 项 NAS 测试：990 通过、0 失败、2 项 Windows 平台条件跳过；Compose、固定 Tokscale 契约及合成固定数据性能对比均通过。后续仅补充 Agent-only/准确计数演练和报告，没有更改镜像内采集与 Hub 源码或控制器实现。性能检查通过不等于性能改善，也不代替 24 小时生产观察。
 
@@ -61,3 +63,5 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 ## v0.70 candidate continuation — 2026-10-14
 
 New native per-source exercises and frozen-data comparisons are required for v0.70.0-01; see [UPGRADE_0.70.md](UPGRADE_0.70.md). Earlier v0.69 test runs are historical evidence, not acceptance of this candidate. No production controller installation, permission change, deployment or production rollback rehearsal is included in the source upgrade. CI sandbox receipts remain invalid for production.
+
+本轮 [38476097653](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38476097653) 四组合演练、[38476097610](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38476097610) 完整原生回归及 [38477243551](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38477243551) 正式发布已全部通过；结果和固定摘要已独立读回。生产未部署，DH4300Plus核查由所有者要求稍后进行。

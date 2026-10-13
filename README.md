@@ -2,6 +2,8 @@
 
 基于 [Token Monitor](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到你配置的 Hub。镜像同时提供 Node Hub，支持 `linux/amd64` 和 `linux/arm64`。
 
+当前已发布 [`v0.70.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.70.0-01)，对齐官方 v0.70.0。生产可固定 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.70.0-01`；源码、双架构验收及镜像摘要见 [升级记录](UPGRADE_0.70.md)。发布不会自动升级 NAS。
+
 ## 主要功能
 
 - **Hermes 用量采集**：同步用量汇总、模型统计、历史和会话明细，保留本地会话归档。

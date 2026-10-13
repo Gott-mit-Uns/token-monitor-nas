@@ -1,6 +1,6 @@
 # 官方源码基线
 
-## NAS v0.70.0-01 candidate
+## NAS v0.70.0-01
 
 Official `v0.70.0` is frozen at `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`; previous official baseline is `3f106ae3d4712b26cced8272f0d488eaab0de1e6`. NAS runtime baseline is released `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`, with the latest documentation-only main `9d23bed717ded9e850b2035ec55a511aaec9082c`. Hub, Agent and shared keep one baseline.
 
@@ -8,7 +8,7 @@ Hermes reasoning normalization and the fixed Tokscale `fa5f0c13324838d1a988fda31
 
 No mandatory SQLite schema or Hub JSON format migration. Codex parser caches advance from version 12 to 15 and may reparse once; StepFun's optional account identity becomes stable across access-token refresh. Existing unknown/optional fields remain handled by the unchanged shared normalization and Hub protocol. Full pre-deployment state backup and closed restore verification remain necessary.
 
-Audit: [UPSTREAM_0.70_AUDIT.md](UPSTREAM_0.70_AUDIT.md). Validation, release and deployment are distinct gates in [UPGRADE_0.70.md](UPGRADE_0.70.md). The records below describe earlier versions, not current candidate acceptance.
+Audit: [UPSTREAM_0.70_AUDIT.md](UPSTREAM_0.70_AUDIT.md). Validation, release and deployment are distinct gates in [UPGRADE_0.70.md](UPGRADE_0.70.md). Formal v0.70.0-01 is published at NAS commit `02413928fef06abc99e181f253228e549fb4582f`; native tests, immutable digest/manifest evidence and the separate pending production gate are recorded there. The records below describe earlier versions.
 
 ## NAS v0.69.0-01
 
