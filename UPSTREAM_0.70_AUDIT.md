@@ -1,6 +1,6 @@
 # 官方 v0.70.0 三方差异审计
 
-审计日期：2026-10-14（Asia/Shanghai）。状态：完成上游源码范围与 NAS 补丁边界审阅；源码候选、冻结数据回归、原生双架构 Docker、正式发布及生产部署分别验收。本文件的“适用/选择性合入”是处理决定，不是已通过的测试记录。
+审计日期：2026-10-14（Asia/Shanghai）。状态：完成上游源码范围与 NAS 补丁边界审阅，候选已适配且本地 NAS suite 通过；冻结数据回归、原生双架构 Docker、正式发布及生产部署分别验收。本文件的“适用/选择性合入”是处理决定，不是已通过的测试记录。
 
 ## 固定来源与真实起点
 
@@ -39,7 +39,7 @@ metadata、identity、context、detail 均调用同一解码模块。合入解�
 
 上游 #1006 的近期会话及分组优化主要在 `src/electron/renderer/sessionRows.js` 与 `edgeDock/presentation.js`：独立会话跳过 alias/parent walk，在分组/选取后才投影显示。属于桌面，不将显示 caps、投影或 timers 移入 Hub 统计，更不能截断完整历史。
 
-NAS 已有 `iterateSessionRows`、full-load 暂存及异常 cursor cleanup；上游 #1031 是等价方向，不能重复两套逐行读取。**现有 NAS 基线仍有增量缺口**：`loadRevisedRows` 每读一行立即改写现有 archive，读取中断会暴露半套 catch-up。上游新增 Map 暂存已解析 entries，完整读取后才应用，随后推进 revision；应合并此修复。full load 保留当前 loaded archive staging。异常 next()/中断、并发 WAL writer、重试、写入失败后 full reload 都必须验收。SQLite schema version1、状态目录和 legacy migration marker 不变；事务失败不提前提交或推进 revision。
+NAS 已有 `iterateSessionRows`、full-load 暂存及异常 cursor cleanup；上游 #1031 是等价方向，不能重复两套逐行读取。**升级前 NAS 基线仍有增量缺口**：`loadRevisedRows` 每读一行立即改写现有 archive，读取中断会暴露半套 catch-up。上游新增 Map 暂存已解析 entries，完整读取后才应用，随后推进 revision。最终候选采用官方 v0.70 等价 store 实现，保留 NAS 已有和新官方 fault tests；本地 SQLite专项42/42通过。full load 保持 archive staging。异常 next()/中断、并发 WAL writer、重试、写入失败后 full reload仍需原生Docker验收。SQLite schema version1、状态目录和 legacy migration marker 不变；事务失败不提前提交或推进 revision。
 
 ### 其他 provider 的实际 NAS 路径
 
@@ -193,4 +193,6 @@ NAS 已有 `iterateSessionRows`、full-load 暂存及异常 cursor cleanup；上
 
 ## 当前证据限制
 
-本审计未执行生产NAS登录、容器变更、外部账户访问、Git提交或镜像发布。新目标的最终单元/集成/冻结数据/amd64/arm64/Docker/性能结果以本轮验证文档和正式CI artifact为准；旧0.69测试数不能沿用到0.70。两台NAS角色、来源digest、真实挂载/deviceId、控制器状态及DH4300Plus权限未由本审计重新核实。发布后必须先生成本轮部署报告并等待所有者明确确认，然后才可备份和依次升级。
+本地本轮 NAS suite 共1296项：1285通过、0失败、11跳过（5项桌面断言、1项Windows roots、3项仅Linux本机行为、2项Windows PID行为）；SQLite store专项42/42通过。跳过不能算通过，本地结果不替代原生amd64/arm64、冻结双版本Docker或生产验证；最终提交的完整结果以 [UPGRADE_0.70.md](UPGRADE_0.70.md)、[VALIDATION.md](VALIDATION.md) 及CI artifact为准。StepFun候选的续期持久化失败日志已使用固定文本，不输出异常message可能携带的敏感值。
+
+本审计子任务未执行生产NAS登录、容器变更、外部账户访问、Git提交或镜像发布。主任务本轮只读核验DXP4800仍为v0.69.0-01，Hub+Agent健康，未检测到控制器；DH4300Plus SSH拒绝，真实角色/权限未核实。来源实际镜像摘要、完整部署配置和挂载身份应以主任务私有只读记录为准，不在公开仓库记录生产私有路径。原生CI、正式发布和生产部署当前pending。发布后必须先生成本轮部署报告并等待所有者明确确认，然后才可备份和依次升级。

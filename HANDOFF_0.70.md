@@ -1,6 +1,6 @@
 # v0.70.0 NAS 升级交接
 
-日期：2026-10-14（Asia/Shanghai）。本交接记录本轮范围、已核实来源和剩余验收门槛。当前状态为 **candidate / validation pending / release pending / production deployment pending**；后续只有补充可核验的结果后才能改变各阶段状态。文档存在或候选源码已适配均不表示正式镜像发布成功或 NAS 已部署。
+日期：2026-10-14（Asia/Shanghai）。本交接记录本轮范围、已核实来源和剩余验收门槛。当前状态为 **candidate adapted / local tests passed / native CI pending / release pending / production deployment pending**；后续只有补充可核验的结果后才能改变各阶段状态。文档存在或候选源码已适配均不表示正式镜像发布成功或 NAS 已部署。
 
 ## 精确目标与起点
 
@@ -11,7 +11,7 @@
 | 旧官方 commit | `3f106ae3d4712b26cced8272f0d488eaab0de1e6`（v0.69.0） |
 | 新官方 commit | `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`（v0.70.0 annotated tag 已 peel 核对） |
 | 独立升级分支 | `upgrade/upstream-v0.70.0` |
-| 独立工作区 | `/Users/bing/Documents/Codex/项目分类/AI与软件/work/token-monitor-nas-070` |
+| 独立工作区 | `work/token-monitor-nas-070` |
 | NAS 源码起点 | `9d23bed717ded9e850b2035ec55a511aaec9082c`；本地工作区审计开始 clean |
 | 最新旧正式版本记录 | `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e` |
 | 候选版本 | `v0.70.0-01`；须再次核验远端 tag、Release、固定 GHCR 标签占用 |
@@ -41,12 +41,14 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 
 | 阶段 | 当前状态 | 改为完成所需证据 |
 | --- | --- | --- |
-| 源码 | 差异审计完成；最终候选待统一验证 | 同一上游lock、精确版本、NAS补丁逐项复核、完整diff和最终commit |
-| 测试 | pending；旧版0.69报告不复用 | 本轮最终commit的单元/集成/真实Docker、原生amd64与arm64、冻结旧新对照、全状态恢复及性能artifact |
+| 源码 | 差异审计完成，候选适配完成；待最终commit绑定 | 同一上游lock、精确版本、NAS补丁逐项复核、完整diff和最终commit |
+| 测试 | 本地suite通过；原生CI/冻结Docker对照pending，旧版0.69报告不复用 | 本轮最终commit的单元/集成/真实Docker、原生amd64与arm64、冻结旧新对照、全状态恢复及性能artifact |
 | 镜像/Release | pending | 正式发布commit/tag、双架构候选验证、index及子digest、OCI一致、release-manifest读回、迁移信息与固定tag |
 | NAS实际部署 | pending；本轮部署尚未授权 | 两台设备只读来源核验、完整部署报告、所有者明确确认、私有一致性备份、顺序升级及业务验收 |
 
 目标版Release URL、index digest、架构digest、发布commit尚未作为成功结果填写。发布或验证受权限/签名/流程阻碍时停在对应阶段，保留证据和准确限制。
+
+本地本轮NAS suite1296项：1285通过、0失败、11跳过；跳过为5项桌面断言、1项Windows roots、3项Linux本机行为、2项Windows PID行为。SQLite store采用完整上游v0.70等价实现并保留NAS及新官方fault tests，专项42/42通过。CatPawwatch边界已合到轻量watcherPolicy，collector源指纹保持；StepFun续期持久化失败日志改为固定文本以保护敏感异常内容。本地平台结果不代替新镜像两架构Docker实测，最终结果见 [UPGRADE_0.70.md](UPGRADE_0.70.md) 和 [VALIDATION.md](VALIDATION.md)。
 
 ## 验证待办
 
@@ -64,8 +66,8 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 
 | 设备 | 地址 / 预期角色 | 尚须实时核实 |
 | --- | --- | --- |
-| DXP4800 | `192.168.31.12`，Hub+Agent | 实际容器/服务、版本与旧digest、Compose位置/权限、挂载/state/DB、deviceId、Hub/端口/安全设置、控制器安装及状态 |
-| DH4300Plus | `192.168.31.13`，仅Agent连接既有远端Hub | 同上，加远端Hub地址和此前配置/状态目录权限阻碍是否仍存在 |
+| DXP4800 | `192.168.31.12`，Hub+Agent | 主任务已只读核验当前v0.69.0-01、Hub+Agent健康，未检测到控制器；部署报告仍需绑定实际旧digest、配置/挂载/身份和权限 |
+| DH4300Plus | `192.168.31.13`，预期仅Agent连接既有远端Hub | 本轮SSH拒绝，角色/版本/digest、远端Hub、此前目录权限和控制器均未核实；解除只读访问阻碍后重新核查 |
 
 角色与预期不符则停止并澄清。不能安装控制器、递归chmod、修改ACL、配置长期凭据或自动调度来绕过权限问题。连接用已安全配置方式；缺凭据则单独索取，不把值写入输出、文件或Git。
 
@@ -79,4 +81,4 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 4. 失败保留现场，核实完整状态兼容和备份可恢复后才执行恢复。自动全状态回滚需现有控制器的NAS本地、目标旧新version/digest绑定的有效生产演练receipt；CI临时receipt不可代替。只切旧镜像不是安全回退。
 5. 服务已验健康而GitHub补报失败时只补报，不能再次部署。完成后分别报告源码、测试、发布、两台NAS部署结果及失败/未验项目，然后停止。
 
-当前备份位置、NAS旧实际digest、控制器receipt、两台生产验收记录均未填写，因为本轮尚未实时核实或执行。继续者不得将这些空项补成推测的成功结果。
+当前备份位置、控制器receipt、两台新版生产验收记录均未填写，因为本轮尚未执行。已核实的旧运行证据和生产私有路径留在主任务私有记录，不把私有配置目录写入公开仓库；DH4300Plus身份/权限仍未证实。继续者不得将这些空项补成推测的成功结果。
