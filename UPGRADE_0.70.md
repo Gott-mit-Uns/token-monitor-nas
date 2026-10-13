@@ -10,9 +10,11 @@ See [full path audit](UPSTREAM_0.70_AUDIT.md), [patch contract](NAS_PATCHES.md),
 
 ## Validation so far
 
-Local macOS arm64, Node 24.19.0 (shipping containers use Node 22 on Linux): 1,296 NAS tests, 1,285 passed, 0 failed, 11 skipped. Skips include platform/Worker and explicitly excluded desktop-only assertions; they are not counted as passing. SQLite 42/42, release/request 59/59, controller 36/36 passed. Fixed Darwin parser checksum/version/client validation succeeded; DSH and 10 applicable real-parser contracts passed, including corrected Hermes reasoning and compressed Codex/DSH models. These results do not replace native amd64/arm64 Docker checks.
+Local macOS arm64, Node 24.19.0 (shipping containers use Node 22 on Linux): 1,296 NAS tests, 1,285 passed, 0 failed, 11 skipped. Skips include platform/Worker and explicitly excluded desktop-only assertions; they are not counted as passing. SQLite 42/42, release/request 59/59, controller/frozen-guard 41/41 passed. Fixed Darwin parser checksum/version/client validation succeeded; DSH and 10 applicable real-parser contracts passed, including corrected Hermes reasoning and compressed Codex/DSH models. These results do not replace native amd64/arm64 Docker checks.
 
 Native candidate CI must run: version/safety, Compose, fixed Tokscale release/client/parser tests, full NAS suite, repeated fixed-workload performance, both Hub+Agent and Agent-only remote-Hub deployments, per-source whole-state backup/recovery, exact frozen old/new parser-to-Hub comparison. Upload timeout/cancel/retry/dedup, corrupt SQLite/cursor release, Hub corrupt state/write failure, SSE reconnect/gzip/backpressure, process identity and old-state recovery retain regression assertions.
+
+Local frozen old/new real-parser + shared + loopback Hub comparison also passed on the same read-only synthetic SQLite: 1,845 Tokens, two sessions and two historical days, unchanged bytes and device ID, successful upload plus exact Hub readback. Total estimated cost changed from $0.007645 to $0.006445: reduction $0.0012 equals 120 reasoning Tokens × $10 per million. Public output stays 350 and total Tokens stay 1,845; cache-read 70 and cache-write 25 are unchanged. Evidence: [local-frozen-hermes.json](evidence/upstream-v0.70.0/local-frozen-hermes.json). This is macOS arm64 evidence, not native Linux acceptance or production measurement.
 
 ## Migration and corrected costs
 

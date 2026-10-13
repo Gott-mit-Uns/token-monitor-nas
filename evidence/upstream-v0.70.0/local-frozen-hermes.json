@@ -1,0 +1,214 @@
+{
+  "scope": "local macOS arm64; synthetic SQLite with pinned real Rust/shared/Hub; not Linux or Docker/production evidence",
+  "fixtureSha256": "e37a6e5a4e7ac8ca07468a84a344154182a8ffc2a39fe4f700f58f004d0f55e5",
+  "sourceBytesUnchanged": true,
+  "baseline": {
+    "parserCommit": "4f17d6c6d85f5582949dcb0476c55518eafd7e23",
+    "parserSha256": "7eadb02eee601624cfd87afbd4de8c19725f4c545fcc5588080c18e213f8be98",
+    "architecture": "arm64",
+    "deviceId": "synthetic-frozen-device",
+    "uploaded": true,
+    "periods": {
+      "today": {
+        "totalTokens": 1570,
+        "outputTokens": 300,
+        "cacheReadTokens": 50,
+        "cacheWriteTokens": 20,
+        "costUsd": 0.006509999999999999,
+        "sessions": {
+          "hermes:frozen-modern": {
+            "totalTokens": 1570,
+            "outputTokens": 300,
+            "cacheReadTokens": 50,
+            "cacheWriteTokens": 20,
+            "messageCount": 3,
+            "costUsd": 0.006509999999999999
+          }
+        }
+      },
+      "month": {
+        "totalTokens": 1845,
+        "outputTokens": 350,
+        "cacheReadTokens": 70,
+        "cacheWriteTokens": 25,
+        "costUsd": 0.007644999999999999,
+        "sessions": {
+          "hermes:frozen-legacy": {
+            "totalTokens": 275,
+            "outputTokens": 50,
+            "cacheReadTokens": 20,
+            "cacheWriteTokens": 5,
+            "messageCount": 2,
+            "costUsd": 0.0011350000000000002
+          },
+          "hermes:frozen-modern": {
+            "totalTokens": 1570,
+            "outputTokens": 300,
+            "cacheReadTokens": 50,
+            "cacheWriteTokens": 20,
+            "messageCount": 3,
+            "costUsd": 0.006509999999999999
+          }
+        }
+      },
+      "allTime": {
+        "totalTokens": 1845,
+        "outputTokens": 350,
+        "cacheReadTokens": 70,
+        "cacheWriteTokens": 25,
+        "costUsd": 0.007644999999999999,
+        "sessions": {
+          "hermes:frozen-legacy": {
+            "totalTokens": 275,
+            "outputTokens": 50,
+            "cacheReadTokens": 20,
+            "cacheWriteTokens": 5,
+            "messageCount": 2,
+            "costUsd": 0.0011350000000000002
+          },
+          "hermes:frozen-modern": {
+            "totalTokens": 1570,
+            "outputTokens": 300,
+            "cacheReadTokens": 50,
+            "cacheWriteTokens": 20,
+            "messageCount": 3,
+            "costUsd": 0.006509999999999999
+          }
+        }
+      }
+    },
+    "history": [
+      {
+        "date": "2026-06-06",
+        "tokens": 275,
+        "outputTokens": 50,
+        "cacheReadTokens": 20,
+        "cacheWriteTokens": 5,
+        "cost": 0.0011350000000000002
+      },
+      {
+        "date": "2026-06-07",
+        "tokens": 1570,
+        "outputTokens": 300,
+        "cacheReadTokens": 50,
+        "cacheWriteTokens": 20,
+        "cost": 0.006509999999999999
+      }
+    ]
+  },
+  "candidate": {
+    "parserCommit": "fa5f0c13324838d1a988fda317597f9b90da7ad0",
+    "parserSha256": "61d6422139fe13c68ed8905e8c718d434460ee4f3efd90f68c7619f271245757",
+    "architecture": "arm64",
+    "deviceId": "synthetic-frozen-device",
+    "uploaded": true,
+    "periods": {
+      "today": {
+        "totalTokens": 1570,
+        "outputTokens": 300,
+        "cacheReadTokens": 50,
+        "cacheWriteTokens": 20,
+        "costUsd": 0.00551,
+        "sessions": {
+          "hermes:frozen-modern": {
+            "totalTokens": 1570,
+            "outputTokens": 300,
+            "cacheReadTokens": 50,
+            "cacheWriteTokens": 20,
+            "messageCount": 3,
+            "costUsd": 0.00551
+          }
+        }
+      },
+      "month": {
+        "totalTokens": 1845,
+        "outputTokens": 350,
+        "cacheReadTokens": 70,
+        "cacheWriteTokens": 25,
+        "costUsd": 0.006445,
+        "sessions": {
+          "hermes:frozen-legacy": {
+            "totalTokens": 275,
+            "outputTokens": 50,
+            "cacheReadTokens": 20,
+            "cacheWriteTokens": 5,
+            "messageCount": 2,
+            "costUsd": 0.0009350000000000001
+          },
+          "hermes:frozen-modern": {
+            "totalTokens": 1570,
+            "outputTokens": 300,
+            "cacheReadTokens": 50,
+            "cacheWriteTokens": 20,
+            "messageCount": 3,
+            "costUsd": 0.00551
+          }
+        }
+      },
+      "allTime": {
+        "totalTokens": 1845,
+        "outputTokens": 350,
+        "cacheReadTokens": 70,
+        "cacheWriteTokens": 25,
+        "costUsd": 0.006445,
+        "sessions": {
+          "hermes:frozen-legacy": {
+            "totalTokens": 275,
+            "outputTokens": 50,
+            "cacheReadTokens": 20,
+            "cacheWriteTokens": 5,
+            "messageCount": 2,
+            "costUsd": 0.0009350000000000001
+          },
+          "hermes:frozen-modern": {
+            "totalTokens": 1570,
+            "outputTokens": 300,
+            "cacheReadTokens": 50,
+            "cacheWriteTokens": 20,
+            "messageCount": 3,
+            "costUsd": 0.00551
+          }
+        }
+      }
+    },
+    "history": [
+      {
+        "date": "2026-06-06",
+        "tokens": 275,
+        "outputTokens": 50,
+        "cacheReadTokens": 20,
+        "cacheWriteTokens": 5,
+        "cost": 0.0009350000000000001
+      },
+      {
+        "date": "2026-06-07",
+        "tokens": 1570,
+        "outputTokens": 300,
+        "cacheReadTokens": 50,
+        "cacheWriteTokens": 20,
+        "cost": 0.00551
+      }
+    ]
+  },
+  "comparison": {
+    "accountingHistoryDeviceAndActualUpload": "passed",
+    "reasoningCostCorrection": {
+      "today": {
+        "baselineCostUsd": 0.006509999999999999,
+        "candidateCostUsd": 0.00551,
+        "expectedReductionUsd": 0.001
+      },
+      "month": {
+        "baselineCostUsd": 0.007644999999999999,
+        "candidateCostUsd": 0.006445,
+        "expectedReductionUsd": 0.0011999999999999997
+      },
+      "allTime": {
+        "baselineCostUsd": 0.007644999999999999,
+        "candidateCostUsd": 0.006445,
+        "expectedReductionUsd": 0.0011999999999999997
+      }
+    },
+    "explanation": "Hermes output includes reasoning. Old pricing billed reasoning a second time; new pricing subtracts the reasoning subset before additive pricing. Public output and total tokens, sessions, dates and device identity remain identical."
+  }
+}
