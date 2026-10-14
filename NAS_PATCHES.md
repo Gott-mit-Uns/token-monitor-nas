@@ -60,3 +60,9 @@
 ## v0.69 container prerequisites
 
 Runtime procps supplies the official POSIX process-start reader and the test RSS sampler. CI and release test containers use `--init`, matching existing Compose `init: true`, to reap terminated children. Linux registry tests use a synthetic machine-id while preserving actual `/proc` identity checks; no machine-id is baked into the image. Hermes-only remains the default.
+
+## v0.71 三方合并与真实构建身份
+
+Goose DB/WAL事件与SHM自循环过滤纳入轻量watcherPolicy，独立Watcher默认值保留。SQLite官方streaming/revision修复与NAS完整stage/fault tests同时保留；Notion和WorkBuddy共享身份、双额度窗口、占位/失败账户规则见 UPSTREAM_0.71_SHARED.md。既有安全字典、上传取消/去重/心跳、Hub持久化、有界SSE不变。
+
+NAS自有core/node adapter与官方不同，不能复制上游最新注册hash冒充一致。app/scripts/nas-hub-build.js从实际portable共享依赖和完整Node本地依赖闭包（含NAS Hub helper与日历、package/lock）计算SHA-256，排除注册表避免自引用；继承上游历史后只追加本次NAS core/node记录。旧客户端遇到未知构建应保持unknown提示，不伪装current。本仓库不分发或部署Worker副本，不为不存在的Worker生成新身份。

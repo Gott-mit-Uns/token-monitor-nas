@@ -26,6 +26,7 @@ jobs:
       - name: Read release version
         id: version
         run: |
+          node app/scripts/nas-hub-build.js
           version=$(node scripts/check-nas-version.js)
           echo "value=$version" >> "$GITHUB_OUTPUT"
       - name: Test release promotion recovery without registry access

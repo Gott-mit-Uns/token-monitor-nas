@@ -14,8 +14,6 @@ const { collectUsageOnce, projectIdentity, localTodayKey } = require('../../src/
 const { createSessionUsageArchiveStore } = require('../../src/shared/usage/sessionUsageArchiveStore');
 const { captureArchivedClientUsage, normalizeArchivedClientUsage } = require('../../src/shared/usage/clientUsageArchive');
 const { createUsageTransform } = require('../../src/shared/usage/usageTransform');
-const { sessionRowsForPeriod } = require('../../src/electron/renderer/sessionRows');
-const { projectRowsForPeriod } = require('../../src/electron/renderer/projectRows');
 const { readSessionDetail } = require('../../src/shared/sessionDetail');
 const { buildLocalUsageView, resolveLocalUsagePricing } = require('../../src/shared/providers/codex/localUsage');
 const { syncPayload } = require('../../src/shared/syncPayload');
@@ -86,6 +84,25 @@ test('executor probe failure is distinct from a successful empty process list', 
   assert.equal(await processWith(1), null);
 });
 
+test('desktop global config overrides preserve strict executor identification', () => {
+  for (const prefix of ['', '-c forced_login_method=chatgpt ', '-c forced_login_method="chatgpt" ',
+    '--config "forced_login_method=chatgpt" -c features.example=true ']) {
+    const ids = executorIdsFromProcesses(`/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex ${prefix}exec-server --remote https://registry.test/api --environment-id executor-local`);
+    assert.deepEqual([...ids], ['executor-local']);
+    assert.equal(localThreadEnvironment(LOCAL, ids)?.environmentId, 'executor-local');
+    assert.equal(localThreadEnvironment({ ...LOCAL, originator: 'orbit_cca_desktop' }, ids), null);
+    assert.equal(localThreadEnvironment({ ...LOCAL, environments: [{ environmentId: 'cloud', cwd: '/work/project' }] }, ids), null);
+  }
+  assert.deepEqual([...executorIdsFromProcesses('"C:\\Program Files\\Codex\\codex.exe" -c forced_login_method=chatgpt exec-server --environment-id "executor-windows"')], ['executor-windows']);
+  for (const args of ['app-server --command exec-server', '-c exec-server',
+    '-c invalid exec-server', '-c "unterminated exec-server', '--unknown value exec-server']) {
+    assert.equal(executorIdsFromProcesses(`/app/codex ${args} --environment-id executor-local`).size, 0);
+  }
+  assert.equal(executorIdsFromProcesses('/app/wrapper /app/codex -c forced_login_method=chatgpt exec-server --environment-id executor-local').size, 0);
+  assert.deepEqual([...executorIdsFromProcesses('/app/codex -c example="--environment-id wrong" exec-server --environment-id executor-local')], ['executor-local']);
+  assert.equal(executorIdsFromProcesses('/app/codex -c example="--environment-id wrong" exec-server --remote https://registry.test/api').size, 0);
+});
+
 test('canonical input excludes cached tokens; reasoning remains a subset of output', () => {
   assert.deepEqual(usageCounters(LAST), { input: 44911, cacheRead: 105216, cacheWrite: 0, output: 52, reasoning: 36, total: 150179 });
   assert.equal(usageCounters({ ...LAST, totalTokens: LAST.totalTokens + 36 }), null);
@@ -150,13 +167,7 @@ test('the collector, archive transform, renderer and details consume one canonic
     assert.equal(session.inputTokens, 44911);
     assert.equal(session.reasoningTokens, 36);
     assert.equal(session.projectId, projectIdentity('/work/project').projectId);
-    const rows = sessionRowsForPeriod(visible[name], { clientLabels: { codex: 'Codex' }, now: new Date(AT) });
-    assert.equal(rows[0].name, 'Dots local task');
-    assert.equal(rows[0].value, 150179);
-    assert.equal(rows[0].activityState, 'ended');
-    const projects = projectRowsForPeriod(visible[name], { clientLabels: { codex: 'Codex' } });
-    assert.equal(projects[0].name, 'project');
-    assert.equal(projects[0].value, 150179);
+    // NAS verifies the shared ledger above; desktop row rendering is out of scope.
   }
   assert.equal(visible.history.daily.find((row) => row.date === localTodayKey(new Date(AT))).tokens, 150179);
   assert.equal(Object.keys(archiveStore.read().sessions).length, 0, 'durable source must not also be archived as a vanished native session');
@@ -378,7 +389,7 @@ test('ownership standby retries promptly without probing until the lease is avai
   assert.equal(scans, 2);
 });
 
-test('Dots missing prices survive history, sync, Hub/Worker merging and fixed ranges', async (t) => {
+test('Dots missing prices survive shared history, sync and Hub merging', async (t) => {
   const { env, home, store } = fixture(t);
   store.observe(event({ thread: { ...LOCAL, model: 'unknown' } }));
   const collected = await collectUsageOnce({
@@ -387,12 +398,9 @@ test('Dots missing prices survive history, sync, Hub/Worker merging and fixed ra
     runTokscale: async () => ({ entries: [] }), runGraph: async () => ({ contributions: [] })
   });
   const { aggregateHistory } = require('../../src/shared/usage');
-  const workerUsage = require('../../worker/src/shared/usage');
   const { historyPreview } = require('../../src/shared/history');
-  const ranges = require('../../src/electron/renderer/fixedPeriodRanges');
-  const { usageCostLabel } = require('../../src/electron/renderer/usageAttributionRows');
   const synced = normalizeDeviceRecord(syncPayload(collected));
-  for (const aggregate of [aggregateHistory, workerUsage.aggregateHistory]) {
+  for (const aggregate of [aggregateHistory]) {
     const history = aggregate([synced, { ...synced, deviceId: 'fixture-2' }], { todayKey: localTodayKey(new Date(AT)) });
     const day = history.daily.find((row) => row.date === localTodayKey(new Date(AT)));
     const expected = LAST.totalTokens * 2;
@@ -402,57 +410,57 @@ test('Dots missing prices survive history, sync, Hub/Worker merging and fixed ra
     assert.equal(history.monthly[0].unpricedTokens, expected);
     assert.equal(history.summary.unpricedTokens, expected);
     assert.equal(historyPreview(history).daily.find((row) => row.date === day.date).unpricedTokens, expected);
-    const period = ranges.derivePeriod(history.daily, { start: day.date, end: day.date });
-    assert.equal(period.unpricedTokens, expected);
-    assert.equal(period.clientUnpricedTokens.codex, expected);
-    assert.equal(period.modelUnpricedTokens.unknown, expected);
-    assert.notEqual(usageCostLabel(period.costUsd, period.unpricedTokens, String, String, 'unpriced'), '0');
+    // Desktop fixed-range projection and labels stay in its renderer suite.
   }
 });
 
-test('live source subscribes only to this executor, ignores content/approval requests and stops cleanly', async (t) => {
-  const { store, home, env } = fixture(t);
-  const socket = new FakeSocket();
-  let changes = 0;
-  let destroyed = false;
-  const source = createLocalUsageSource({ store, onChange: () => { changes += 1; } }, {
-    localExecutorIds: () => new Set(['executor-local']),
-    readAuth: () => ({ accessToken: 'private-auth', accountId: 'account-1' }),
-    makeSocket: () => { queueMicrotask(() => socket.dispatchEvent(new Event('open'))); return { socket, destroy: () => { destroyed = true; } }; },
-    now: () => new Date(AT)
+for (const [protocol, executorCommand] of [
+  ['legacy', '/app/codex exec-server --environment-id executor-local'],
+  ['desktop-config', '/app/codex -c forced_login_method=chatgpt exec-server --environment-id executor-local']
+]) {
+  test(`live source subscribes only to this executor, ignores content/approval requests and stops cleanly (${protocol})`, async (t) => {
+    const { store, home, env } = fixture(t);
+    const socket = new FakeSocket();
+    let changes = 0;
+    let destroyed = false;
+    const source = createLocalUsageSource({ store, onChange: () => { changes += 1; } }, {
+      localExecutorIds: () => executorIdsFromProcesses(executorCommand),
+      readAuth: () => ({ accessToken: 'private-auth', accountId: 'account-1' }),
+      makeSocket: () => { queueMicrotask(() => socket.dispatchEvent(new Event('open'))); return { socket, destroy: () => { destroyed = true; } }; },
+      now: () => new Date(AT)
+    });
+    t.after(() => source.stop());
+    source.start();
+    await new Promise(setImmediate);
+    await source.whenIdle();
+    assert.deepEqual(socket.sent.filter((item) => item.method === 'thread/resume').map((item) => item.params), [{ threadId: ID, excludeTurns: true }]);
+    socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'baseline', tokenUsage: { last: LAST, total: TOTAL } });
+    socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn-1', tokenUsage: { last: LAST, total: addCounters(TOTAL, LAST) } });
+    socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'baseline', tokenUsage: { last: LAST, total: TOTAL } });
+    socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn-1', tokenUsage: { last: LAST, total: addCounters(TOTAL, LAST) } });
+    socket.notify('item/agentMessage/delta', { threadId: ID, delta: 'private-content' });
+    const sent = socket.sent.length;
+    socket.notify('item/commandExecution/requestApproval', { threadId: ID }, 112);
+    assert.equal(socket.sent.length, sent);
+    socket.notify('turn/completed', { threadId: ID });
+    assert.equal(changes, 2);
+    assert.equal(store.rows().length, 1);
+    assert.equal(store.rows()[0].turnEnded, true);
+    assert.equal(JSON.stringify(store.rows()).includes('private-content'), false);
+    assert.equal(JSON.stringify(socket.sent).includes('private-auth'), false);
+    assert.equal(socket.sent.some((item) => item.method.startsWith('turn/')), false);
+    const collected = await collectUsageOnce({
+      clients: 'codex', homeDir: home, env, deviceId: 'test-mac', now: AT,
+      codexLocalUsageStore: store, runTokscale: async () => ({ entries: [] }), lookupModelPricing: async () => ({})
+    });
+    source.stop();
+    await source.whenIdle();
+    socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn-2', tokenUsage: { last: LAST, total: addCounters(TOTAL, LAST) } });
+    assert.equal(store.rows().length, 1);
+    assert.equal(source.getDiagnostics().state, 'stopped');
+    assert.equal(destroyed, true);
   });
-  t.after(() => source.stop());
-  source.start();
-  await new Promise(setImmediate);
-  await source.whenIdle();
-  assert.deepEqual(socket.sent.filter((item) => item.method === 'thread/resume').map((item) => item.params), [{ threadId: ID, excludeTurns: true }]);
-  socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'baseline', tokenUsage: { last: LAST, total: TOTAL } });
-  socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn-1', tokenUsage: { last: LAST, total: addCounters(TOTAL, LAST) } });
-  socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'baseline', tokenUsage: { last: LAST, total: TOTAL } });
-  socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn-1', tokenUsage: { last: LAST, total: addCounters(TOTAL, LAST) } });
-  socket.notify('item/agentMessage/delta', { threadId: ID, delta: 'private-content' });
-  const sent = socket.sent.length;
-  socket.notify('item/commandExecution/requestApproval', { threadId: ID }, 112);
-  assert.equal(socket.sent.length, sent);
-  socket.notify('turn/completed', { threadId: ID });
-  assert.equal(changes, 2);
-  assert.equal(store.rows().length, 1);
-  assert.equal(store.rows()[0].turnEnded, true);
-  assert.equal(JSON.stringify(store.rows()).includes('private-content'), false);
-  assert.equal(JSON.stringify(socket.sent).includes('private-auth'), false);
-  assert.equal(socket.sent.some((item) => item.method.startsWith('turn/')), false);
-  const collected = await collectUsageOnce({
-    clients: 'codex', homeDir: home, env, deviceId: 'test-mac', now: AT,
-    codexLocalUsageStore: store, runTokscale: async () => ({ entries: [] }), lookupModelPricing: async () => ({})
-  });
-  assert.equal(sessionRowsForPeriod(collected.today, { clientLabels: { codex: 'Codex' } })[0].value, 150179);
-  source.stop();
-  await source.whenIdle();
-  socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn-2', tokenUsage: { last: LAST, total: addCounters(TOTAL, LAST) } });
-  assert.equal(store.rows().length, 1);
-  assert.equal(source.getDiagnostics().state, 'stopped');
-  assert.equal(destroyed, true);
-});
+}
 
 test('a live notification drives the real collector debounce and exact warm period update', { timeout: 5000 }, async (t) => {
   const { home, env, store } = fixture(t);
@@ -673,43 +681,48 @@ test('observer lease admits one writer, releases only its owner and recovers dea
   assert.equal(other.claimObserver('new-agent', 404, 31004, () => true), true);
 });
 
-test('reconnect discards its initial snapshot and offline gap, retaining only later observed requests', { timeout: 2000 }, async (t) => {
-  const { store } = fixture(t);
-  const sockets = [];
-  let connected;
-  const reconnect = new Promise((resolve) => { connected = resolve; });
-  const source = createLocalUsageSource({ store }, {
-    pollMs: 5, idlePollMs: 5,
-    shouldYield: () => false,
-    localExecutorIds: () => new Set(['executor-local']),
-    readAuth: () => ({ accessToken: 'fixture', accountId: 'account' }),
-    makeSocket() {
-      const socket = new FakeSocket();
-      sockets.push(socket);
-      queueMicrotask(() => { socket.dispatchEvent(new Event('open')); if (sockets.length === 2) connected(); });
-      return { socket };
-    }, now: () => new Date(AT)
+for (const [protocol, executorCommand] of [
+  ['legacy', '/app/codex exec-server --environment-id executor-local'],
+  ['desktop-config', '/app/codex -c forced_login_method=chatgpt exec-server --environment-id executor-local']
+]) {
+  test(`reconnect discards its initial snapshot and offline gap, retaining only later observed requests (${protocol})`, { timeout: 2000 }, async (t) => {
+    const { store } = fixture(t);
+    const sockets = [];
+    let connected;
+    const reconnect = new Promise((resolve) => { connected = resolve; });
+    const source = createLocalUsageSource({ store }, {
+      pollMs: 5, idlePollMs: 5,
+      shouldYield: () => false,
+      localExecutorIds: () => executorIdsFromProcesses(executorCommand),
+      readAuth: () => ({ accessToken: 'fixture', accountId: 'account' }),
+      makeSocket() {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        queueMicrotask(() => { socket.dispatchEvent(new Event('open')); if (sockets.length === 2) connected(); });
+        return { socket };
+      }, now: () => new Date(AT)
+    });
+    t.after(() => source.stop());
+    source.start();
+    await new Promise(setImmediate);
+    await source.whenIdle();
+    const notify = (socket, total) => socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn', tokenUsage: { last: LAST, total } });
+    notify(sockets[0], TOTAL);
+    assert.equal(store.rows().length, 0, 'old last request must not be charged on connection');
+    notify(sockets[0], addCounters(TOTAL, LAST));
+    sockets[0].close();
+    await reconnect;
+    await new Promise(setImmediate);
+    await source.whenIdle();
+    const gap = addCounters(addCounters(addCounters(TOTAL, LAST), LAST), LAST);
+    notify(sockets[1], gap);
+    assert.equal(store.rows().length, 1);
+    notify(sockets[1], addCounters(gap, LAST));
+    notify(sockets[1], addCounters(gap, LAST));
+    assert.equal(store.rows().length, 2);
+    assert.equal(store.rows().reduce((sum, row) => sum + row.usage.total, 0), LAST.totalTokens * 2);
   });
-  t.after(() => source.stop());
-  source.start();
-  await new Promise(setImmediate);
-  await source.whenIdle();
-  const notify = (socket, total) => socket.notify('thread/tokenUsage/updated', { threadId: ID, turnId: 'turn', tokenUsage: { last: LAST, total } });
-  notify(sockets[0], TOTAL);
-  assert.equal(store.rows().length, 0, 'old last request must not be charged on connection');
-  notify(sockets[0], addCounters(TOTAL, LAST));
-  sockets[0].close();
-  await reconnect;
-  await new Promise(setImmediate);
-  await source.whenIdle();
-  const gap = addCounters(addCounters(addCounters(TOTAL, LAST), LAST), LAST);
-  notify(sockets[1], gap);
-  assert.equal(store.rows().length, 1);
-  notify(sockets[1], addCounters(gap, LAST));
-  notify(sockets[1], addCounters(gap, LAST));
-  assert.equal(store.rows().length, 2);
-  assert.equal(store.rows().reduce((sum, row) => sum + row.usage.total, 0), LAST.totalTokens * 2);
-});
+}
 
 test('an enabled source without a local executor never opens a socket; agent ownership avoids probes', async (t) => {
   const { store } = fixture(t);
@@ -901,16 +914,12 @@ test('missing model or rates remain explicit across period/session/project norma
   assert.equal(normalized.clientUnpricedTokens.codex, 120);
   assert.equal(normalized.modelUnpricedTokens.unknown, 110);
   assert.equal(Object.values(normalized.projects)[0].unpricedTokens, 120);
-  assert.equal(sessionRowsForPeriod(normalized).find((row) => row.key === 'session:codex:' + ID + '0').unpricedTokens, 110);
-  assert.equal(projectRowsForPeriod(normalized)[0].unpricedTokens, 120);
   assert.equal(mergePeriods(normalized, normalized).unpricedTokens, 240);
 });
 
 test('ledger details price each observed request without allocating the known subtotal to unknown models', async (t) => {
   const { home, env, store } = fixture(t);
   const { readSessionDetailForPlatform } = require('../../src/shared/sessionDetailResolver');
-  const { exchangeRows } = require('../../src/electron/renderer/sessionDetail');
-  const { usageCostLabel } = require('../../src/electron/renderer/usageAttributionRows');
   const previousDay = new Date(Date.parse(AT) - 86400000).toISOString();
   store.observe(event({ thread: { ...LOCAL, model: 'unknown' }, now: previousDay }));
   const next = addCounters(TOTAL, LAST);
@@ -932,15 +941,8 @@ test('ledger details price each observed request without allocating the known su
   assert.deepEqual(lookups, ['detail-priced']);
   assert.equal(detail.totals.costUsd, expected);
   assert.equal(detail.totals.unpricedTokens, LAST.totalTokens * 2);
-  const row = exchangeRows(detail)[0];
-  assert.equal(row.unpricedTokens, LAST.totalTokens * 2);
-  assert.equal(row.cost, expected);
-  const unknown = row.turns.filter((turn) => turn.unpricedTokens > 0);
-  assert.equal(unknown.length, 2);
-  assert.ok(unknown.every((turn) => turn.cost === 0 && turn.unpricedTokens === LAST.totalTokens));
-  const label = usageCostLabel(unknown[0].cost, unknown[0].unpricedTokens, (value) => `$${value}`, String, 'unpriced tokens');
-  assert.match(label, /^—/);
-  assert.equal(row.turns.filter((turn) => !turn.unpricedTokens)[0].cost, expected);
+  // Renderer formatting stays in the upstream desktop test suite.
+
 });
 
 

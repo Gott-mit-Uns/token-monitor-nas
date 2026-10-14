@@ -42,18 +42,20 @@ def without_cost(value):
     if isinstance(value, list): return [without_cost(v) for v in value]
     return value
 
-def compare(before, after):
+def compare(before, after, baseline_version="v0.69.0-02"):
     m.require(without_cost(before['periods']) == without_cost(after['periods']), 'frozen_token_session_loss')
     m.require(without_cost(before['history']) == without_cost(after['history']), 'frozen_history_loss')
     m.require(before['deviceId'] == after['deviceId'] == 'synthetic-frozen-device' and before['uploaded'] and after['uploaded'], 'frozen_upload_identity')
     changes = {}
     for period, (old, new) in EXPECTED_COST.items():
+        if baseline_version == 'v0.70.0-01': old = new
         actual_old = before['periods'][period]['costUsd']; actual_new = after['periods'][period]['costUsd']
         m.require(abs(actual_old - old) < 1e-9 and abs(actual_new - new) < 1e-9, 'frozen_reasoning_cost_mismatch')
         changes[period] = {'baselineCostUsd': actual_old, 'candidateCostUsd': actual_new, 'expectedReductionUsd': old - new}
     for old_row, new_row in zip(before['history'], after['history']):
         key = 'today' if old_row['date'] == '2026-06-07' else None
         expected_old, expected_new = EXPECTED_COST[key] if key else (0.001135, 0.000935)
+        if baseline_version == 'v0.70.0-01': expected_old = expected_new
         m.require(abs(old_row['cost'] - expected_old) < 1e-9 and abs(new_row['cost'] - expected_new) < 1e-9, 'frozen_history_cost_mismatch')
     return {'accountingHistoryDeviceAndActualUpload': 'passed', 'reasoningCostCorrection': changes,
         'explanation': 'Hermes output includes reasoning. Old pricing billed reasoning a second time; new pricing subtracts the reasoning subset before additive pricing. Public output and total tokens, sessions, dates and device identity remain identical.'}
@@ -86,7 +88,7 @@ def main():
             results[name] = json.loads(output.strip().splitlines()[-1])
             results[name]['imageId'] = labels['Id']; results[name]['sourceCommit'] = labels['Config']['Labels']['org.opencontainers.image.revision']
             m.require(hashlib.sha256((hermes / 'state.db').read_bytes()).hexdigest() == fixture_sha, 'frozen_source_modified')
-        comparison = compare(results['baseline'], results['candidate'])
+        comparison = compare(results['baseline'], results['candidate'], args.baseline_version)
         evidence = {'scope': 'synthetic SQLite; real pinned Rust, shared normalization and loopback Hub upload; no production measurement',
             'baselineVersion': args.baseline_version, 'baselineImage': baseline, 'candidateVersion': candidate_version,
             'fixtureSha256': fixture_sha, 'sourceBytesUnchanged': True,

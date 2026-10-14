@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        baseline: ['v0.69.0-01', 'v0.69.0-02']
+        baseline: ['v0.69.0-01', 'v0.69.0-02', 'v0.70.0-01']
         include:
           - runner: ubuntu-latest
             arch: x86_64
@@ -47,6 +47,11 @@ jobs:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           sudo python3 deployment/exercise.py --candidate token-monitor-deployment-sandbox --source "$SOURCE_COMMIT" --baseline-version '${{ matrix.baseline }}' --output /tmp/deployment-exercise-result.json
+      - name: Reasoning cost manual-path rehearsal with production guard retained
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          sudo python3 deployment/exercise.py --reasoning --candidate token-monitor-deployment-sandbox --source "$SOURCE_COMMIT" --baseline-version '${{ matrix.baseline }}' --output /tmp/reasoning-deployment-exercise-result.json
       - name: Save synthetic acceptance summary only
         if: always()
         uses: actions/upload-artifact@v4
@@ -55,4 +60,5 @@ jobs:
           path: |
             /tmp/deployment-exercise-result.json
             /tmp/frozen-hermes-result.json
+            /tmp/reasoning-deployment-exercise-result.json
           if-no-files-found: error
