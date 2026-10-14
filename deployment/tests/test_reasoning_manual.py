@@ -47,6 +47,18 @@ class ManualReasoningTest(unittest.TestCase):
                 self.assertEqual(adapter.verify_state(root), {'history': 'retained'})
                 guard.assert_called_once_with(root)
 
+    def test_only_verified_float_cost_bits_normalized_for_list_membership(self):
+        expected = [{'date': '2026-10-15', 'tokens': 125, 'cost': e.NEW_COST}]
+        actual = [{'date': '2026-10-15', 'tokens': 125, 'cost': e.NEW_COST + 5e-20}]
+        self.assertFalse(m.preserved(expected, actual))
+        self.assertTrue(m.preserved(expected, e.canonical_synthetic_cost(actual)))
+        for value in [e.NEW_COST - 1e-8, float('nan'), -1]:
+            with self.assertRaises(m.Refused): e.canonical_synthetic_cost({'cost': value})
+        actual[0]['tokens'] = 124
+        self.assertFalse(m.preserved(expected, e.canonical_synthetic_cost(actual)))
+        actual[0]['tokens'] = 125;actual[0]['date'] = '2026-10-14'
+        self.assertFalse(m.preserved(expected, e.canonical_synthetic_cost(actual)))
+
     def test_production_paths_cannot_use_sandbox_adapter(self):
         with self.assertRaises(m.Refused): e.ManualReasoningSandbox({'sandbox': False}, 'candidate', 'a'*40)
         with self.assertRaises(m.Refused): e.ManualReasoningSandbox({'sandbox': True, 'projectRoot': '/tmp/production', 'deviceId': 'sandbox-device'}, 'candidate', 'a'*40)

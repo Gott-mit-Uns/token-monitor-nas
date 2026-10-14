@@ -109,6 +109,18 @@ def correct_synthetic_cost(value, in_cost=False):
         m.require(value == 0 or math.isclose(value, NEW_COST, abs_tol=1e-12, rel_tol=0), 'synthetic_unexplained_cost')
     return value
 
+def canonical_synthetic_cost(value, in_cost=False):
+    """Normalize only independently verified cost scalars, never other fields."""
+    if isinstance(value, dict): return {k: canonical_synthetic_cost(v, in_cost or k in COST_FIELDS) for k, v in value.items()}
+    if isinstance(value, list): return [canonical_synthetic_cost(v, in_cost) for v in value]
+    if in_cost and isinstance(value, (int, float)) and not isinstance(value, bool):
+        m.require(math.isfinite(value), 'synthetic_nonfinite_cost')
+        if value == 0: return value
+        for known in [OLD_COST, NEW_COST]:
+            if math.isclose(value, known, abs_tol=1e-12, rel_tol=0): return known
+        raise m.Refused('synthetic_unexplained_cost')
+    return value
+
 def exact_cost_comparison(expected, actual, in_cost=False):
     if isinstance(expected, dict):
         return isinstance(actual, dict) and expected.keys() == actual.keys() and all(
@@ -176,7 +188,30 @@ class ManualReasoningSandbox(SandboxDocker):
                 # Other devices belong to the remote Hub and get no allowance.
                 data['devices'][self.cfg['deviceId']] = correct_synthetic_cost(data['devices'][self.cfg['deviceId']])
                 file.write_text(json.dumps(data))
-            return m.verify_state(self.cfg, reviewed)
+            # Rust and JSON can represent the exact known price with a final
+            # floating-point bit difference. Normalize BOTH private comparison
+            # copies only after every cost scalar matches an independent known
+            # formula within 1e-12; real state and original backup remain intact.
+            current = reviewed / 'current'
+            m.copy_tree(Path(self.cfg['stateDir']), current / 'state')
+            for file in (current / 'state').rglob('*daily-history*.json'):
+                file.write_text(json.dumps(canonical_synthetic_cost(json.loads(file.read_text()))))
+            for archive in (current / 'state').rglob('session-usage-archive.sqlite'):
+                source = Path(self.cfg['stateDir']) / archive.relative_to(current / 'state')
+                for suffix in ['-wal', '-shm']:
+                    archive.with_name(archive.name + suffix).unlink(missing_ok=True)
+                with sqlite3.connect('file:' + str(source) + '?mode=ro', uri=True) as src, sqlite3.connect(archive) as dst:
+                    src.backup(dst)
+                    for key, raw in dst.execute('SELECT session_key, entry_json FROM sessions').fetchall():
+                        dst.execute('UPDATE sessions SET entry_json=? WHERE session_key=?', (json.dumps(canonical_synthetic_cost(json.loads(raw))), key))
+            cfg = {**self.cfg, 'stateDir': str(current / 'state')}
+            if self.cfg.get('hubDataDir'):
+                m.copy_tree(Path(self.cfg['hubDataDir']), current / 'hub-data')
+                file = current / 'hub-data' / 'devices.json'
+                data = json.loads(file.read_text())
+                data['devices'][self.cfg['deviceId']] = canonical_synthetic_cost(data['devices'][self.cfg['deviceId']])
+                file.write_text(json.dumps(data));cfg['hubDataDir'] = str(current / 'hub-data')
+            return m.verify_state(cfg, reviewed)
 
 def verify_reasoning_ingress(adapter):
     script = """const assert=require('assert/strict');(async()=>{const response=await fetch(process.env.TOKEN_MONITOR_HUB_URL+'/api/devices',{headers:{authorization:'Bearer '+process.env.TOKEN_MONITOR_SECRET}});assert.equal(response.status,200);const data=await response.json();const record=data.devices.find(d=>d.deviceId===process.env.TOKEN_MONITOR_DEVICE_ID);assert.ok(record);for(const period of ['today','month','allTime'])assert.ok(Math.abs(record.periods[period].costUsd-0.000405)<1e-12);const history=await(await fetch(process.env.TOKEN_MONITOR_HUB_URL+'/api/history',{headers:{authorization:'Bearer '+process.env.TOKEN_MONITOR_SECRET}})).json();assert.ok(history.daily.some(d=>d.tokens>=125));console.log(JSON.stringify({exactSyntheticReasoningCost:true}));})().catch(()=>process.exitCode=1);"""
