@@ -66,3 +66,5 @@ Runtime procps supplies the official POSIX process-start reader and the test RSS
 Goose DB/WAL事件与SHM自循环过滤纳入轻量watcherPolicy，独立Watcher默认值保留。SQLite官方streaming/revision修复与NAS完整stage/fault tests同时保留；Notion和WorkBuddy共享身份、双额度窗口、占位/失败账户规则见 UPSTREAM_0.71_SHARED.md。既有安全字典、上传取消/去重/心跳、Hub持久化、有界SSE不变。
 
 NAS自有core/node adapter与官方不同，不能复制上游最新注册hash冒充一致。app/scripts/nas-hub-build.js从实际portable共享依赖和完整Node本地依赖闭包（含NAS Hub helper与日历、package/lock）计算SHA-256，排除注册表避免自引用；继承上游历史后只追加本次NAS core/node记录。旧客户端遇到未知构建应保持unknown提示，不伪装current。本仓库不分发或部署Worker副本，不为不存在的Worker生成新身份。
+
+v0.71额外NAS严格publication保护：坏SQLite单row JSON、无效session及legacy row在读取/迁移/增量capture前拒绝，错误不覆盖完整设备数据、不提交半成品、不提前推进revision；合法prune tombstone及非严格历史读取行为保留。上游与NAS测试均执行。生产费用保护不放宽，仅保存私有旧/新冻结证据、补齐稳定会话日期与periodWindows；跨0.70使用已审阅手动方案与独立含reasoning原生演练。正式发布和真实DXP部署验收、DH访问阻塞见HANDOFF_0.71.md。

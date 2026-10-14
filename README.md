@@ -2,7 +2,7 @@
 
 基于 [Token Monitor](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到你配置的 Hub。镜像同时提供 Node Hub，支持 `linux/amd64` 和 `linux/arm64`。
 
-v0.71.0-01 正在对齐与验证，状态见 [本轮交接](HANDOFF_0.71.md)。当前已发布 [`v0.70.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.70.0-01)，对齐官方 v0.70.0。生产可固定 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.70.0-01`；源码、双架构验收及镜像摘要见 [升级记录](UPGRADE_0.70.md)。发布不会自动升级 NAS。
+当前已发布 [`v0.71.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.71.0-01)，增量对齐官方 v0.71.0。生产可固定 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.71.0-01`；源码、原生双架构验收、摘要及回退条件见 [本轮交接](HANDOFF_0.71.md)。本轮 DXP4800 的 Hub+Agent 已实际升级并验证；DH4300Plus 因 SSH 拒绝连接尚未升级。后续更新按 AGENTS.md 的维护约定先验收、正式发布，再备份并分阶段部署，各阶段单独记录。
 
 ## 主要功能
 

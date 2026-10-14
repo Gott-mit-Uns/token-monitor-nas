@@ -21,3 +21,5 @@ Windows Adapter 使用独立仓库 `Gott-mit-Uns/token-monitor-adapter` 与 `ada
 本轮正式版本为 `v0.70.0-01`，官方 SHA 和实际验收记录见 `upstream-lock.json` / `UPGRADE_0.70.md`。创建候选时已核实该 Tag/Release 未占用。发布仍须最终源码原生双架构验收及固定 digest 推广；正式发布已经原生双架构验证，source `02413928fef06abc99e181f253228e549fb4582f`。`compatibleFrom` 的 v0.69.0-01 与 v0.69.0-02 必须分别完成两架构的冻结数据及完整状态恢复演练，本轮两来源、两架构冻结/完整恢复全部通过；后续未通过的来源应删除，不能照抄旧政策。
 
 本次候选 v0.71.0-01：2026-10-15 起始实时核验Tag未占用。正式发布须同一最终源码的原生双架构Docker与所有声明来源的冻结/恢复验收。新增NAS构建身份对应实际源闭包，不能只改package版本或复制官方注册值。发布结果与生产部署结果分别记录在 HANDOFF_0.71.md。
+
+后续完成：v0.71.0-01已正式发布，source/tag/OCI/manifest绑定e92d9add64efbb9985fb482880d9d95734354183，固定index与latest一致，旧固定标签不改写。三来源×两架构冻结/完整恢复全部通过，compatibleFrom按实际证据保留。DXP4800已升级并验收，DH4300Plus SSH阻塞。上述“候选”句是编号创建历史；文档后补不改变镜像源码或增加修订号，不重建/覆盖本固定版。

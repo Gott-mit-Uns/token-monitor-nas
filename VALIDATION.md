@@ -1,5 +1,9 @@
 # Upgrade validation — 2026-09-08
 
+## 最新 v0.71.0-01 完成记录（2026-10-15）
+
+原生amd64、arm64各1556通过、0失败、8平台/桌面跳过；真实Tokscale39客户端/别名与3 fork-only、Goose累计/创建日/选择优先级/WAL、DSH及Linux10计费契约通过。三来源×两架构冻结、完整恢复、无reasoning及独立含reasoning人工控制器、Agent-only全部通过；固定1000会话三轮旧/新资源对照通过，2000会话归档投影断言通过。正式发布与真实DXP4800新上传、SSE、独立Watcher、core/adapter及3568归档/完整历史保持验证完成，DH4300Plus SSH阻塞。完整证据与限制见 [HANDOFF_0.71.md](HANDOFF_0.71.md)。下列为历史记录。
+
 Target: DXP4800, existing device ID `Hermes-NAS-4800`.
 
 - Built `token-monitor-hermes-agent:0.54.0-nas.1` successfully on the NAS.

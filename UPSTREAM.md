@@ -1,10 +1,10 @@
 # 官方源码基线
 
-## NAS v0.71.0-01 候选
+## NAS v0.71.0-01
 
 固定官方 v0.71.0 `a514e2063563e318ef73c2a17fad68057c4e300c`，上一基线 v0.70.0 `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。逐文件差异见 UPSTREAM_0.71_AUDIT.md，共享三方合并见 UPSTREAM_0.71_SHARED.md。Agent与Node Hub无上游本体净差，加载同一app/src/shared。Tokscale固定二进制pin没有变化，既有fork的Goose解析通过新增真实binary契约验收后才可宣称支持。桌面登录、托盘、界面和Electron内存管理不入容器。
 
-NAS core/Node adapter使用实际闭包hash，Worker未分发；旧客户端的unknown身份提示不能靠复制官方注册值消除。版本、发布和部署证据以 HANDOFF_0.71.md 后续完成记录为准。以下保留历史。
+NAS core/Node adapter使用实际闭包hash，Worker未分发；旧客户端的unknown身份提示不能靠复制官方注册值消除。上游19个Worker共享副本、registry及声明哈希已静态核对一致。正式源码为e92d9add64efbb9985fb482880d9d95734354183，原生双架构与六组冻结/恢复通过，v0.71.0-01已发布并读回；DXP4800 Hub+Agent已实际升级，DH4300Plus SSH拒绝连接。完整证据及剩余边界见 HANDOFF_0.71.md。以下保留历史。
 
 ## NAS v0.70.0-01
 
