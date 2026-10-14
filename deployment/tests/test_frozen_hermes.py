@@ -43,6 +43,11 @@ class FrozenHermesTest(unittest.TestCase):
             before, after = self.evidence(); mutation(after)
             with self.assertRaises(m.Refused): f.compare(before, after)
 
+    def test_070_baseline_requires_equal_corrected_costs(self):
+        before, after = self.evidence()
+        self.assertEqual(f.compare(after, after, 'v0.70.0-01')['accountingHistoryDeviceAndActualUpload'], 'passed')
+        with self.assertRaises(m.Refused): f.compare(before, after, 'v0.70.0-01')
+
     def test_synthetic_fixture_closed_and_consistent(self):
         with tempfile.TemporaryDirectory() as tmp:
             file = Path(tmp) / 'state.db'; f.fixture(file)
@@ -56,11 +61,11 @@ class FrozenHermesTest(unittest.TestCase):
 
     def test_baselines_are_fixed_and_candidate_read_from_single_version_input(self):
         with tempfile.TemporaryDirectory() as tmp:
-            file = Path(tmp) / 'version'; file.write_text('v0.70.0-01\n')
+            file = Path(tmp) / 'version'; file.write_text('v0.71.0-01\n')
             for version, digest in exercise.BASELINES.items():
                 ref, candidate = exercise.versions(version, file)
                 self.assertEqual(ref, m.IMAGE + '@' + digest)
-                self.assertEqual(candidate, 'v0.70.0-01')
+                self.assertEqual(candidate, 'v0.71.0-01')
             with self.assertRaises(m.Refused): exercise.versions('latest', file)
             file.write_text('v0.69.0-02')
             with self.assertRaises(m.Refused): exercise.versions('v0.69.0-02', file)

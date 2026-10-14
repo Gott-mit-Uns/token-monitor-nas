@@ -10,6 +10,32 @@ test('syncPayload preserves nullish inputs', () => {
   assert.equal(syncPayload(undefined), undefined);
 });
 
+test('NAS Notion wire carries stable combined identity and limits without raw account identifiers or ledger usage', () => {
+  const { parseNotionSpaces, parseNotionAllowance } = require('../../src/shared/providers/notion/limits');
+  const { normalizeLimitProvider } = require('../../src/shared/limits/core');
+  const spaces = require('../fixtures/notionSpaces.json');
+  const allowance = require('../fixtures/notionAllowance.json');
+  const userId = Object.keys(spaces)[0];
+  const workspaceId = 'f190126b-0445-43ec-94dd-f069ad1aa064';
+  const provider = normalizeLimitProvider({
+    provider: 'notion', status: 'ok', source: 'web',
+    ...parseNotionSpaces(spaces, workspaceId), ...parseNotionAllowance(allowance)
+  });
+  const payload = syncPayload({
+    deviceId: 'fixture-nas', today: { totalTokens: 13, totalCost: 0.2 },
+    limits: { providers: [provider] }
+  });
+  const wire = JSON.stringify(payload);
+  assert.equal(payload.limits.providers[0].accountKey, provider.accountKey);
+  assert.equal(payload.limits.providers[0].windows.length, 2);
+  assert.equal(wire.includes(userId), false);
+  assert.equal(wire.includes(workspaceId), false);
+  assert.equal(wire.includes('token_v2'), false);
+  assert.equal(payload.today.totalTokens, 13);
+  assert.equal(payload.today.totalCost, 0.2);
+  assert.equal(Object.hasOwn(payload.limits.providers[0], 'usage'), false);
+});
+
 test('oversized model timing detail is omitted before session detail without mutating the source', () => {
   const modelThroughput = Object.fromEntries(Array.from({ length: 13000 }, (_, i) => [
     `model-${i}-${'x'.repeat(20)}`, { timedTokens: 1, timedOutputTokens: 1, timedDurationMs: 1 }

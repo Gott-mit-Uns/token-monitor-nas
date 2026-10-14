@@ -366,13 +366,16 @@ class RealDocker:
             except ValueError:
                 raise Refused('dry_run_output_invalid') from None
             outputs.append(frozen_accounting(value))
+        # Private evidence for an independently reviewed manual acceptance.
+        # Persisting the pair never authorizes a mismatch or changes any guard.
+        private_json(snapshot / 'frozen-accounting.json', {'before': outputs[0], 'after': outputs[1]})
         require(outputs[0] == outputs[1], 'frozen_accounting_mismatch')
         return {'frozenAccounting': 'exact-match'}
 
 def frozen_accounting(record):
     # Container hostname, startup metadata and optional live fields legitimately
     # differ. Compare accounting identities/maps, every session and daily history.
-    result = {'deviceId': record.get('deviceId')}
+    result = {'deviceId': record.get('deviceId'), 'periodWindows': record.get('periodWindows')}
     counters = ['totalTokens', 'costUsd', 'inputTokens', 'outputTokens',
                 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'messageCount']
     maps = ['clients', 'models', 'clientOutputs', 'modelCosts']
@@ -380,7 +383,7 @@ def frozen_accounting(record):
         period = record.get(name, {})
         result[name] = {key: period.get(key) for key in counters + maps}
         result[name]['sessions'] = {key: {field: value.get(field)
-            for field in counters + ['client', 'sessionId', 'models', 'modelCosts']}
+            for field in counters + ['client', 'sessionId', 'models', 'modelCosts', 'startedAt', 'createdAt', 'date', 'day', 'month']}
             for key, value in period.get('sessions', {}).items()}
     result['history'] = accounting(record.get('history'))
     return result
@@ -390,7 +393,7 @@ def accounting(value):
     if isinstance(value, list):
         return [accounting(x) for x in value]
     if isinstance(value, dict):
-        skip = {'version', 'agentVersion', 'generatedAt', 'updatedAt', 'collectedAt', 'timestamp', 'capturedAt', 'startedAt', 'lastUsedAt', 'active', 'activity', 'sessionTitle', 'title', 'nasVersion'}
+        skip = {'version', 'agentVersion', 'generatedAt', 'updatedAt', 'collectedAt', 'timestamp', 'capturedAt', 'lastUsedAt', 'active', 'activity', 'sessionTitle', 'title', 'nasVersion'}
         return {k: accounting(v) for k, v in value.items() if k not in skip}
     return value
 

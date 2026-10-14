@@ -1,0 +1,20 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { current, closure } = require('../../scripts/nas-hub-build');
+const { currentHubBuild } = require('../../src/shared/hubBuildIdentity');
+test('NAS advertised build identity binds its actual core and Node source', () => {
+  const actual = current(); const advertised = currentHubBuild('node-hub');
+  assert.equal(advertised.coreBuildId, actual.core);
+  assert.equal(advertised.runtimeBuildId, actual['node-hub']);
+  assert.ok(actual.coreFiles.includes('src/shared/providers/workbuddy/identity.js'));
+  assert.ok(actual.coreFiles.includes('src/shared/recordTimestamp.js'));
+  assert.ok(actual.runtimeFiles.includes('src/hub/sse.js'));
+  assert.ok(actual.runtimeFiles.includes('src/hub/calendars/2026.json'));
+  assert.ok(actual.runtimeFiles.includes('package-lock.json'));
+  assert.ok(!actual.coreFiles.includes('src/shared/hubBuildRegistry.json'));
+  assert.ok(!fs.existsSync(path.resolve(__dirname, '../../worker')));
+  assert.deepEqual(closure(['src/hub/server.js']), [...new Set([...actual.coreFiles, ...actual.runtimeFiles.filter(file => file.startsWith('src/'))])].sort());
+});

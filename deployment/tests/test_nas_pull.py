@@ -333,6 +333,16 @@ class FrozenAccountingTest(unittest.TestCase):
         new['today']['sessions']['hermes:x']['totalTokens'] = 0
         self.assertNotEqual(m.frozen_accounting(old), m.frozen_accounting(new))
 
+    def test_stable_session_creation_and_period_date_cannot_change(self):
+        import copy
+        old = {'deviceId': 'synthetic', 'periodWindows': {'today': {'key': '2026-10-15', 'endsAt': '2026-10-15T16:00:00Z'}, 'timeZone': 'Asia/Shanghai'}, 'allTime': {'sessions': {'hermes:x': {'client': 'hermes', 'sessionId': 'x', 'startedAt': '2026-10-14T04:00:00Z', 'totalTokens': 125}}}}
+        for mutate in [lambda v: v['allTime']['sessions']['hermes:x'].__setitem__('startedAt', '2026-10-15T04:00:00Z'), lambda v: v['periodWindows']['today'].__setitem__('key', '2026-10-14')]:
+            new = copy.deepcopy(old); mutate(new)
+            self.assertNotEqual(m.frozen_accounting(old), m.frozen_accounting(new))
+        new = copy.deepcopy(old); new['allTime']['sessions']['hermes:x']['lastUsedAt'] = '2026-10-15T09:00:00Z'
+        self.assertEqual(m.frozen_accounting(old), m.frozen_accounting(new))
+        self.assertNotEqual(m.accounting({'startedAt': 'old'}), m.accounting({'startedAt': 'new'}))
+
 class ArchiveWindowTest(unittest.TestCase):
     def entry(self, day=None, month=None):
         day = day or m.local_window('today')

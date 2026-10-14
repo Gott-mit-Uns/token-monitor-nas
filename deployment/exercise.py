@@ -6,6 +6,8 @@ exercise uses real released baseline and a locally built candidate for Docker,
 SQLite, Hub/Agent, SSE and whole-state restore. Only synthetic summary is exported.
 """
 import argparse
+import copy
+import math
 import datetime as dt
 import json
 import os
@@ -19,6 +21,7 @@ import nas_pull as m
 BASELINES = {
     'v0.69.0-01': 'sha256:849ad058facfde01a7279efd88333f7461e3bffd3655f3d082913e957c30ed07',
     'v0.69.0-02': 'sha256:e35fa4c5f050b3944698a96a5ea48e7ee65b4e851ec49c5ddd1271dc02cca4b2',
+    'v0.70.0-01': 'sha256:848d6c0b59c35be8e5d9f69d29d347404f2b2988964c8b4838579e24e8621e64',
 }
 
 def versions(baseline_version, version_file=None):
@@ -80,15 +83,125 @@ def verify_fixture_accounting(adapter):
     result=json.loads(m.run(['docker','exec',info['Id'],'node','-e',script]))
     assert result['fixedAccounting'] is True
 
-def fixture(path):
+# Deliberately lives in the synthetic exercise, never in the production adapter.
+MODEL = 'synthetic-controller-reasoning-model'
+OLD_COST = (100 * 2 + (20 + 8) * 10 + 5) / 1000000
+NEW_COST = (100 * 2 + 20 * 10 + 5) / 1000000
+COST_FIELDS = {'costUsd', 'cost', 'totalCost', 'modelCosts', 'clientCosts'}
+
+def prime_prices(state):
+    directory = state / 'tokscale'
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / 'custom-pricing.json').write_text(json.dumps({'models': {MODEL: {
+        'input_cost_per_million_tokens': 2, 'output_cost_per_million_tokens': 10,
+        'cache_read_input_token_cost_per_million_tokens': 1,
+        'cache_creation_input_token_cost_per_million_tokens': 3}}}))
+
+def correct_synthetic_cost(value, in_cost=False):
+    """Exact one-session synthetic oracle; never accepts arbitrary percentages."""
+    if isinstance(value, dict):
+        return {key: correct_synthetic_cost(item, in_cost or key in COST_FIELDS)
+                for key, item in value.items()}
+    if isinstance(value, list): return [correct_synthetic_cost(item, in_cost) for item in value]
+    if in_cost and isinstance(value, (int, float)) and not isinstance(value, bool):
+        m.require(math.isfinite(value), 'synthetic_nonfinite_cost')
+        if math.isclose(value, OLD_COST, abs_tol=1e-12, rel_tol=0): return NEW_COST
+        m.require(value == 0 or math.isclose(value, NEW_COST, abs_tol=1e-12, rel_tol=0), 'synthetic_unexplained_cost')
+    return value
+
+def exact_cost_comparison(expected, actual, in_cost=False):
+    if isinstance(expected, dict):
+        return isinstance(actual, dict) and expected.keys() == actual.keys() and all(
+            exact_cost_comparison(v, actual[k], in_cost or k in COST_FIELDS) for k, v in expected.items())
+    if isinstance(expected, list):
+        return isinstance(actual, list) and len(expected) == len(actual) and all(
+            exact_cost_comparison(a, b, in_cost) for a, b in zip(expected, actual))
+    if in_cost and isinstance(expected, (int, float)) and not isinstance(expected, bool):
+        return isinstance(actual, (int, float)) and not isinstance(actual, bool) and math.isfinite(actual) and math.isclose(expected, actual, abs_tol=1e-12, rel_tol=0)
+    return expected == actual
+
+class ManualReasoningSandbox(SandboxDocker):
+    """Rehearse reviewed manual steps while production stays fail-closed.
+
+    Refuses every non-generated scope; price allowance is the independently
+    computed exact 8 reasoning tokens at USD 10/million on one synthetic session.
+    The original complete backup is never edited and remains rollback material.
+    """
+    def __init__(self, cfg, *args, **kwargs):
+        m.require(cfg.get('sandbox') is True and Path(cfg['projectRoot']).resolve().parent.name.startswith('token-monitor-deployment-exercise-') and cfg['deviceId'] in ['sandbox-device', 'sandbox-dh-device'], 'manual_cost_oracle_sandbox_only')
+        super().__init__(cfg, *args, **kwargs)
+        self.reviewed_snapshot = None
+    def frozen_compare(self, snapshot, old_image, target_ref):
+        try:
+            return super().frozen_compare(snapshot, old_image, target_ref)
+        except m.Refused as error:
+            m.require(str(error) == 'frozen_accounting_mismatch', 'synthetic_unexpected_frozen_failure')
+        pair = json.loads((snapshot / 'frozen-accounting.json').read_text())
+        m.require(pair['before']['deviceId'] == pair['after']['deviceId'] == self.cfg['deviceId'], 'synthetic_device_mismatch')
+        for record, expected in [(pair['before'], OLD_COST), (pair['after'], NEW_COST)]:
+            for period in ['today', 'month', 'allTime']:
+                m.require(math.isclose(record[period]['costUsd'], expected, abs_tol=1e-12, rel_tol=0), 'synthetic_exact_cost_mismatch')
+                m.require(record[period]['totalTokens'] == 125 and record[period]['outputTokens'] == 20 and record[period]['cacheReadTokens'] == 5, 'synthetic_token_mismatch')
+        m.require(exact_cost_comparison(correct_synthetic_cost(pair['before']), pair['after']), 'synthetic_unknown_accounting_difference')
+        # This is the explicit manual branch in a generated sandbox. The normal
+        # adapter has already refused before either new production service starts.
+        self.reviewed_snapshot = snapshot
+        return {'frozenAccounting': 'manual-synthetic-exact-rule', 'productionGuard': 'refused-cost-change', 'rule': 'hermes-reasoning-double-pricing', 'reductionUsd': OLD_COST - NEW_COST}
+    def verify_state(self, snapshot):
+        if self.reviewed_snapshot != snapshot: return super().verify_state(snapshot)
+        with tempfile.TemporaryDirectory(prefix='synthetic-cost-review-', dir='/tmp') as tmp:
+            reviewed = Path(tmp)
+            m.copy_tree(snapshot / 'state', reviewed / 'state')
+            for file in (reviewed / 'state').rglob('*daily-history*.json'):
+                file.write_text(json.dumps(correct_synthetic_cost(json.loads(file.read_text()))))
+            for archive in (reviewed / 'state').rglob('session-usage-archive.sqlite'):
+                with sqlite3.connect(archive) as db:
+                    rows = db.execute('SELECT session_key, entry_json FROM sessions').fetchall()
+                    for key, raw in rows:
+                        entry = json.loads(raw)
+                        m.require(entry.get('client') == 'hermes' and entry.get('sessionId') == 'synthetic-deployment-session', 'synthetic_unknown_archive_identity')
+                        db.execute('UPDATE sessions SET entry_json=? WHERE session_key=?', (json.dumps(correct_synthetic_cost(entry)), key))
+            if self.cfg.get('hubDataDir'):
+                m.copy_tree(snapshot / 'hub-data', reviewed / 'hub-data')
+                file = reviewed / 'hub-data' / 'devices.json'
+                data = json.loads(file.read_text())
+                # Other devices belong to the remote Hub and get no allowance.
+                data['devices'][self.cfg['deviceId']] = correct_synthetic_cost(data['devices'][self.cfg['deviceId']])
+                file.write_text(json.dumps(data))
+            return m.verify_state(self.cfg, reviewed)
+
+def verify_reasoning_ingress(adapter):
+    script = """const assert=require('assert/strict');(async()=>{const response=await fetch(process.env.TOKEN_MONITOR_HUB_URL+'/api/devices',{headers:{authorization:'Bearer '+process.env.TOKEN_MONITOR_SECRET}});assert.equal(response.status,200);const data=await response.json();const record=data.devices.find(d=>d.deviceId===process.env.TOKEN_MONITOR_DEVICE_ID);assert.ok(record);for(const period of ['today','month','allTime'])assert.ok(Math.abs(record.periods[period].costUsd-0.000405)<1e-12);const history=await(await fetch(process.env.TOKEN_MONITOR_HUB_URL+'/api/history',{headers:{authorization:'Bearer '+process.env.TOKEN_MONITOR_SECRET}})).json();assert.ok(history.daily.some(d=>d.tokens>=125));console.log(JSON.stringify({exactSyntheticReasoningCost:true}));})().catch(()=>process.exitCode=1);"""
+    info = adapter.inspect(adapter.cfg['agentService'])
+    result = json.loads(m.run(['docker', 'exec', info['Id'], 'node', '-e', script]))
+    m.require(result.get('exactSyntheticReasoningCost') is True, 'synthetic_reasoning_ingress_failed')
+    def require_final_cost(value, in_cost=False):
+        if isinstance(value, dict):
+            for key, item in value.items(): require_final_cost(item, in_cost or key in COST_FIELDS)
+        elif isinstance(value, list):
+            for item in value: require_final_cost(item, in_cost)
+        elif in_cost and isinstance(value, (int, float)) and not isinstance(value, bool):
+            m.require(value == 0 or math.isclose(value, NEW_COST, abs_tol=1e-12, rel_tol=0), 'synthetic_persisted_cost_not_corrected')
+    archives = list(Path(adapter.cfg['stateDir']).rglob('session-usage-archive.sqlite'))
+    m.require(len(archives) == 1, 'synthetic_archive_missing')
+    rows = m.sqlite_rows(archives[0])
+    m.require(len(rows) == 1, 'synthetic_session_count_mismatch')
+    for entry in rows.values(): require_final_cost(entry)
+    history_files = list(Path(adapter.cfg['stateDir']).rglob('*daily-history*.json'))
+    m.require(bool(history_files), 'synthetic_history_missing')
+    for file in history_files: require_final_cost(json.loads(file.read_text()))
+
+
+def fixture(path, reasoning=False):
     with sqlite3.connect(path) as db:
         db.executescript('''CREATE TABLE sessions(id TEXT PRIMARY KEY,source TEXT NOT NULL,model TEXT,started_at REAL NOT NULL,message_count INTEGER DEFAULT 0,input_tokens INTEGER DEFAULT 0,output_tokens INTEGER DEFAULT 0,cache_read_tokens INTEGER DEFAULT 0,cache_write_tokens INTEGER DEFAULT 0,reasoning_tokens INTEGER DEFAULT 0,billing_provider TEXT,estimated_cost_usd REAL,actual_cost_usd REAL);
         CREATE TABLE session_model_usage(session_id TEXT NOT NULL,model TEXT NOT NULL,billing_provider TEXT NOT NULL DEFAULT '',task TEXT NOT NULL DEFAULT '',input_tokens INTEGER DEFAULT 0,output_tokens INTEGER DEFAULT 0,cache_read_tokens INTEGER DEFAULT 0,cache_write_tokens INTEGER DEFAULT 0,reasoning_tokens INTEGER DEFAULT 0,estimated_cost_usd REAL DEFAULT 0,actual_cost_usd REAL DEFAULT 0,PRIMARY KEY(session_id,model,billing_provider,task));''')
-        db.execute('INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', ('synthetic-deployment-session','cli','claude-sonnet-4',time.time(),1,100,20,5,0,0,'anthropic',0,0))
+        db.execute('INSERT INTO sessions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', ('synthetic-deployment-session','cli',MODEL if reasoning else 'claude-sonnet-4',time.time(),1,100,20,5,0,8 if reasoning else 0,'synthetic' if reasoning else 'anthropic',0,0))
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--candidate',required=True);parser.add_argument('--source',required=True);parser.add_argument('--output',required=True)
     parser.add_argument('--baseline-version', choices=sorted(BASELINES), default='v0.69.0-02')
+    parser.add_argument('--reasoning', action='store_true', help='Sandbox-only exact Hermes cost correction manual-path rehearsal')
     args=parser.parse_args()
     baseline, candidate_version = versions(args.baseline_version)
     m.require(os.geteuid()==0, 'sandbox_requires_root')
@@ -96,16 +209,18 @@ def main():
     root=Path(tempfile.mkdtemp(prefix='token-monitor-deployment-exercise-',dir='/tmp'));project=root/'project';project.mkdir(mode=0o700)
     state=project/'state';hub=project/'hub-data';hermes=root/'hermes'
     for p in [state,hub,hermes]:p.mkdir(mode=0o700)
-    fixture(hermes/'state.db')
+    fixture(hermes/'state.db', args.reasoning)
     cache=state/'tokscale'/'cache';cache.mkdir(parents=True)
     for provider in ['litellm','openrouter','models-dev']:(cache/f'pricing-{provider}.json').write_text(json.dumps({'timestamp':int(time.time()),'data':{}}))
+    if args.reasoning: prime_prices(state)
     env=project/'.env';env.write_text('TOKEN_MONITOR_SECRET='+secrets.token_hex(24)+'\n');env.chmod(0o600)
     cfg={'target':'DXP4800','projectRoot':str(project),'composeFile':str(project/'compose.json'),'deviceId':'sandbox-device','agentService':'sandbox-agent','hubService':'sandbox-hub','stateDir':str(state),'hubDataDir':str(hub),'hermesDir':str(hermes),'controlDir':str(project/'control'),'statusTokenFile':'injected-test-api-no-credential','healthTimeoutSeconds':90,'sandbox':True}
     common={'image':baseline,'init':True,'read_only':True,'cap_drop':['ALL'],'cap_add':['DAC_READ_SEARCH'],'tmpfs':['/tmp:rw,noexec,nosuid,size=64m'],'env_file':['.env'],'mem_limit':'512m','user':'0:0'}
     hubspec={**common,'command':['node','src/hub/server.js'],'volumes':[str(hub)+':/data'],'environment':{'TOKEN_MONITOR_DATA_FILE':'/data/devices.json','TOKEN_MONITOR_WINDOWS_STREAM_ENABLED':'1','TZ':'Asia/Shanghai'},'healthcheck':{'test':['CMD','node','-e',"fetch('http://127.0.0.1:17321/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"],'interval':'2s','timeout':'5s','retries':15}}
     agentspec={**common,'volumes':[str(state)+':/config',str(hermes)+':/hermes:ro'],'environment':{'HOME':'/config','XDG_CONFIG_HOME':'/config','HERMES_HOME':'/hermes','TZ':'Asia/Shanghai','TOKEN_MONITOR_DEVICE_ID':'sandbox-device','TOKEN_MONITOR_HUB_URL':'http://sandbox-hub:17321','TOKEN_MONITOR_CLIENTS':'hermes','TOKEN_MONITOR_WATCH':'1','TOKEN_MONITOR_WATCH_IN_PROCESS':'0','TOKEN_MONITOR_INTERVAL_MS':'300000','TOKEN_MONITOR_PROJECTS_ENABLED':'0','TOKEN_MONITOR_LIMITS_ENABLED':'0','TOKEN_MONITOR_HISTORY_ENABLED':'1','TOKEN_MONITOR_SESSION_USAGE_ARCHIVE_ENABLED':'1','TOKSCALE_PRICING_CACHE_ONLY':'1'},'healthcheck':{'test':['CMD','node','src/agent/nasHealth.js'],'interval':'2s','timeout':'5s','retries':15,'start_period':'30s'}}
     Path(cfg['composeFile']).write_text(json.dumps({'name':'sandbox-deploy-'+secrets.token_hex(4),'services':{'sandbox-hub':hubspec,'sandbox-agent':agentspec}}))
-    api=API();adapter=SandboxDocker(cfg,args.candidate,args.source);result={'scope':'synthetic-only; no production NAS, credentials or publishing','sourceCommit':args.source,'baselineVersion':args.baseline_version,'baselineImage':baseline,'candidateVersion':candidate_version}
+    api=API();adapter_class = ManualReasoningSandbox if args.reasoning else SandboxDocker
+    adapter=adapter_class(cfg,args.candidate,args.source);result={'scope':'synthetic-only; no production NAS, credentials or publishing','sourceCommit':args.source,'baselineVersion':args.baseline_version,'baselineImage':baseline,'candidateVersion':candidate_version}
     digest='sha256:'+'c'*64
     manifest={'schemaVersion':1,'version':candidate_version,'sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'platforms':[{'os':'linux','architecture':a,'digest':'sha256:'+'a'*64} for a in ['amd64','arm64']],'compatibleFrom':[args.baseline_version],'migration':{'kind':'none','rollback':'restore-snapshot','notes':'Synthetic whole-state restore rehearsal'}}
     def request(identity):return {'schemaVersion':1,'target':'DXP4800','deploymentId':identity,'workflowRunId':1,'version':manifest['version'],'fromVersion':args.baseline_version,'sourceCommit':args.source,'imageRepository':m.IMAGE,'imageDigest':digest,'manifest':manifest,'expiresAt':(dt.datetime.now(dt.timezone.utc)+dt.timedelta(hours=1)).isoformat()}
@@ -118,7 +233,7 @@ def main():
         assert receipt['phase']=='restored'
         result['successfulDeploymentAndWholeStateRehearsal']='passed'
         cfg['rollbackReceiptFile']=str(Path(cfg['controlDir'])/'rollback-rehearsal.json')
-        broken=SandboxDocker(cfg,args.candidate,args.source,fail_hub=True)
+        broken=adapter_class(cfg,args.candidate,args.source,fail_hub=True)
         try:m.Engine(cfg,broken,api).deploy(request(2))
         except m.Refused as error:assert str(error)=='injected_hub_validation_failure'
         else:raise AssertionError('Injected failure was not detected')
@@ -126,12 +241,13 @@ def main():
         candidate_id=broken.image(args.candidate)['Id'];assert ('sandbox-agent',candidate_id) not in broken.started
         assert broken.inspect('sandbox-agent')['Image']==broken.image(baseline)['Id']
         result['hubFailureStopsAgentAndVerifiedSnapshotRollback']='passed'
-        successful=SandboxDocker(cfg,args.candidate,args.source)
+        successful=adapter_class(cfg,args.candidate,args.source)
         final=m.Engine(cfg,successful,api).deploy(request(3));assert final['phase']=='success'
         verify_fixture_accounting(successful)
+        if args.reasoning: verify_reasoning_ingress(successful)
         assert [stage['phase'] for stage in final['stages']].index('hub-verified')<[stage['phase'] for stage in final['stages']].index('agent-start-intent')
         result['stagedHubAgentDeployment']='passed'
-        try:m.Engine(cfg,SandboxDocker(cfg,args.candidate,args.source),api).deploy(request(3))
+        try:m.Engine(cfg,adapter_class(cfg,args.candidate,args.source),api).deploy(request(3))
         except m.Refused as error:assert str(error)=='deployment_already_recorded'
         else:raise AssertionError('Replay was accepted')
         result['replayRejected']='passed'
@@ -141,6 +257,7 @@ def main():
         second_cache=second_state/'tokscale'/'cache';second_cache.mkdir(parents=True)
         for provider in ['litellm','openrouter','models-dev']:
             (second_cache/f'pricing-{provider}.json').write_text(json.dumps({'timestamp':int(time.time()),'data':{}}))
+        if args.reasoning: prime_prices(second_state)
         m.copy_file(env,second/'.env')
         agent_only=json.loads(json.dumps(agentspec))
         agent_only['environment']['TOKEN_MONITOR_DEVICE_ID']='sandbox-dh-device'
@@ -149,14 +266,15 @@ def main():
         compose_only=second/'compose.json'
         compose_only.write_text(json.dumps({'name':'sandbox-agentonly-'+secrets.token_hex(4),'services':{'sandbox-agent':agent_only},'networks':{'default':{'external':True,'name':remote_network}}}))
         second_cfg={**cfg,'target':'DH4300Plus','projectRoot':str(second),'composeFile':str(compose_only),'deviceId':'sandbox-dh-device','stateDir':str(second_state),'hubService':None,'hubDataDir':None,'controlDir':str(second/'control'),'rollbackReceiptFile':None}
-        secondary=SandboxDocker(second_cfg,args.candidate,args.source)
+        secondary=adapter_class(second_cfg,args.candidate,args.source)
         secondary.compose('up','-d');secondary.wait_health('sandbox-agent');secondary.verify_agent(0)
         remote_request={**request(4),'target':'DH4300Plus'}
         remote_result=m.Engine(second_cfg,secondary,api).deploy(remote_request)
         assert remote_result['phase']=='success'
         verify_fixture_accounting(secondary)
+        if args.reasoning: verify_reasoning_ingress(secondary)
         assert not any(stage['phase'].startswith('hub-') for stage in remote_result['stages'])
-        result['agentOnlyRemoteHubDeployment']='passed';result['fixedHermesHubAccounting']='passed';result['statusEvents']=api.events
+        result['agentOnlyRemoteHubDeployment']='passed';result['reasoningManualSandbox']={'enabled':args.reasoning,'productionAutomaticCostChange':'not-authorized','rule':'Hermes output contains reasoning; remove the additional 8 × 10 / 1000000 USD charge only','baselineCostUsd':OLD_COST if args.baseline_version.startswith('v0.69.') else NEW_COST,'candidateCostUsd':NEW_COST} if args.reasoning else {'enabled':False,'fixture':'125 Token with zero reasoning'};result['fixedHermesHubAccounting']='passed';result['statusEvents']=api.events
         Path(args.output).parent.mkdir(parents=True,exist_ok=True);Path(args.output).write_text(json.dumps(result,indent=2)+'\n')
         print(json.dumps({k:v for k,v in result.items() if k!='statusEvents'}))
     finally:

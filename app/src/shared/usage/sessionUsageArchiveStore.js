@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
 const { sharedDataDir } = require('../config');
+const { isReasonixSyntheticSession } = require('../providers/reasonix/sessionGuard');
 const {
   normalizeSessionUsageArchive,
   readSessionUsageArchive,
@@ -27,12 +28,32 @@ function removeIfPresent(filePath, unlinkSync = fs.unlinkSync) {
   }
 }
 
-function parseArchiveRow(row) {
+function parseArchiveRow(row, strict = false) {
   try {
-    const normalized = normalizeSessionUsageArchive({ sessions: { [row.session_key]: JSON.parse(row.entry_json) } });
-    return normalized.sessions[row.session_key] || Object.values(normalized.sessions)[0] || null;
+    const raw = JSON.parse(row.entry_json);
+    const normalized = normalizeSessionUsageArchive({ sessions: { [row.session_key]: raw } });
+    const entry = normalized.sessions[row.session_key] || Object.values(normalized.sessions)[0] || null;
+    const tombstone = raw && typeof raw === 'object' && !Array.isArray(raw)
+      && typeof raw.client === 'string' && typeof raw.sessionId === 'string'
+      && `${raw.client}:${raw.sessionId}` === row.session_key
+      && raw.periods && typeof raw.periods === 'object' && !Array.isArray(raw.periods)
+      && Object.keys(raw.periods).length === 0;
+    if (!entry && strict && !tombstone && !isReasonixSyntheticSession(raw, row.session_key)) {
+      throw new Error('invalid session archive row');
+    }
+    return entry;
   } catch (_) {
+    if (strict) throw new Error('invalid session archive row');
     return null;
+  }
+}
+
+function archiveFileExists(filePath, options) {
+  if (options.existsSync) return options.existsSync(filePath);
+  if (!options.strict) return fs.existsSync(filePath);
+  try { fs.statSync(filePath); return true; } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
   }
 }
 
@@ -50,7 +71,7 @@ function* iterateSessionRows(statement, ...parameters) {
 function readMigratedArchiveSnapshot(options = {}) {
   const databasePath = sessionUsageArchiveDatabasePath(options);
   const Database = options.DatabaseSync || DatabaseSync;
-  const existsSync = options.existsSync || fs.existsSync;
+  const existsSync = (filePath) => archiveFileExists(filePath, options);
   if (!existsSync(databasePath)) return null;
 
   let database = null;
@@ -62,6 +83,10 @@ function readMigratedArchiveSnapshot(options = {}) {
       WHERE key IN ('schema-version', 'legacy-migrated', 'pruned-day', 'pruned-month')
     `).all();
     const metadata = new Map(rows.map((row) => [row.key, row.value]));
+    if (options.strict && metadata.has('schema-version')
+      && Number(metadata.get('schema-version')) !== SESSION_ARCHIVE_DATABASE_VERSION) {
+      throw new Error('unsupported session archive database version');
+    }
     if (Number(metadata.get('schema-version')) !== SESSION_ARCHIVE_DATABASE_VERSION
       || metadata.get('legacy-migrated') !== '1') return null;
 
@@ -69,11 +94,12 @@ function readMigratedArchiveSnapshot(options = {}) {
     if (metadata.get('pruned-day')) archive.prunedDay = metadata.get('pruned-day');
     if (metadata.get('pruned-month')) archive.prunedMonth = metadata.get('pruned-month');
     for (const row of iterateSessionRows(database.prepare('SELECT session_key, entry_json FROM sessions'))) {
-      const entry = parseArchiveRow(row);
+      const entry = parseArchiveRow(row, options.strict);
       if (entry) archive.sessions[row.session_key] = entry;
     }
     return archive;
-  } catch (_) {
+  } catch (error) {
+    if (options.strict) throw error;
     return null;
   } finally {
     try { database?.close(); } catch (_) {}
@@ -85,12 +111,33 @@ function readSessionUsageArchiveSnapshot(options = {}) {
   if (migrated) return migrated;
 
   const legacyPath = sessionUsageArchivePath(options);
-  const existsSync = options.existsSync || fs.existsSync;
+  const existsSync = (filePath) => archiveFileExists(filePath, options);
   if (!existsSync(legacyPath)) {
-    return readMigratedArchiveSnapshot(options) || normalizeSessionUsageArchive({});
+    const snapshot = readMigratedArchiveSnapshot(options);
+    if (snapshot) return snapshot;
+    if (options.strict && existsSync(sessionUsageArchiveDatabasePath(options))) {
+      throw new Error('session archive database is not ready');
+    }
+    return normalizeSessionUsageArchive({});
   }
 
-  const legacy = readSessionUsageArchive({ ...options, path: legacyPath });
+  // The default snapshot remains best-effort for existing readers. Usage
+  // publication must distinguish a missing archive from failed/corrupt reads.
+  const legacyValue = options.strict
+    ? JSON.parse((options.readFileSync || fs.readFileSync)(legacyPath, 'utf8'))
+    : null;
+  if (options.strict && (!legacyValue || typeof legacyValue !== 'object' || Array.isArray(legacyValue)
+    || (legacyValue.version !== undefined && legacyValue.version !== SESSION_ARCHIVE_DATABASE_VERSION)
+    || (Object.hasOwn(legacyValue, 'sessions') && (!legacyValue.sessions
+      || typeof legacyValue.sessions !== 'object' || Array.isArray(legacyValue.sessions))))) {
+    throw new Error('invalid session archive snapshot');
+  }
+  if (options.strict) for (const [key, entry] of Object.entries(legacyValue.sessions || {})) {
+    parseArchiveRow({ session_key: key, entry_json: JSON.stringify(entry) }, true);
+  }
+  const legacy = options.strict
+    ? normalizeSessionUsageArchive(legacyValue)
+    : readSessionUsageArchive({ ...options, path: legacyPath });
   return readMigratedArchiveSnapshot(options) || legacy;
 }
 
@@ -106,6 +153,7 @@ function createSessionUsageArchiveStore(options = {}) {
   let archiveSource = null;
   let revision = 0;
   let reloadRequired = false;
+  let archiveStrict = false;
 
   function metadataValue(key) {
     return database.prepare('SELECT value FROM metadata WHERE key = ?').get(key)?.value;
@@ -118,7 +166,7 @@ function createSessionUsageArchiveStore(options = {}) {
     `).run(key, String(value));
   }
 
-  function loadRevisedRows(sinceRevision) {
+  function loadRevisedRows(sinceRevision, readOptions = {}) {
     // Stage parsed entries, never raw JSON rows. An interrupted cursor must not
     // expose a partial catch-up through the archive held by existing callers.
     const changes = new Map();
@@ -128,7 +176,7 @@ function createSessionUsageArchiveStore(options = {}) {
       WHERE revision > ?
       ORDER BY revision, session_key
     `), sinceRevision)) {
-      changes.set(row.session_key, parseRow(row));
+      changes.set(row.session_key, parseRow(row, readOptions));
     }
     for (const [key, entry] of changes) {
       if (entry) archive.sessions[key] = entry;
@@ -149,7 +197,7 @@ function createSessionUsageArchiveStore(options = {}) {
     }
   }
 
-  function migrateLegacyArchive() {
+  function migrateLegacyArchive(readOptions = {}) {
     if (metadataValue('legacy-migrated') === '1') return;
     database.exec('BEGIN IMMEDIATE');
     try {
@@ -157,9 +205,15 @@ function createSessionUsageArchiveStore(options = {}) {
         database.exec('COMMIT');
         return;
       }
-      const legacy = existsSync(legacyPath)
-        ? normalizeSessionUsageArchive(JSON.parse(readFileSync(legacyPath, 'utf8')))
-        : normalizeSessionUsageArchive({});
+      const strict = Boolean(readOptions.strict || options.strict);
+      const legacy = strict && existsSync(legacyPath)
+        ? readSessionUsageArchiveSnapshot({ ...options, strict: true, databasePath, path: legacyPath })
+        : existsSync(legacyPath)
+          ? normalizeSessionUsageArchive(JSON.parse(readFileSync(legacyPath, 'utf8')))
+          : normalizeSessionUsageArchive({});
+      if (strict) for (const [key, entry] of Object.entries(legacy.sessions)) {
+        parseArchiveRow({ session_key: key, entry_json: JSON.stringify(entry) }, true);
+      }
       archive = legacy;
       const keys = Object.keys(legacy.sessions);
       const upsert = database.prepare(`
@@ -175,6 +229,7 @@ function createSessionUsageArchiveStore(options = {}) {
       database.exec('COMMIT');
       revision = keys.length > 0 ? 1 : 0;
       archiveSource = 'database';
+      archiveStrict = strict;
     } catch (error) {
       try { database.exec('ROLLBACK'); } catch (_) {}
       archive = null;
@@ -192,7 +247,7 @@ function createSessionUsageArchiveStore(options = {}) {
     }
   }
 
-  function ensureDatabase() {
+  function ensureDatabase(readOptions = {}) {
     if (database) return database;
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
     database = new Database(databasePath);
@@ -221,7 +276,7 @@ function createSessionUsageArchiveStore(options = {}) {
         throw new Error(`unsupported session archive database version: ${storedVersion}`);
       }
       if (!storedVersion) setMetadataValue('schema-version', SESSION_ARCHIVE_DATABASE_VERSION);
-      migrateLegacyArchive();
+      migrateLegacyArchive(readOptions);
       database.exec('PRAGMA synchronous = NORMAL');
       return database;
     } catch (error) {
@@ -231,13 +286,14 @@ function createSessionUsageArchiveStore(options = {}) {
     }
   }
 
-  function parseRow(row) {
-    return parseArchiveRow(row);
+  function parseRow(row, readOptions = {}) {
+    return parseArchiveRow(row, Boolean(readOptions.strict || options.strict));
   }
 
-  function loadRows() {
-    ensureDatabase();
-    if (archiveSource !== 'database' || reloadRequired) {
+  function loadRows(readOptions = {}) {
+    ensureDatabase(readOptions);
+    const strict = Boolean(readOptions.strict || options.strict);
+    if ((strict && !archiveStrict) || archiveSource !== 'database' || reloadRequired) {
       // Record the metadata boundary before scanning rows. A concurrent commit
       // can then make this revision temporarily stale, but never make it skip a
       // row that the scan did not load; refresh will safely replay newer rows.
@@ -246,7 +302,7 @@ function createSessionUsageArchiveStore(options = {}) {
       const prunedMonth = metadataValue('pruned-month');
       const loadedArchive = normalizeSessionUsageArchive({});
       for (const row of iterateSessionRows(database.prepare('SELECT session_key, entry_json FROM sessions'))) {
-        const entry = parseRow(row);
+        const entry = parseRow(row, readOptions);
         if (entry) loadedArchive.sessions[row.session_key] = entry;
       }
       if (prunedDay) loadedArchive.prunedDay = prunedDay;
@@ -254,14 +310,15 @@ function createSessionUsageArchiveStore(options = {}) {
       archive = loadedArchive;
       revision = loadedRevision;
       archiveSource = 'database';
+      archiveStrict = strict;
       reloadRequired = false;
     }
     return archive;
   }
 
-  function loadAll(now = new Date()) {
-    loadRows();
-    return mutateArchive((current) => updateSessionUsageArchive(current, null, now)).archive;
+  function loadAll(now = new Date(), readOptions = {}) {
+    loadRows(readOptions);
+    return mutateArchive((current) => updateSessionUsageArchive(current, null, now), readOptions).archive;
   }
 
   function databaseIsMigrated() {
@@ -283,33 +340,33 @@ function createSessionUsageArchiveStore(options = {}) {
     }
   }
 
-  function refresh() {
+  function refresh(_now, readOptions = {}) {
     // A widget that yielded ownership to the headless agent must not race that
     // agent's one-time migration. Until the writer commits the migration marker,
     // the legacy JSON remains an atomic, read-only fallback.
     if (!database && (!existsSync(databasePath) || !databaseIsMigrated())) {
-      const snapshot = readSessionUsageArchiveSnapshot({ ...options, databasePath, path: legacyPath });
+      const snapshot = readSessionUsageArchiveSnapshot({ ...options, ...readOptions, databasePath, path: legacyPath });
       if (!existsSync(databasePath) || !databaseIsMigrated()) {
         archive = snapshot;
         archiveSource = 'legacy';
         return archive;
       }
     }
-    ensureDatabase();
-    loadRows();
+    ensureDatabase(readOptions);
+    loadRows(readOptions);
     const storedRevision = Number(metadataValue('revision') || 0);
     if (storedRevision > revision) {
-      loadRevisedRows(revision);
+      loadRevisedRows(revision, readOptions);
       revision = storedRevision;
     }
     return archive;
   }
 
-  function mutateArchive(mutate) {
+  function mutateArchive(mutate, readOptions = {}) {
     database.exec('BEGIN IMMEDIATE');
     try {
       const storedRevision = Number(metadataValue('revision') || 0);
-      if (storedRevision > revision) loadRevisedRows(revision);
+      if (storedRevision > revision) loadRevisedRows(revision, readOptions);
       const storedPrunedDay = metadataValue('pruned-day');
       const storedPrunedMonth = metadataValue('pruned-month');
       if (storedPrunedDay && (!archive.prunedDay || archive.prunedDay < storedPrunedDay)) {
@@ -346,10 +403,10 @@ function createSessionUsageArchiveStore(options = {}) {
     }
   }
 
-  function capture(deviceRecord, capturedAt = new Date()) {
+  function capture(deviceRecord, capturedAt = new Date(), readOptions = {}) {
     let current;
     try {
-      current = loadRows();
+      current = loadRows(readOptions);
     } catch (error) {
       return {
         archive: archive || normalizeSessionUsageArchive({}),
@@ -371,7 +428,7 @@ function createSessionUsageArchiveStore(options = {}) {
           archive: result.archive,
           changedKeys: new Set([...pruned.changedKeys, ...result.changedKeys])
         };
-      });
+      }, readOptions);
     } catch (cause) {
       error = cause;
     }
@@ -401,10 +458,25 @@ function createSessionUsageArchiveStore(options = {}) {
     database = null;
   }
 
+  // Relinquish this reader's materialized rows without touching persistence.
+  // Reset the revision/source together: fallback must reload a complete archive
+  // before replaying any writes the worker committed while it owned the store.
+  function release() {
+    try {
+      close();
+    } finally {
+      archive = null;
+      archiveSource = null;
+      revision = 0;
+      reloadRequired = false;
+    }
+  }
+
   return {
     capture,
     clear,
     close,
+    release,
     read: loadAll,
     refresh,
     databasePath,

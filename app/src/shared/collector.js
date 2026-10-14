@@ -35,6 +35,7 @@ const { collectWslUsage: collectWslUsageImpl, emptyWslBundle, probeWslState: pro
 const { createWatcherHost } = require('./watcherHost');
 const {
   clientWatchCandidates,
+  isSelfWatchSqliteSidecarEvent,
   SELF_SYNCED_CLIENTS,
   resolveWatchUsePolling,
   watchPollingForbidden,
@@ -1854,42 +1855,6 @@ const SESSION_IDENTITY_VERSION = 2;
 // the promised 3-5s refresh, so the ceiling only ever fires where the promise
 // was already broken.
 const WATCH_MAX_WAIT_MS = 5000;
-
-// Clients whose SQLite wal-index sidecar our own read-only scan recreates.
-//
-// Opening a WAL database read-only still maps the shared-memory index, and
-// SQLite rewrites <db>-shm when it does. That write is indistinguishable from a
-// real data change to a filesystem watcher, so watching the sidecar re-triggers
-// the scan that caused it: watch event -> targeted scan -> shm write -> watch
-// event, forever. Measured on darwin for zcode: 0 shm changes while idle over
-// 40s, then 20 of 20 consecutive tokscale zcode --today scans rewrote
-// db.sqlite-shm. The same shape was already fixed for Qoder CN (#301), where it
-// was 142 events/5min with the client stopped. Antigravity keeps one database
-// per conversation, so each scan rewrites every one of their sidecars: with the
-// app closed, 0 changes over 15s idle, then 37 of 37 conversations' .db-shm on
-// each of 5 consecutive scans. A widget that uploads every tick then republished
-// its unchanged record to the Hub about every 2 s.
-//
-// Only the sidecar is dropped. The real data signal lives in the database and
-// its -wal, so a genuine change still produces an event; a client whose scan was
-// measured NOT to rewrite its sidecar (mimo) is deliberately absent here, and
-// adding a client to this list asserts a measurement rather than a hunch.
-// Cherry Studio and CatPaw also rewrite their wal-index on repeated read-only WAL scans.
-// Cursor's read-only desktop credential/title queries change state.vscdb-shm too.
-const SELF_WATCHED_SQLITE_SIDECAR_CLIENTS = Object.freeze(['antigravity', 'catpaw', 'cherrystudio', 'cursor', 'qodercn', 'zcode']);
-
-function isSelfWatchSqliteSidecarEvent(filePath, rootsByClient = {}) {
-  // Match SQLite's wal-index suffix, not one client's database basename: ZCode's
-  // file is db.sqlite-shm, whose name does not contain '.db-'. The suffix is
-  // required to be one of the SQLite extensions this collector's clients use, so
-  // the match cannot widen into an unrelated '-shm' sidecar, and it never matches
-  // the -wal or the database itself.
-  const name = path.basename(String(filePath || ''));
-  if (!/^[^/]+\.(?:db|sqlite|sqlite3|vscdb)-shm$/.test(name)) return false;
-  const resolved = path.resolve(filePath);
-  return SELF_WATCHED_SQLITE_SIDECAR_CLIENTS.some((client) => (rootsByClient[client] || [])
-    .some((root) => resolved.startsWith(path.resolve(root) + path.sep)));
-}
 
 function startCollector(options) {
   const {
