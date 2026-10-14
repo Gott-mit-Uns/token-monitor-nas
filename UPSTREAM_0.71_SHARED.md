@@ -70,11 +70,17 @@
 - 上游 Goose 识别与 `goose-db` 健康源、固定路径优先级、环境清理接入；真实 parser 由既有固定 Tokscale fork 实现（本轮 manifest 无净变化），不叠加不同数据库。NAS 默认客户端仍为 Hermes-only，catalog 的 desktop defaultTracked 不改变 NAS 配置。
 - Notion 注册为 limits provider，严格响应解析和双窗口、`hashKey(userId + workspaceId)`身份去重。账户与 workspace UUID 仅用于本地认证请求，provider/Hub wire 只保留协议稳定 hash/固定计划标签。未知响应不可用。fixtures 不代表真实资格/登录验收。
 - WorkBuddy 共享身份、managed/local去重、placeholder抑制、失败和stale独立账户保留及精确目标id/key绑定接入。OAuth shared模块只提供已配置凭据的安全刷新与协议工具；Electron官方浏览器登录及managedAccounts controller不引入容器，本轮不写真实持久凭据。
-- Pi/CodeBuddy/Codex明细和执行器修复使用上游共享实现；明细计费与仪表盘总计保持不同口径，不改历史。SQLite strict snapshot/read错误在usageTransform失败退出，流式cursor释放和revision staged原子性保持。
+- Pi/CodeBuddy/Codex明细和执行器修复使用上游共享实现；明细计费与仪表盘总计保持不同口径，不改历史。SQLite strict snapshot/read错误在usageTransform失败退出，流式cursor释放和revision staged原子性保持。NAS额外加强严格publication：坏单row JSON/无效session拒绝上报及覆盖；read/capture/refresh/mutate均贯穿strict，迁移前验证legacy坏row；合法prune tombstone和Reasonix排除仍允许，best-effort历史读取保留。
 - 新测试实际加入 `test-nas.js`。上游 `workbuddyAccountAggregation`、`codexLocalUsage`、`piSessionDetail`混有Worker/Electron renderer依赖；NAS版本保留全部Node共享账本、去重、日期、身份、计费断言，排除Worker聚合和desktop row/label/fixed-range渲染断言，直接检查独立quota windows而非UI合计。新增NAS Notion实际syncPayload wire隐私与账本不变断言。
 
 ## 当前运行证据（2026-10-15）
 
-最终本机完整NAS suite：Node v24.19.0 / darwin-arm64，1561 tests，1550 passed，0 failed，11 skipped，52.85秒。使用独立071 checkout及070相同lock的node_modules（临时symlink；不提交）。日志 `/tmp/nas071-suite-complete.log`。这不是Linux Docker双架构证据，原生amd64/arm64 Docker与冻结费用控制器由主任务另行记录。
+最终本机完整NAS suite：Node v24.19.0 / darwin-arm64，1564 tests，1553 passed，0 failed，11 skipped，33.25秒。使用独立071 checkout及070相同lock的node_modules（临时symlink；不提交）。日志 `/tmp/nas071-suite-strict-final.log`。这不是Linux Docker双架构证据，原生amd64/arm64 Docker与冻结费用控制器由主任务另行记录。
 
 独立聚焦轻量Watcher、Goose、Notion、安全字典36 passed；syncPayload22 passed；Codex/Pi47 passed；WorkBuddy NAS聚合6 passed。早期测试缺依赖及desktop/Worker import失败均已修复，早期输出不作为最终通过证据。完整suite已覆盖本轮新增provider与strict archive tests、NAS既有安全回归。
+
+## 追加 strict 单 row 验收
+
+官方 strict 模式原先只覆盖读取异常/格式错误，SQLite单row错误仍被 best-effort parse 跳过，可能少量或全量数据变为空。NAS publication额外要求strict row解析；初始加载/增量读取/capture均使用同一边界。坏JSON固定错误文本不包含原row；完整快照和revision只在全扫描成功后推进。失败capture不覆写坏row，修复后相同revision可重试。legacy坏row在migration/delete前拒绝。新增SQLite坏row、增量staged保护、写阻断、同revision恢复、legacy源保留以及usageTransform显式strict参数测试。原跳过坏row的best-effort消费者测试继续保留。
+
+追加strict补强后的最终完整suite已包含3项新增NAS回归（SQLite/legacy坏row2项与usageTransform strict publication1项），共1564 tests、1553 passed、0 failed、11 skipped。最终 `nas-hub-build.js` 身份检查通过；本机依然不能代替原生双架构Docker验收。

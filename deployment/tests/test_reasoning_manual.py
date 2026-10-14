@@ -31,6 +31,22 @@ class ManualReasoningTest(unittest.TestCase):
     def test_oracle_refuses_unknown_nonfinite_or_negative_cost(self):
         for value in [0.0004, -1, float('nan'), float('inf')]:
             with self.assertRaises(m.Refused): e.correct_synthetic_cost({'costUsd': value})
+    def test_hub_only_stage_uses_original_history_until_agent_upload(self):
+        # Production list preservation uses exact membership. Applying the new
+        # expected cost to the old Hub before its Agent uploads rejects intact
+        # old history, even though numeric preservation alone would pass.
+        history = [{'date': '2026-10-15', 'tokens': 125, 'cost': e.OLD_COST}]
+        self.assertTrue(m.preserved(history, copy.deepcopy(history)))
+        self.assertFalse(m.preserved(e.correct_synthetic_cost(history), history))
+        with tempfile.TemporaryDirectory(prefix='token-monitor-deployment-exercise-') as tmp:
+            root = Path(tmp); project = root/'project'; project.mkdir()
+            cfg = {'sandbox': True, 'projectRoot': str(project), 'composeFile': str(project/'compose.json'), 'deviceId': 'sandbox-device', 'controlDir': str(project/'control')}
+            adapter = e.ManualReasoningSandbox(cfg, 'candidate', 'a'*40)
+            adapter.reviewed_snapshot = root
+            with patch.object(e.SandboxDocker, 'verify_state', return_value={'history': 'retained'}) as guard:
+                self.assertEqual(adapter.verify_state(root), {'history': 'retained'})
+                guard.assert_called_once_with(root)
+
     def test_production_paths_cannot_use_sandbox_adapter(self):
         with self.assertRaises(m.Refused): e.ManualReasoningSandbox({'sandbox': False}, 'candidate', 'a'*40)
         with self.assertRaises(m.Refused): e.ManualReasoningSandbox({'sandbox': True, 'projectRoot': '/tmp/production', 'deviceId': 'sandbox-device'}, 'candidate', 'a'*40)

@@ -149,6 +149,14 @@ class ManualReasoningSandbox(SandboxDocker):
         return {'frozenAccounting': 'manual-synthetic-exact-rule', 'productionGuard': 'refused-cost-change', 'rule': 'hermes-reasoning-double-pricing', 'reductionUsd': OLD_COST - NEW_COST}
     def verify_state(self, snapshot):
         if self.reviewed_snapshot != snapshot: return super().verify_state(snapshot)
+        # Hub-only staging and restored old services still contain the complete
+        # old-price history. Verify that original baseline first; do not lower
+        # list-valued history expectations before the new Agent has uploaded.
+        try:
+            return super().verify_state(snapshot)
+        except m.Refused as error:
+            if str(error) not in ['archive_accounting_regressed', 'agent_history_lost', 'hub_history_lost']:
+                raise
         with tempfile.TemporaryDirectory(prefix='synthetic-cost-review-', dir='/tmp') as tmp:
             reviewed = Path(tmp)
             m.copy_tree(snapshot / 'state', reviewed / 'state')
