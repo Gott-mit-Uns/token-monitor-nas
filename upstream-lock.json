@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Javis603/token-monitor",
-  "tag": "v0.71.0",
-  "commit": "a514e2063563e318ef73c2a17fad68057c4e300c",
-  "previousTag": "v0.70.0",
-  "previousCommit": "ac4eeb2c4aea239dd94b67f074c73f69aafc46f8",
-  "nasBaseline": "cff3fe54847a01752a888b2109b0f7f0d4762bf2",
+  "tag": "v0.72.0",
+  "commit": "126e9a43dcc51d3d7b2609231eac9974ba73bed7",
+  "previousTag": "v0.71.0",
+  "previousCommit": "a514e2063563e318ef73c2a17fad68057c4e300c",
+  "nasBaseline": "77e69040d6cf8e17bb04edbad5406dee20a3f11e",
   "scope": [
     "src/shared",
     "src/agent",
@@ -13,9 +13,10 @@
     "package.json",
     "package-lock.json"
   ],
-  "audit": "UPSTREAM_0.71_AUDIT.md",
+  "audit": "UPSTREAM_0.72_AUDIT.md",
   "patches": "NAS_PATCHES.md",
-  "nasRevision": "v0.71.0-02",
-  "revisionBaseline": "e92d9add64efbb9985fb482880d9d95734354183",
-  "revisionNotes": "Strict Agent archive publication; headless entrypoint regressions and NAS configuration guidance. Official v0.71.0 baseline unchanged."
+  "nasRevision": "v0.72.0-01",
+  "revisionBaseline": "9a06b658e75d96285ac98847ef5e6e67299a4085",
+  "revisionNotes": "Cursor unified-plan quota parsing and OpenCode 2.x read-only metadata/detail support; preserve strict Agent archive publication and all NAS behavior. Stable release only; no desktop updater backport. Adds Node Hub producer-time ordering protection discovered by mandatory regression tests; no timestamp-less-client ordering guarantee.",
+  "publishedAt": "2026-10-15T19:00:09Z"
 }

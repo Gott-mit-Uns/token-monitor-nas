@@ -5,7 +5,6 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const {
   aggregateDevices,
-  mergeSyncDeviceRecord,
   aggregateHistory,
   stripSessionTextFromDeviceRecord
 } = require('../shared/usage');
@@ -32,6 +31,7 @@ const { isAuthorized, readJsonBody, sendJson, sendText } = require('../shared/ht
 const { loadDotEnv, parseArgs, projectRoot, writeJsonAtomic } = require('../shared/config');
 
 const { readHubStore } = require('./store');
+const { mergeIngressRecord } = require('./ingressOrdering');
 const { createSseChannel } = require('./sse');
 const { createWindowsStream } = require('./windowsStream');
 const { windowsStreamPolicy } = require('./windowsSchedule');
@@ -210,7 +210,7 @@ function createHub({
       throw new Error('deviceId_required');
     }
     const deviceId = String(payload.deviceId || payload.id);
-    const record = mergeSyncDeviceRecord(store.devices[deviceId], { ...payload, receivedAt: new Date().toISOString() }, {
+    const record = mergeIngressRecord(store.devices[deviceId], { ...payload, receivedAt: new Date().toISOString() }, {
       preserveSessionTitles: acceptsSessionTitles(serverTitlesEnabled, store.syncTitlePolicies[deviceId], payload.sessionTitleSyncGeneration)
     });
     const previous = store.devices[record.deviceId];
