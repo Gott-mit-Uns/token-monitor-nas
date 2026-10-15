@@ -86,7 +86,10 @@ async function entrypoint(t, { fault = null, dryRun = false, once = false, prepa
           state.store = archiveModule.createSessionUsageArchiveStore({ ...options, ...archiveOptions, DatabaseSync: FaultDatabase });
           return state.store;
         },
-        readSessionUsageArchiveSnapshot: options => archiveModule.readSessionUsageArchiveSnapshot({ ...options, ...archiveOptions })
+        readSessionUsageArchiveSnapshot: options => {
+          if (currentFault === 'snapshot') throw new Error('synthetic snapshot read failure');
+          return archiveModule.readSessionUsageArchiveSnapshot({ ...options, ...archiveOptions });
+        }
       };
       if (id === './runtime') return {
         runAgent(options) {
@@ -214,4 +217,15 @@ test('actual Agent dry-run refuses corrupt legacy state without outputting a mis
   assert.equal(harness.state.output.length, 0);
   assert.equal(fs.readFileSync(harness.archiveOptions.path, 'utf8'), bad);
   assert.equal(fs.existsSync(harness.archiveOptions.databasePath), false);
+});
+
+test('actual Agent dry-run snapshot read failure cannot emit or upload an empty success', { timeout: 10000 }, async t => {
+  const harness = await entrypoint(t, { dryRun: true, fault: 'snapshot' });
+  await harness.tick();
+  await harness.done;
+  await new Promise(setImmediate);
+  assert.equal(harness.context.process.exitCode, 1);
+  assert.deepEqual(harness.state.deliveries, []);
+  assert.deepEqual(harness.state.marks, []);
+  assert.deepEqual(harness.state.output, []);
 });

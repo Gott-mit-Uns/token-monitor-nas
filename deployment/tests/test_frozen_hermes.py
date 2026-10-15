@@ -46,7 +46,7 @@ class FrozenHermesTest(unittest.TestCase):
             with self.assertRaises(m.Refused): f.compare(before, after)
 
     def test_070_and_071_baselines_require_equal_corrected_costs(self):
-        for version in ['v0.70.0-01', 'v0.71.0-01']:
+        for version in ['v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02']:
             with self.subTest(version=version):
                 before, after = self.evidence()
                 result = f.compare(after, after, version)
@@ -78,12 +78,12 @@ class FrozenHermesTest(unittest.TestCase):
 
     def test_baselines_are_fixed_and_candidate_read_from_single_version_input(self):
         with tempfile.TemporaryDirectory() as tmp:
-            file = Path(tmp) / 'version'; file.write_text('v0.71.0-02\n')
+            file = Path(tmp) / 'version'; file.write_text('v0.72.0-01\n')
             self.assertEqual(exercise.BASELINES['v0.71.0-01'], 'sha256:209da1db610b38871eb9357f27b6d625c80441ec9853024256190fd4843b585a')
             for version, digest in exercise.BASELINES.items():
                 ref, candidate = exercise.versions(version, file)
                 self.assertEqual(ref, m.IMAGE + '@' + digest)
-                self.assertEqual(candidate, 'v0.71.0-02')
+                self.assertEqual(candidate, 'v0.72.0-01')
             with self.assertRaises(m.Refused): exercise.versions('latest', file)
             file.write_text('v0.69.0-02')
             with self.assertRaises(m.Refused): exercise.versions('v0.69.0-02', file)
