@@ -17,8 +17,19 @@ function older(incoming, existing) {
 
 function mergeIngressRecord(existing, incoming, options) {
   let merged = mergeSyncDeviceRecord(existing, incoming, options);
-  if (!existing) return merged;
-  const lateUsage = older(incoming.updatedAt, existing.updatedAt);
+  if (!existing) {
+    if (incoming.limitsOnly === true) {
+      const quotaOnly = { ...incoming };
+      for (const field of ['periods', 'today', 'month', 'allTime', 'history', 'historyAvailable', 'periodWindows']) delete quotaOnly[field];
+      merged = mergeSyncDeviceRecord(null, quotaOnly, options);
+      // Persist the existing wire flag until the first authoritative full
+      // snapshot. A quota's time must not reject usage already in flight.
+      merged.limitsOnly = true;
+      merged.updatedAt = '';
+    }
+    return merged;
+  }
+  const lateUsage = existing.limitsOnly !== true && older(incoming.updatedAt, existing.updatedAt);
   if (lateUsage || incoming.limitsOnly === true) {
     // Go through the normal privacy gate even for retained usage: a delayed
     // upload must never revive revoked titles. Receipt freshness is separate
@@ -33,10 +44,14 @@ function mergeIngressRecord(existing, incoming, options) {
       else delete merged.history;
     }
   }
-  if (!hasOwn(incoming, 'limits') || older(incoming.limits?.updatedAt, existing.limits?.updatedAt)) {
+  if (older(incoming.limits?.updatedAt, existing.limits?.updatedAt)) {
     merged.limits = mergeSyncDeviceRecord(existing, {
       ...existing, receivedAt: incoming.receivedAt
     }, options).limits;
+  }
+  if (existing.limitsOnly === true && incoming.limitsOnly === true) {
+    merged.limitsOnly = true;
+    merged.updatedAt = '';
   }
   return merged;
 }

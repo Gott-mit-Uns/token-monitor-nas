@@ -71,3 +71,18 @@ test('a newer verified cost correction and day rollover remain valid without a m
   assert.equal(hub.getDevices()[0].periods.today.totalTokens, 0);
   assert.equal(hub.getDevices()[0].periods.allTime.totalTokens, 250);
 });
+
+test('a first quota-only upload cannot establish a usage clock, including after restart', t => {
+  const { hub, open } = fixture(t);
+  hub.ingest({ ...record(5, 999), limitsOnly: true });
+  const restarted = open();
+  restarted.ingest({ ...record(6, 999), limitsOnly: true });
+  restarted.ingest(record(2, 250));
+  const accepted = restarted.getDevices()[0];
+  assert.equal(accepted.periods.allTime.totalTokens, 250);
+  assert.equal(accepted.updatedAt, at(2));
+  assert.equal(accepted.limits.updatedAt, at(6));
+  assert.equal(accepted.limitsOnly, undefined);
+  restarted.ingest(record(1, 125));
+  assert.equal(restarted.getDevices()[0].periods.allTime.totalTokens, 250);
+});
