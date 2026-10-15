@@ -8,6 +8,8 @@
 
 Cursor/OpenCode 三个 provider 与旧官方相同，无 NAS 冲突，按正式 tag 原样更新；不启用新源/额度/账户。Watcher 默认隔离、五分钟采集、60 秒防抖、Hermes 只读、512MiB、Windows 10/30 分钟 SSE 均保留。发布与生产状态见 [本轮交接](HANDOFF_0.72.md)，以下为历史。
 
+NAS-18 的顺序时间必须有可信 Hub 接收时间，producer 最多超前5分钟；未来/缺失/异常时间不作为持久顺序水位，避免时钟纠正后永久拒绝统计。首份额度在完整用量之前保留 `limitsOnly` 标记且不建立用量时钟，标记可跨Hub重启；完整用量接受后清除。上述时间不可比较时保留旧到达顺序语义，不保证该异常区间的乱序。
+
 当前已发布修订 `v0.71.0-02`，官方固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c` 不变。新增 NAS-01 入口保护：Agent archive store、capture、dry-run snapshot 均启用 strict；capture 失败在替换 archive、更新 DeviceState、采集健康及投递之前退出，limits-only 继续携带上次完整用量。入口级证据见 `app/tests/agent/archivePublication.test.js`；原生双架构及8组冻结恢复通过，DXP4800已升级并验收，DH4300Plus SSH阻塞。发布和部署结果见 [本修订交接](HANDOFF_0.71.0-02.md)。以下起点和版本叙述为历史。
 
 官方目标基线：`v0.70.0` / `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。已发布 NAS 版本：`v0.70.0-01`。接管起点为正式 `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`，旧官方基线 `v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`。

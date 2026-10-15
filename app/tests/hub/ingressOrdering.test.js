@@ -5,8 +5,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { createHub } = require('../../src/hub/server');
+const { mergeIngressRecord } = require('../../src/hub/ingressOrdering');
 
-const at = minute => `2026-10-16T00:${String(minute).padStart(2, '0')}:00.000Z`;
+const origin = Date.now() - 60 * 60 * 1000;
+const at = minute => new Date(origin + minute * 60000).toISOString();
 function record(minute, tokens, cost = tokens / 1000000) {
   return { deviceId: 'synthetic-ordering', updatedAt: at(minute),
     history: { daily: [{ date: '2026-10-16', tokens, cost }] },
@@ -85,4 +87,33 @@ test('a first quota-only upload cannot establish a usage clock, including after 
   assert.equal(accepted.limitsOnly, undefined);
   restarted.ingest(record(1, 125));
   assert.equal(restarted.getDevices()[0].periods.allTime.totalTokens, 250);
+});
+
+test('a temporarily future device clock cannot freeze usage or quotas after correction and restart', t => {
+  const { hub, open } = fixture(t);
+  hub.ingest(record(2, 250));
+  const future = record(3, 300);
+  future.updatedAt = new Date(Date.now() + 365 * 86400000).toISOString();
+  future.limits.updatedAt = future.updatedAt;
+  hub.ingest(future);
+  const restarted = open();
+  restarted.ingest(record(4, 500));
+  const corrected = restarted.getDevices()[0];
+  assert.equal(corrected.updatedAt, at(4));
+  assert.equal(corrected.periods.allTime.totalTokens, 500);
+  assert.equal(corrected.limits.updatedAt, at(4));
+  restarted.ingest(record(1, 125));
+  assert.equal(restarted.getDevices()[0].periods.allTime.totalTokens, 500);
+});
+
+test('legacy records without a trusted receipt cannot establish a future ordering watermark', () => {
+  const previous = record(3, 300);
+  previous.updatedAt = '2099-01-01T00:00:00.000Z';
+  previous.limits.updatedAt = previous.updatedAt;
+  const next = { ...record(4, 500), receivedAt: new Date().toISOString() };
+  for (const receivedAt of [undefined, '', 'not-a-date']) {
+    const merged = mergeIngressRecord({ ...previous, receivedAt }, next);
+    assert.equal(merged.periods.allTime.totalTokens, 500);
+    assert.equal(merged.limits.updatedAt, at(4));
+  }
 });
