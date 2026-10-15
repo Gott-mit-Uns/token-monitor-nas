@@ -2,7 +2,7 @@
 
 基于 [Token Monitor](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到你配置的 Hub。镜像同时提供 Node Hub，支持 `linux/amd64` 和 `linux/arm64`。
 
-当前已发布 [`v0.71.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.71.0-01)，增量对齐官方 v0.71.0。生产可固定 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.71.0-01`；源码、原生双架构验收、摘要及回退条件见 [本轮交接](HANDOFF_0.71.md)。本轮 DXP4800 的 Hub+Agent 已实际升级并验证；DH4300Plus 因 SSH 拒绝连接尚未升级。后续更新按 AGENTS.md 的维护约定先验收、正式发布，再备份并分阶段部署，各阶段单独记录。
+当前已发布 [`v0.71.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.71.0-01)，增量对齐官方 v0.71.0。本轮 `v0.71.0-02` 修复 Agent 归档失败仍继续上报的问题，验证、发布与部署分别记录在 [本修订交接](HANDOFF_0.71.0-02.md)。前版 DXP4800 的 Hub+Agent 已部署并验证；DH4300Plus 由所有者说明已自行更新，但本次 SSH 仍拒绝连接，当前版本尚未独立核实。后续更新按 AGENTS.md 的维护约定先验收、正式发布，再备份并分阶段部署。
 
 ## 主要功能
 
@@ -41,6 +41,8 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 
 - **仅同步汇总**：设置 `TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED=0`，保留汇总、历史和本地归档，省略上传的逐会话明细。
 - **同步会话标题**：Hub 和上传设备均设置 `TOKEN_MONITOR_SYNC_SESSION_TITLES=1`。
+- **标题关闭、迁移或卸载**：删除状态或改变 Hub、凭据、设备 ID 前，先保留原身份与原状态完成旧 Hub 的标题撤销，见 [标题清理步骤](DEPLOYMENT.md#标题关闭迁移与卸载)。只删除本地状态不会清除旧 Hub 标题。
+- **Goose 与可选额度来源**：默认仍为 Hermes-only、limits 关闭。仅对真实存在且明确启用的来源配置只读挂载和 provider 白名单，见 [可选来源配置](OPTIONAL_SOURCES.md)。Compose 的 `environment` 优先于 `env_file`，仅向 `.env` 添加同名变量不会覆盖模板中的关闭开关。
 - **启用 NAS Hub**：同一镜像使用 `command: ["node", "src/hub/server.js"]`，配置独立的 `/data` 持久化目录及 Hub 环境变量。
 - **Windows 分时接收**：Hub 设置 `TOKEN_MONITOR_WINDOWS_STREAM_ENABLED=1`，客户端 Hub 地址使用 `/windows` 路径。时段按上海时区和中国工作日历判断，工作日 07:00–17:00 使用 10 分钟周期。
 

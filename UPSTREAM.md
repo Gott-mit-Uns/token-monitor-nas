@@ -1,5 +1,9 @@
 # 官方源码基线
 
+## NAS v0.71.0-02
+
+官方仍固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c`。基于已发布 `v0.71.0-01` / `e92d9add64efbb9985fb482880d9d95734354183` 补齐 Agent 实际入口的归档错误发布保护。无 parser pin、计费或格式迁移；Hub 共享源码与闭包哈希保持实际一致，不虚增 Hub 身份。新入口测试、标题清理、可选来源配置与本次验收见 [HANDOFF_0.71.0-02.md](HANDOFF_0.71.0-02.md)。下面记录前版发布时状态；DH4300Plus 后由所有者说明自行更新，本修订只读预检仍 SSH 拒绝，不能推断其当前版本。
+
 ## NAS v0.71.0-01
 
 固定官方 v0.71.0 `a514e2063563e318ef73c2a17fad68057c4e300c`，上一基线 v0.70.0 `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。逐文件差异见 UPSTREAM_0.71_AUDIT.md，共享三方合并见 UPSTREAM_0.71_SHARED.md。Agent与Node Hub无上游本体净差，加载同一app/src/shared。Tokscale固定二进制pin没有变化，既有fork的Goose解析通过新增真实binary契约验收后才可宣称支持。桌面登录、托盘、界面和Electron内存管理不入容器。

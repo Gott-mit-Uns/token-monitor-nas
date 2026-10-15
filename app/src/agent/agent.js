@@ -120,7 +120,7 @@ const limitsOptions = {
 };
 let sessionUsageArchive;
 const cursorUsageEvents = createCursorUsageEventIndex();
-const sessionUsageArchiveStore = dryRun ? null : createSessionUsageArchiveStore({ cursorUsageEvents });
+const sessionUsageArchiveStore = dryRun ? null : createSessionUsageArchiveStore({ cursorUsageEvents, strict: true });
 
 function summaryWithSessionUsageArchive(summary, now = new Date()) {
   let visibleSummary = summary;
@@ -128,15 +128,18 @@ function summaryWithSessionUsageArchive(summary, now = new Date()) {
     const archiveDate = sessionUsageArchiveDate(summary, now);
     if (dryRun) {
       sessionUsageArchive = updateSessionUsageArchive(
-        sessionUsageArchive || readSessionUsageArchiveSnapshot(),
+        sessionUsageArchive || readSessionUsageArchiveSnapshot({ strict: true }),
         summary,
         archiveDate,
         { cursorUsageEvents }
       ).archive;
     } else {
-      const result = sessionUsageArchiveStore.capture(summary, archiveDate);
+      const result = sessionUsageArchiveStore.capture(summary, archiveDate, { strict: true });
+      // A failed capture may return an empty fallback or an uncommitted in-memory
+      // mutation. Reject the whole usage tick before replacing the last complete
+      // archive or marking collection healthy; DeviceState retains its usagePart.
+      if (result.error) throw result.error;
       sessionUsageArchive = result.archive;
-      if (result.error) console.error(`[session-archive] update failed: ${result.error.message}`);
     }
     visibleSummary = applySessionUsageArchive(summary, sessionUsageArchive, {
       now: archiveDate,

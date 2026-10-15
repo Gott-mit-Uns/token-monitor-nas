@@ -14,5 +14,8 @@
     "package-lock.json"
   ],
   "audit": "UPSTREAM_0.71_AUDIT.md",
-  "patches": "NAS_PATCHES.md"
+  "patches": "NAS_PATCHES.md",
+  "nasRevision": "v0.71.0-02",
+  "revisionBaseline": "e92d9add64efbb9985fb482880d9d95734354183",
+  "revisionNotes": "Strict Agent archive publication; headless entrypoint regressions and NAS configuration guidance. Official v0.71.0 baseline unchanged."
 }
