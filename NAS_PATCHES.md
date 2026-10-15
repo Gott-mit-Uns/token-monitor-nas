@@ -1,6 +1,6 @@
 # NAS 专用补丁清单
 
-当前修订目标 `v0.71.0-02`，官方固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c` 不变。新增 NAS-01 入口保护：Agent archive store、capture、dry-run snapshot 均启用 strict；capture 失败在替换 archive、更新 DeviceState、采集健康及投递之前退出，limits-only 继续携带上次完整用量。入口级证据见 `app/tests/agent/archivePublication.test.js`，发布和部署进度见 [本修订交接](HANDOFF_0.71.0-02.md)。以下起点和版本叙述为历史。
+当前已发布修订 `v0.71.0-02`，官方固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c` 不变。新增 NAS-01 入口保护：Agent archive store、capture、dry-run snapshot 均启用 strict；capture 失败在替换 archive、更新 DeviceState、采集健康及投递之前退出，limits-only 继续携带上次完整用量。入口级证据见 `app/tests/agent/archivePublication.test.js`；原生双架构及8组冻结恢复通过，DXP4800已升级并验收，DH4300Plus SSH阻塞。发布和部署结果见 [本修订交接](HANDOFF_0.71.0-02.md)。以下起点和版本叙述为历史。
 
 官方目标基线：`v0.70.0` / `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。已发布 NAS 版本：`v0.70.0-01`。接管起点为正式 `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`，旧官方基线 `v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`。
 
