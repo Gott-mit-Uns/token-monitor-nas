@@ -43,6 +43,25 @@ DH4300Plus 当前 Compose 和状态目录存在组/其他用户可写权限，�
 
 ## 数据迁移和回滚
 
+### 标题关闭、迁移与卸载
+
+此步骤只适用于曾启用标题同步的 Agent。标题默认关闭；逐会话统计开关 `TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED` 不代表上传聊天正文或逐轮内容。标题许可同时受 Hub 开关、发送设备许可及策略代次限制。
+
+删除、移动或重建 Agent 状态目录，以及更换 Hub URL、认证凭据或设备 ID 前，应先停止原 Agent，保留原来的 Hub URL、凭据、设备 ID、完整状态挂载和镜像固定配置，运行一次明确关闭标题的 Agent。以下以模板服务名为例；若生产使用额外 Compose 文件或镜像 override，两条命令必须带上同一组 `-f` 参数：
+
+```sh
+docker compose stop token-monitor-nas
+docker compose run --rm --no-deps token-monitor-nas node src/agent/agent.js --once --sync-session-titles=false
+```
+
+命令从已有私有环境配置取得认证，不把凭据放到命令行。它会正常采集并上传不含标题的用量，不是 dry-run；执行前按维护规则备份。关闭只针对 Agent，不要停止仍需接收撤销请求的旧 Hub。若只是关闭标题，完成后在持久配置中设置 `TOKEN_MONITOR_SYNC_SESSION_TITLES=0`，再重建原 Agent；否则原配置的 `1` 会重新申请标题同步。
+
+Agent 在状态目录内的私有 `agent-sync-credentials.json` 保存旧目标的清理责任及必要认证。模板状态位于 `/config` 下；若指定 `TOKEN_MONITOR_SHARED_DIR`，以该实际共享状态目录为准。保留整个状态目录，不要只拷贝 SQLite 或单独删除这份私有文件。变更目标时程序会重试旧目标，但迁移前主动完成撤销更可靠。
+
+进程正常退出、没有标题出现在新上传中，都不能单独证明旧 Hub 已清理。应私下核验旧设备的撤销响应为 `ok=true`、`enabled=false` 且具有有效正整数 `generation`，私有清理记录无 `active` 或 `pending` 责任，并从旧 Hub 读取该设备确认已存标题被清除。只记录通过/失败，不展示认证、完整清理文件或真实会话标题。出现 `cleanup request(s) pending`、`Private cleanup journal unavailable`、旧 Hub 离线或认证失效时，保留原状态和可恢复备份，处理后重试；不能把删除状态当作清理成功。没有旧状态的历史 Agent，需通过旧 Hub 的认证 `PUT /api/sync/titles/:deviceId` 发送 `{"enabled":false}` 并验证上述响应及存储结果，认证仍从安全渠道读取。
+
+撤销清理的是旧 Hub 当前存储中的会话文字，不删除本地完整用量归档，也不会抹去既有备份或客户端已保存的副本。标题清理完成后才进行身份迁移或卸载；迁移后的身份与状态仍须按正常部署验收。
+
 每个新版本源码中包含 `deployment/release-policy.json`，绑定版本、允许的来源版本、是否涉及状态格式迁移以及恢复说明，并进入不可变 Release 清单。不能因镜像可拉取就推断数据向后兼容。
 
 默认自动回滚关闭。自动回滚必须同时具备：该版本声明支持 `restore-snapshot`、本地 root 私有恢复演练凭据有效，来源版本、目标版本、目标源码与摘要、各旧镜像 ID/摘要/源码和本地配置指纹完全匹配。状态格式迁移没有经过验证的恢复计划时，部署在停机前拒绝。

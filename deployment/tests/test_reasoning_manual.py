@@ -80,4 +80,22 @@ class ManualReasoningTest(unittest.TestCase):
                 with patch.object(e.SandboxDocker, 'frozen_compare', side_effect=m.Refused('frozen_accounting_mismatch')):
                     with self.assertRaises(m.Refused): adapter.frozen_compare(root, 'old', 'new')
 
+    def test_already_corrected_reasoning_stays_on_strict_guard(self):
+        # The v0.71.0-01 baseline has the same corrected costs as the candidate.
+        # An intact pair needs no synthetic allowance or reviewed-state rewrite.
+        with tempfile.TemporaryDirectory(prefix='token-monitor-deployment-exercise-') as tmp:
+            root = Path(tmp); project = root/'project'; project.mkdir()
+            cfg = {'sandbox': True, 'projectRoot': str(project), 'composeFile': str(project/'compose.json'), 'deviceId': 'sandbox-device', 'controlDir': str(project/'control')}
+            adapter = e.ManualReasoningSandbox(cfg, 'candidate', 'a'*40)
+            corrected = e.correct_synthetic_cost(self.record())
+            (root/'frozen-accounting.json').write_text(json.dumps({'before': corrected, 'after': corrected}))
+            with patch.object(e.SandboxDocker, 'frozen_compare', return_value={'frozenAccounting': 'equal'}) as guard:
+                self.assertEqual(adapter.frozen_compare(root, 'v0.71.0-01', 'v0.71.0-02'), {'frozenAccounting': 'equal'})
+                guard.assert_called_once_with(root, 'v0.71.0-01', 'v0.71.0-02')
+            self.assertIsNone(adapter.reviewed_snapshot)
+            # A mismatch between corrected records cannot claim the old-price
+            # reasoning exception, even when the totals happen to be intact.
+            with patch.object(e.SandboxDocker, 'frozen_compare', side_effect=m.Refused('frozen_accounting_mismatch')):
+                with self.assertRaises(m.Refused): adapter.frozen_compare(root, 'v0.71.0-01', 'v0.71.0-02')
+
 if __name__ == '__main__': unittest.main()
