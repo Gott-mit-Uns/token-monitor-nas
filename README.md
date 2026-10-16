@@ -2,7 +2,7 @@
 
 基于 [Token Monitor](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到你配置的 Hub。镜像同时提供 Node Hub，支持 `linux/amd64` 和 `linux/arm64`。
 
-本分支构建版本为 `v0.72.0-02`，固定上游正式 v0.72.0，在前版基础上提供可选的 Hub 显示名称。正式产物以 [Releases](https://github.com/Gott-mit-Uns/token-monitor-nas/releases) 中成功发布并包含不可变清单的版本为准，生产使用对应固定镜像与 digest。保留 Cursor/OpenCode 支持、Hub 迟到用量/额度保护、实际 Agent 归档失败保护、独立 Watcher、Windows 分时推送和所有 NAS 默认边界。名称合同见 [修订说明](HUB_DISPLAY_NAME.md)，发布与逐台部署要求见 [本修订交接](HANDOFF_0.72.0-02.md)。**正式发布不表示已部署。** 本次发布前两台 SSH 预检均拒绝连接；已获部署授权，但仍须按 [逐台计划](DEPLOYMENT_PLAN_0.72.0-02.md) 核实实际状态、备份与验收。
+当前正式发布版本为 [`v0.72.0-02`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.72.0-02)，固定上游正式 v0.72.0，在前版基础上提供可选的 Hub 显示名称。正式产物以 [Releases](https://github.com/Gott-mit-Uns/token-monitor-nas/releases) 中成功发布并包含不可变清单的版本为准，生产使用对应固定镜像与 digest。保留 Cursor/OpenCode 支持、Hub 迟到用量/额度保护、实际 Agent 归档失败保护、独立 Watcher、Windows 分时推送和所有 NAS 默认边界。名称合同见 [修订说明](HUB_DISPLAY_NAME.md)，发布与逐台部署要求见 [本修订交接](HANDOFF_0.72.0-02.md)。**正式发布不表示已部署。** 本次发布前两台 SSH 预检均拒绝连接；所有者随后选择自行更新 NAS 容器，本任务未部署或验收生产设备。手工更新仍应参考 [逐台计划](DEPLOYMENT_PLAN_0.72.0-02.md)，保留身份、配置与完整状态。
 
 ## 主要功能
 
