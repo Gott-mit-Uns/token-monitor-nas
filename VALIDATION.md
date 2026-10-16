@@ -1,6 +1,12 @@
 # Upgrade validation — 2026-09-08
 
-## v0.72.0-01 正式发布完成（2026-10-16，生产未部署）
+## 最新 v0.72.0-02 正式发布完成（2026-10-16，所有者自行更新 NAS）
+
+PR #11 已合并，source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`。本地 NAS 1671 项中1660通过、0失败、11既有平台跳过；发布辅助59项、部署Python51项通过。最终PR原生amd64/arm64及六来源×两架构冻结/完整恢复全部通过。正式发布工作流 [38908457055](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38908457055) 的三个任务全部成功，固定镜像与latest为 `sha256:81413b1a4fcb30757f906bc732dcfbfe6883cb27683dffaaad98ea7ced9b8715`，两个平台OCI源码一致，旧六个固定标签不变。44个Release附件摘要全部核对，原始manifest及三份补充关键记录匿名下载回读一致，原始manifest未覆盖。仅新增可选鉴权Hub名称，不变更统计、计费或存储；真实指纹、统计与范围见 [本修订交接](HANDOFF_0.72.0-02.md)。
+
+所有者最新指令“我自己更新 NAS 容器”覆盖此前助手部署授权。本任务没有部署或验收DXP4800、DH4300Plus，实际版本与状态不能用发布结果代替。真机Android、公网网络、真实账号及生产恢复/持续运行仍未覆盖。以下版本均为历史记录。
+
+## 历史 v0.72.0-01 正式发布完成（2026-10-16，生产未部署）
 
 获所有者明确确认后PR #9合并，正式source/tag/OCI/manifest为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。[最终发布流程](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38818647520) 全部成功，最终镜像两架构各1666项1658通过、0失败、8平台跳过；固定index `sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810` 与latest相同。独立匿名Registry/Release读回确认平台摘要、OCI、Tag、原始manifest与源码一致，旧五个固定标签不变。最终获批PR原生与十组恢复重新通过，自动复审无发现。正式发布完成，生产NAS均未部署，逐台确认仍独立进行。以下为发布前验收记录，详细最终来源和摘要见HANDOFF_0.72.md。
 

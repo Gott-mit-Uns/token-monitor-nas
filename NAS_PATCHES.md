@@ -83,6 +83,6 @@ NAS自有core/node adapter与官方不同，不能复制上游最新注册hash�
 
 v0.71额外NAS严格publication保护：坏SQLite单row JSON、无效session及legacy row在读取/迁移/增量capture前拒绝，错误不覆盖完整设备数据、不提交半成品、不提前推进revision；合法prune tombstone及非严格历史读取行为保留。上游与NAS测试均执行。生产费用保护不放宽，仅保存私有旧/新冻结证据、补齐稳定会话日期与periodWindows；跨0.70使用已审阅手动方案与独立含reasoning原生演练。正式发布和真实DXP部署验收、DH访问阻塞见HANDOFF_0.71.md。
 
-## 待合并：Hub 显示名称
+## 已发布 v0.72.0-02：Hub 显示名称
 
-候选 v0.72.0-02 增加可选 `TOKEN_MONITOR_HUB_DISPLAY_NAME`，仅通过鉴权 `/api/stats` 和普通/Windows SSE 完整快照返回 `hub.displayName`。不修改 Agent 身份、计费、持久化、同步来源、公开 health 或生产配置。旧客户端可忽略新增字段，旧 Hub 缺字段仍兼容。实际 Node 核心指纹按源码重新生成；PR 阶段不发布、不部署。
+正式 v0.72.0-02 增加可选 `TOKEN_MONITOR_HUB_DISPLAY_NAME`，仅通过鉴权 `/api/stats` 和普通/Windows SSE 完整快照返回 `hub.displayName`。不修改 Agent 身份、计费、持久化、同步来源、公开 health 或生产配置。旧客户端可忽略新增字段，旧 Hub 缺字段仍兼容。实际 Node 运行时 revision 8 按源码重新生成，shared core revision 84 不变。PR #11 已合并，正式 source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`；双架构镜像与 Release 已发布，固定摘要见 [交接记录](HANDOFF_0.72.0-02.md)。所有者自行更新容器，本任务未部署或验收生产 NAS。
