@@ -29,6 +29,7 @@ jobs:
           node scripts/check-nas-version.js
           python3 scripts/check-publication-safety.py
           node --test scripts/tests/*.test.js
+          python3 -m unittest discover -s deployment/tests -v
       - name: Validate deployment templates without production configuration
         run: |
           # Compose service env_file is independent of CLI interpolation env-file.

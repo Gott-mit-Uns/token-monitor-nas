@@ -12,7 +12,7 @@ function fixture(overrides = {}) {
   const calls = [];
   const options = { target: 'DXP4800', version: 'v0.69.0-02', fromVersion: 'v0.69.0-01',
     ref: 'refs/heads/main', event: 'workflow_dispatch', workflowRunId: '1234', now: new Date('2026-10-12T00:00:00Z'),
-    verifyRelease: async () => ({ manifest: manifest() }),
+    verifyPublication: async () => ({ manifest: manifest(), recordCommit: 'e'.repeat(40), recordBranch: 'nas-publications' }),
     api: async (path, request = {}) => { calls.push({ path, ...request });
       if (path.includes('?task=nas-pull&environment=')) return [];
       if (path.endsWith('/deployments')) return { id: 99 };
@@ -41,6 +41,8 @@ test('manual request queues full release manifest without claiming deployment', 
   assert.equal(result.payload.expiresAt, '2026-10-13T00:00:00.000Z');
   assert.equal(result.environment, 'production-DXP4800');
   assert.deepEqual(result.payload.manifest, manifest());
+  assert.equal(result.payload.publicationCommit, 'e'.repeat(40));
+  assert.equal(result.payload.publicationBranch, 'nas-publications');
   const creation = calls.find(call => call.path.endsWith('/deployments'));
   assert.equal(creation.body.ref, manifest().sourceCommit);
   assert.equal(creation.body.task, 'nas-pull');
@@ -57,8 +59,8 @@ test('DH4300Plus uses its own environment', async () => {
 test('invalid versions and unsupported installed release cannot create request', async () => {
   for (const changes of [{ version: 'latest' }, { version: 'v0.69.0-00' }, { fromVersion: 'v0.69.0-02' },
     { workflowRunId: 'nan' }, { workflowRunId: '9007199254740992' }, { fromVersion: 'v0.68.0-05' },
-    { verifyRelease: async () => ({ manifest: { ...manifest(), version: 'v0.70.0-01' } }) },
-    { verifyRelease: async () => { throw new Error('Release tag or image mismatch'); } }]) {
+    { verifyPublication: async () => ({ manifest: { ...manifest(), version: 'v0.70.0-01' } }) },
+    { verifyPublication: async () => { throw new Error('Release tag or image mismatch'); } }]) {
     const { calls, options } = fixture(changes);
     await assert.rejects(approveDeployment(options));
     assert.ok(!calls.some(call => call.method === 'POST'));
@@ -166,4 +168,10 @@ test('repeated pagination and unbounded deployment histories fail closed', async
     await assert.rejects(approveDeployment(options), /enumerate/);
     assert.ok(!calls.some(call => call.method === 'POST'));
   }
+});
+
+test('a source manifest without a pinned publication receipt never queues deployment', async () => {
+  const { calls, options } = fixture({ verifyPublication: async () => ({ manifest: manifest() }) });
+  await assert.rejects(approveDeployment(options), /publication receipt/);
+  assert.equal(calls.length, 0);
 });

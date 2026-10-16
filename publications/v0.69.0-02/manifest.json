@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "version": "v0.69.0-02",
+  "sourceCommit": "ec79dc7bff697ed5568b013578a8ec8d6261e67e",
+  "imageRepository": "ghcr.io/gott-mit-uns/token-monitor-hermes",
+  "imageDigest": "sha256:e35fa4c5f050b3944698a96a5ea48e7ee65b4e851ec49c5ddd1271dc02cca4b2",
+  "platforms": [
+    {
+      "os": "linux",
+      "architecture": "amd64",
+      "digest": "sha256:8fb3e2df3b9e212c12b764d2f8c554d242a8b15f0b2d73da630fe79816622b68"
+    },
+    {
+      "os": "linux",
+      "architecture": "arm64",
+      "digest": "sha256:ea35946b9df0f67a9115c57e08d908279f338f041f07626a38ef4c77cad031ab"
+    }
+  ],
+  "migration": {
+    "kind": "none",
+    "rollback": "restore-snapshot",
+    "notes": "No mandatory archive schema migration. Collection can update state metadata. Restore a complete closed pre-deployment state snapshot with its old image. Automatic rollback requires a NAS-local rehearsal receipt for this exact version and digest pair."
+  },
+  "compatibleFrom": [
+    "v0.69.0-01"
+  ],
+  "rollback": {
+    "mode": "restore-snapshot",
+    "reason": "No mandatory archive schema migration. Collection can update state metadata. Restore a complete closed pre-deployment state snapshot with its old image. Automatic rollback requires a NAS-local rehearsal receipt for this exact version and digest pair."
+  }
+}

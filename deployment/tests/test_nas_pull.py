@@ -321,8 +321,7 @@ class ControllerTest(unittest.TestCase):
         with self.assertRaisesRegex(m.Refused, 'state_contains_symlink'):
             engine.snapshot(Path(self.cfg['controlDir']) / 'manual-snapshot')
 
-if __name__ == '__main__':
-    unittest.main()
+
 
 class FrozenAccountingTest(unittest.TestCase):
     def test_host_metadata_may_differ_but_accounting_and_sessions_may_not(self):
@@ -453,3 +452,134 @@ class BoundReceiptTest(unittest.TestCase):
         receipt = json.loads(Path(self.cfg['controlDir'], 'rollback-rehearsal.json').read_text())
         self.assertIn('sandbox-agent', receipt['oldImages'])
         self.assertEqual(receipt['sourceCommit'], self.req['sourceCommit'])
+
+class RepositoryDiscoveryTest(unittest.TestCase):
+    setUp = ControllerTest.setUp
+    tearDown = ControllerTest.tearDown
+
+    def github(self, legacy=False):
+        import base64
+        import copy
+        req = copy.deepcopy(self.req)
+        if not legacy:
+            req['version'] = 'v0.73.0-01'
+            req['manifest']['version'] = req['version']
+            req.update(publicationCommit='f' * 40, publicationBranch='nas-publications')
+        folder = 'publications/' + req['version'] + '/'
+        def file(value):
+            text = json.dumps(value) if not isinstance(value, str) else value
+            return {'type': 'file', 'encoding': 'base64', 'content': base64.b64encode(text.encode()).decode()}
+        commit = req.get('publicationCommit', 'e' * 40)
+        documents = {
+            folder + 'manifest.json': file(req['manifest']),
+            folder + 'UPGRADE.md': file(req['version'] + req['sourceCommit'] + req['imageDigest']),
+            folder + 'ROLLBACK.md': file(req['version'] + req['sourceCommit'] + req['imageDigest']),
+            'nas-version.txt': file(req['version']),
+            'deployment/release-policy.json': file({'schemaVersion': 1, 'version': req['version'],
+                'compatibleFrom': req['manifest']['compatibleFrom'], 'migration': req['manifest']['migration']})
+        }
+        replies = {
+            '/deployments?environment=production-DXP4800&per_page=10': [{'id': 1, 'task': 'nas-pull', 'creator': {'login': 'github-actions[bot]'}, 'sha': req['sourceCommit'], 'payload': req}],
+            '/deployments/1/statuses?per_page=1': [{'state': 'queued'}],
+            '/actions/runs/23': {'conclusion': 'success', 'status': 'completed', 'event': 'workflow_dispatch', 'head_branch': 'main',
+                'path': '.github/workflows/approve-deployment.yml', 'repository': {'full_name': m.REPO}},
+            '/git/ref/heads/main': {'object': {'type': 'commit', 'sha': 'e' * 40}},
+            '/git/ref/heads/nas-publications': {'object': {'type': 'commit', 'sha': 'e' * 40}},
+            '/compare/' + 'f' * 40 + '...' + 'e' * 40: {'status': 'ahead'},
+            '/git/ref/tags/' + req['version']: {'object': {'type': 'commit', 'sha': req['sourceCommit']}}
+        }
+        for name, value in documents.items():
+            ref = req['sourceCommit'] if not name.startswith('publications/') else commit
+            replies['/contents/' + name + '?ref=' + ref] = value
+        class Fake(m.GitHub):
+            def __init__(self):
+                super().__init__({'target': 'DXP4800'})
+                self.calls = []
+            def request(self, endpoint, payload=None, allow_missing=False):
+                self.calls.append(endpoint)
+                if '/releases' in endpoint:
+                    raise AssertionError('Release dependency must not remain')
+                if payload is not None:
+                    raise AssertionError('Discovery must not mutate anything')
+                if endpoint not in replies:
+                    raise m.Refused('synthetic_missing_repository_file')
+                return replies[endpoint]
+        return Fake(), req, replies
+
+    def test_new_publication_discovery_uses_pinned_repository_commit(self):
+        api, req, _ = self.github()
+        self.assertEqual(api.discover(), req)
+        self.assertTrue(any('/compare/' in c for c in api.calls))
+        self.assertFalse(any('releases' in c for c in api.calls))
+        self.assertTrue(any('?ref=' + 'f' * 40 in c for c in api.calls))
+
+    def test_migrated_legacy_request_needs_no_release_api_or_new_receipt(self):
+        api, req, _ = self.github(legacy=True)
+        self.assertEqual(api.discover(), req)
+        self.assertTrue(any('?ref=' + 'e' * 40 in c for c in api.calls))
+
+    def test_new_version_without_repository_receipt_is_refused(self):
+        api, req, _ = self.github()
+        del req['publicationCommit']; del req['publicationBranch']
+        with self.assertRaisesRegex(m.Refused, 'publication_receipt_required'):
+            api.discover()
+
+    def test_foreign_or_diverged_receipt_is_refused(self):
+        for status in ['behind', 'diverged', 'unknown']:
+            api, _, replies = self.github()
+            key = next(k for k in replies if k.startswith('/compare/'))
+            replies[key] = {'status': status}
+            with self.assertRaisesRegex(m.Refused, 'not_in_history'):
+                api.discover()
+        api, req, _ = self.github()
+        req['publicationBranch'] = 'main'
+        with self.assertRaisesRegex(m.Refused, 'invalid_publication_branch'):
+            api.discover()
+
+    def test_missing_corrupt_or_symlink_record_is_refused(self):
+        for change in ['missing', 'invalid_base64', 'symlink', 'bad_json']:
+            api, _, replies = self.github()
+            key = next(k for k in replies if 'publications/' in k and 'manifest.json' in k)
+            if change == 'missing': del replies[key]
+            elif change == 'invalid_base64': replies[key]['content'] = '!not-base64!'
+            elif change == 'symlink': replies[key]['type'] = 'symlink'
+            else: replies[key]['content'] = 'ew=='
+            with self.assertRaises(m.Refused):
+                api.discover()
+
+    def test_moved_source_tag_and_conflicting_policy_are_refused(self):
+        api, req, replies = self.github()
+        replies['/git/ref/tags/' + req['version']]['object']['sha'] = 'd' * 40
+        with self.assertRaisesRegex(m.Refused, 'tag_sha_mismatch'):
+            api.discover()
+        api, _, replies = self.github()
+        key = next(k for k in replies if '/contents/deployment/release-policy.json' in k)
+        replies[key]['content'] = 'e30='
+        with self.assertRaisesRegex(m.Refused, 'source_policy_mismatch'):
+            api.discover()
+
+    def test_changed_manifest_or_missing_guidance_is_refused(self):
+        import base64
+        api, _, replies = self.github()
+        key = next(k for k in replies if 'publications/' in k and 'manifest.json' in k)
+        value = json.loads(base64.b64decode(replies[key]['content']))
+        value['imageDigest'] = 'sha256:' + 'e' * 64
+        replies[key]['content'] = base64.b64encode(json.dumps(value).encode()).decode()
+        with self.assertRaisesRegex(m.Refused, 'publication_manifest_mismatch'):
+            api.discover()
+        api, _, replies = self.github()
+        key = next(k for k in replies if 'ROLLBACK.md' in k)
+        del replies[key]
+        with self.assertRaises(m.Refused):
+            api.discover()
+
+    def test_wrong_approval_workflow_remains_refused_before_record_reads(self):
+        api, _, replies = self.github()
+        replies['/actions/runs/23']['event'] = 'push'
+        with self.assertRaisesRegex(m.Refused, 'approval_workflow_not_successful'):
+            api.discover()
+        self.assertFalse(any('/contents/' in c for c in api.calls))
+
+
+if __name__ == '__main__':
+    unittest.main()

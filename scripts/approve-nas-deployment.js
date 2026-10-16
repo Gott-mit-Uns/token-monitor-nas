@@ -43,13 +43,14 @@ async function preflight({ target, version, fromVersion, ref, event }) {
   return environment;
 }
 
-async function approveDeployment({ target, version, fromVersion, ref, event, workflowRunId, api, verifyRelease, now = new Date() }) {
+async function approveDeployment({ target, version, fromVersion, ref, event, workflowRunId, api, verifyPublication, now = new Date() }) {
   assertVersion(version);
   assertVersion(fromVersion);
   if (!isNewerVersion(version, fromVersion)) throw new Error('Approval requires a newer release; rollback needs a separate verified procedure.');
   if (!/^\d+$/.test(String(workflowRunId || '')) || !Number.isSafeInteger(Number(workflowRunId)) || Number(workflowRunId) <= 0) throw new Error('A valid workflow run ID is required.');
   const environment = await preflight({ target, version, fromVersion, ref, event });
-  const { manifest } = await verifyRelease(version);
+  const { manifest, recordCommit, recordBranch } = await verifyPublication(version);
+  if (!/^[a-f0-9]{40}$/.test(recordCommit || '') || !['main', 'nas-publications'].includes(recordBranch)) throw new Error('Verified repository publication receipt is required.');
   if (manifest?.schemaVersion !== 1 || manifest.version !== version || !manifest.compatibleFrom?.includes(fromVersion)) {
     throw new Error('Release manifest does not authorize this installed version.');
   }
@@ -77,7 +78,7 @@ async function approveDeployment({ target, version, fromVersion, ref, event, wor
   const payload = {
     schemaVersion: 1, target, version, sourceCommit: manifest.sourceCommit,
     imageRepository: manifest.imageRepository, imageDigest: manifest.imageDigest,
-    manifest, fromVersion, expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+    manifest, publicationCommit: recordCommit, publicationBranch: recordBranch, fromVersion, expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
     workflowRunId: Number(workflowRunId)
   };
   const deployment = await api(`/repos/${REPOSITORY}/deployments`, {
@@ -125,11 +126,11 @@ async function main(argv = process.argv.slice(2), env = process.env) {
     return;
   }
   if (argv.length) throw new Error('Unexpected approval command arguments.');
-  const { readVerifiedRelease, githubApi: releaseGithubApi } = require('./ensure-nas-release');
-  const releaseApi = releaseGithubApi(REPOSITORY, env.GITHUB_TOKEN);
+  const { readVerifiedPublication, githubApi: publicationGithubApi } = require('./nas-publication');
+  const publicationApi = publicationGithubApi(REPOSITORY, env.GITHUB_TOKEN);
   const result = await approveDeployment({ target: env.NAS_TARGET, version: env.NAS_VERSION,
     fromVersion: env.NAS_FROM_VERSION, ref: env.GITHUB_REF, event: env.GITHUB_EVENT_NAME, workflowRunId: env.GITHUB_RUN_ID, api,
-    verifyRelease: version => readVerifiedRelease({ version, api: releaseApi, inspect }) });
+    verifyPublication: version => readVerifiedPublication({ version, api: publicationApi, inspect }) });
   if (env.GITHUB_OUTPUT) fs.appendFileSync(env.GITHUB_OUTPUT, `deployment-id=${result.deploymentId}\n`);
   if (env.GITHUB_STEP_SUMMARY) fs.appendFileSync(env.GITHUB_STEP_SUMMARY,
     `Approved request **${result.deploymentId}** for **${env.NAS_TARGET}**, ${env.NAS_FROM_VERSION} → ${env.NAS_VERSION}.\n\n` +

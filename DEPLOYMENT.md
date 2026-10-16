@@ -1,14 +1,14 @@
 # GitHub 发布与 NAS 受控拉取部署
 
-最新维护记录：`v0.71.0-02` 已正式发布，DXP4800 已按所有者授权使用受审阅私有工具完成一致性备份、分阶段升级与真实新上传验收；DH4300Plus SSH拒绝，本轮未部署。详见 [本修订交接](HANDOFF_0.71.0-02.md)。下面关于常驻拉取控制程序的内容是原设计，当前未在NAS安装该控制器或新建凭据；不将其描述成已启用的自动部署服务。
+当前发布版本为 v0.72.0-02，所有者自行更新容器，本任务未部署或验收生产 NAS。NAS 今后只发 Git tag 和多架构镜像，不再依赖 GitHub Release。版本清单及升级/回退说明保存在仓库，详见 [发布流程](NAS_PUBLICATION.md) 和 [发布记录](publications/README.md)。
 
-本说明对应 `v0.69.0-02` 开发候选。GitHub 发布、部署请求、NAS 实际部署是三个独立结果。首次安装控制程序、授予状态回报权限、调整生产目录权限及执行生产部署，必须获得所有者明确授权。本次代码和 CI 不安装生产程序。
+以下控制程序是既有可选设计，当前未在 NAS 安装；本次只调整仓库代码，不部署、不安装程序、不创建凭据。首次安装、权限调整及生产部署仍须单独授权。镜像发布、部署请求、实际部署分别验收。
 
 ## 审查结论与设计
 
-保留 `Test and publish NAS image` 的 amd64 构建/测试、原生 arm64 验证、镜像摘要读回与固定版本保护。在推广成功后，自动校验两架构 OCI 版本/源码 SHA、固定 Git Tag、源码版本和迁移政策，先创建草稿 Release，上传并读回不可变 `release-manifest.json` 后正式发布。失败重试可恢复草稿；已有固定 Tag 或清单不同则停止，历史 Release 不被改写。
+`Test and publish NAS image` 改为由明确版本 tag 触发；手动重试也必须选择同一个 tag。保留 amd64 和原生 arm64 验证、摘要读回及固定版本保护。先发布/核验固定镜像，将 `manifest.json`、`UPGRADE.md`、`ROLLBACK.md` 原子写入仓库 `nas-publications` 分支的 `publications/<版本>/`，完整读回后才更新 latest。记录与 Git tag、两个 OCI 版本/源码、源码版本和迁移政策必须一致；冲突拒绝覆盖，分支更新失败保持 latest 不变。六个历史版本使用 main 上迁入的原字节清单，不再读取旧 Release API。
 
-独立 `Approve controlled NAS deployment` 只接受从 `main` 手动执行 `workflow_dispatch`。按所有者要求，没有额外 GitHub Environment 人工审批；手动选择目标 NAS、当前版本和目标版本并执行，就是批准这一部署请求。推送 main、创建 Release、更新 latest 均不会触发 NAS 控制程序部署。请求记录在 GitHub Deployments，task 为 `nas-pull`，环境名称只用于区分两台 NAS，不启用额外环境审批。请求有 24 小时有效期，版本必须递增，不替换未完成请求。
+独立 `Approve controlled NAS deployment` 只接受从 `main` 手动执行 `workflow_dispatch`。按所有者要求，没有额外 GitHub Environment 人工审批；手动选择目标 NAS、当前版本和目标版本并执行，就是批准这一部署请求。推送 main、创建 Git tag、发布镜像或记录、更新 latest 均不会触发 NAS 控制程序部署。请求记录在 GitHub Deployments，task 为 `nas-pull`，环境名称只用于区分两台 NAS，不启用额外环境审批。请求有 24 小时有效期，版本必须递增，不替换未完成请求。
 
 NAS 本地固定安装经过审阅的 Python 标准库控制程序，每次主动 HTTPS 查询 GitHub，获取已成功执行的指定手动工作流产生的请求。它不接受 GitHub 下发的命令、脚本、路径或 Compose；版本清单只提供校验后的版本、源码 SHA 和镜像摘要。镜像从现有 GHCR 按摘要拉取，无须公网 SSH、Docker API、Webhook 或新的 CI/CD 平台。
 
@@ -32,7 +32,7 @@ DH4300Plus 当前 Compose 和状态目录存在组/其他用户可写权限，�
 
 ## 部署顺序及失败边界
 
-1. 核实请求出处：指定仓库、`nas-pull` task、机器人创建者、main 上的指定手动工作流已成功完成、请求未过期、Release 正式发布、清单与批准内容一致、Git Tag 对应同一源码 SHA。拒绝降级或重复请求。
+1. 核实请求出处：指定仓库、`nas-pull` task、机器人创建者、main 上的指定手动工作流已成功完成、请求未过期、仓库发布记录完整、清单与批准内容一致、Git tag 对应同一源码 SHA；新请求绑定记录 commit/分支，并验证该 commit 在记录分支的历史中，所有文件从该 commit 读取。拒绝降级或重复请求。
 2. 取得本地独占锁。未完成的旧日志、设备 ID/版本不符、未知服务、配置/挂载不符、非 Hermes-only、非独立 Watcher、路径链接或不安全权限均停止。确认有本地回报凭据，无法提供最终 GitHub 结果时不开始部署。
 3. 按目标摘要拉取镜像，验证本机架构、OCI 版本和源码 SHA、RepoDigest。记录各旧镜像 ID/摘要并保留本地回滚标签。
 4. 停止本项目 Hub 和 Agent，确认已经停止。备份原 Compose、私有 `.env`、完整 Agent 状态和本地 Hub 状态，包括 SQLite WAL/SHM，保留权限和所有者。所有备份与详细验收记录仅存 NAS 本地。
@@ -66,7 +66,7 @@ Agent 在状态目录内的私有 `agent-sync-credentials.json` 保存旧目标�
 
 ### 完整状态恢复
 
-每个新版本源码中包含 `deployment/release-policy.json`，绑定版本、允许的来源版本、是否涉及状态格式迁移以及恢复说明，并进入不可变 Release 清单。不能因镜像可拉取就推断数据向后兼容。
+每个新版本源码中包含 `deployment/release-policy.json`，绑定版本、允许的来源版本、是否涉及状态格式迁移以及恢复说明，并进入仓库版本清单；清单同时绑定最终镜像摘要，读取时固定记录 commit。不能因镜像可拉取就推断数据向后兼容。
 
 默认自动回滚关闭。自动回滚必须同时具备：该版本声明支持 `restore-snapshot`、本地 root 私有恢复演练凭据有效，来源版本、目标版本、目标源码与摘要、各旧镜像 ID/摘要/源码和本地配置指纹完全匹配。状态格式迁移没有经过验证的恢复计划时，部署在停机前拒绝。
 
@@ -102,4 +102,11 @@ gh api --silent --method POST repos/Gott-mit-Uns/token-monitor-nas/deployments/D
 
 `Validate controlled deployment` 在原生 amd64 和 arm64 运行发布/请求逻辑测试、控制器失败路径测试，并使用真实 Docker、旧版镜像、新版候选镜像、合成 Hermes SQLite 和独立临时 Compose 演练分阶段升级和全状态回滚。PR 候选镜像不发布，GitHub/Registry 写操作用合成 API 验证；Docker 演练不包含生产 NAS 数据或权限。
 
-完整当前报告见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。正式 Release 提供版本/源 SHA/摘要清单；生产结果可在仓库 Deployments 和 NAS 本地私有 `deployment-<id>.json` 查验。公网 Windows UI、24 小时持续运行及生产恢复演练需另行验收。
+完整当前报告见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。仓库发布记录提供版本/源 SHA/摘要清单及升级/回退说明；生产结果可在仓库 Deployments 和 NAS 本地私有 `deployment-<id>.json` 查验。公网 Windows UI、24 小时持续运行及生产恢复演练需另行验收。
+
+
+## 从 Release 清单迁移
+
+已发布的六份清单按原字节迁入 `publications/<版本>/manifest.json`，与原 Git tag、源码版本及迁移政策核对一致；既有 Release 不删除、不改写。新手动请求读取仓库记录并携带 `publicationCommit` / `publicationBranch`；控制程序验证记录提交属于 `nas-publications` 历史，六个历史版本也允许 main 上的迁入记录。旧有效请求没有记录指针时，仅六个历史版本可以从固定的 main 提交读取迁入记录；新版本缺少指针拒绝。原始测试数据不进入记录分支。
+
+旧控制程序仍依赖 Release，因此不能直接处理今后的新版本；若未来明确启用受控部署，应先单独审阅/更新本地控制程序，再批准部署请求。本任务不执行该安装。当前由所有者手工更新容器的流程不依赖控制程序，也不需要 GitHub Release。
