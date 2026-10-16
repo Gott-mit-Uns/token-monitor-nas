@@ -1,6 +1,10 @@
 # 官方源码基线
 
-## NAS v0.72.0-01
+## 最新 NAS v0.72.0-02
+
+官方稳定基线仍为 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，没有改用 main 或预发布。基于已发布 v0.72.0-01 增加可选鉴权 Hub 显示名称，shared core revision 84 保持，Node runtime revision 8 按真实源码生成。PR #11 已合并，2026-10-16 21:35:40（北京时间）正式发布；source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，固定 index 与 latest 同为 `sha256:81413b1a4fcb30757f906bc732dcfbfe6883cb27683dffaaad98ea7ced9b8715`。六个旧固定标签不变。发布、原生双架构与恢复证据见 [本修订交接](HANDOFF_0.72.0-02.md)。所有者自行更新容器，本任务未部署或验收生产 NAS。`upstream-lock.json` 的 tag/commit 继续锁定同一官方稳定版，其中 nasRevision/revisionBaseline 记录引入官方 0.72 的 -01 对齐操作；本次仅 NAS 修订的发布号以 nas-version.txt 为准，正式源码由 Release manifest 锁定。以下为历史记录。
+
+## 历史 NAS v0.72.0-01
 
 已于北京时间2026-10-16 06:45:31正式发布，NAS源码 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。原生amd64/arm64最终镜像测试、固定标签/Release/OCI清单及匿名Registry读回通过；本轮两台生产NAS均未部署，访问阻塞与独立部署确认计划见交接。后补文档不改写固定镜像。
 
