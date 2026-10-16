@@ -1,6 +1,8 @@
 # Upgrade validation — 2026-09-08
 
-## v0.72.0-01 代码与原生验收完成（2026-10-16，待合并发布）
+## v0.72.0-01 正式发布完成（2026-10-16，生产未部署）
+
+获所有者明确确认后PR #9合并，正式source/tag/OCI/manifest为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。[最终发布流程](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38818647520) 全部成功，最终镜像两架构各1666项1658通过、0失败、8平台跳过；固定index `sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810` 与latest相同。独立匿名Registry/Release读回确认平台摘要、OCI、Tag、原始manifest与源码一致，旧五个固定标签不变。最终获批PR原生与十组恢复重新通过，自动复审无发现。正式发布完成，生产NAS均未部署，逐台确认仍独立进行。以下为发布前验收记录，详细最终来源和摘要见HANDOFF_0.72.md。
 
 固定上游 `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，运行提交 `c37cd3c7d50380aac756bf3f78eb6d1c43981458`。本机1666项1655通过0失败11平台跳过；原生amd64/arm64各1666项1658通过0失败8跳过。两个有效自动审查发现已修复，最终运行提交审查无发现。五来源×两架构冻结/完整恢复、真实固定Tokscale、混合协议8组合/每架构和固定资源基准全部通过；阈值不变，来源/权限/512MiB默认值不变。v71-02→本版1845Token、缓存、reasoning语义、会话/逐日/设备与USD0.006445费用保持；跨v69的已知reasoning修正有精确差异oracle。发布辅助59项、Python部署51项通过。工作流、实际指纹、资源数字和限制见 [HANDOFF_0.72.md](HANDOFF_0.72.md)，详细统计见 [COST_VALIDATION_0.72.md](COST_VALIDATION_0.72.md)。代码与验收完成，不等于正式镜像或Release已发布；生产未部署，两台SSH拒绝，逐台计划见 [DEPLOYMENT_PLAN_0.72.md](DEPLOYMENT_PLAN_0.72.md)。
 

@@ -1,6 +1,6 @@
 # v0.72.0-01 生产升级确认清单
 
-本轮只开发、验证和发布。此文件是待确认计划，不是生产部署授权或验收报告。
+本轮开发、验证和正式发布已经完成。此文件仍是待确认计划，不是生产部署授权或验收报告。
 
 ## 每台设备的独立状态
 
@@ -9,7 +9,7 @@
 | DXP4800，192.168.31.12 | 本轮未能实时核实；2026-10-15 交接最后确认 v0.71.0-02，不能当作当前证明 | 计划 linux/amd64；以设备实际 Docker 平台为准 | v0.72.0-01，先 Hub 后本机 Agent | 安全配置的 SSH 连接被拒绝；没有停机、拉镜像或改配置 |
 | DH4300Plus，192.168.31.13 | 本轮未能实时核实；用户曾手工更新，不推断其当前版本 | 计划 linux/arm64；以设备实际 Docker 平台为准 | v0.72.0-01，Agent-only 接 DXP Hub | SSH 连接被拒绝；没有部署或接受该设备的验证结果 |
 
-目标固定 digest 必须来自正式 Release 的 release-manifest.json，确认 source/tag/OCI 一致后填入，不用 latest 作为实际部署目标。若确认时出现更新版本，重新审阅范围，不能直接替换本清单目标。
+目标已按正式 [Release清单](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/download/v0.72.0-01/release-manifest.json) 独立核验：source/tag/OCI均为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`；固定镜像为 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.72.0-01`，实际不可变部署引用为 `ghcr.io/gott-mit-uns/token-monitor-hermes@sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810`。amd64子摘要 `sha256:ca6ff0dd482595cd9e0b8823235b4d8aca2d13105f539ae6db3e394f60521191`，arm64子摘要 `sha256:34d65bfe98dd94980894f2ec22c28f7b8b7c3119d7d2a863b3e9f669e98ba5b0`。不用latest作为实际部署目标；若确认时出现更新版本，重新审阅范围，不能直接替换本清单目标。
 
 ## 备份和恢复办法
 

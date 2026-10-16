@@ -1,6 +1,6 @@
 # NAS v0.72.0-01 交接
 
-2026-10-16。当前阶段：代码与原生隔离验收完成，PR #9 等待所有者确认合并及正式发布；尚未发布 v0.72.0-01，尚未部署任何 NAS。发布后必须再补固定镜像摘要、正式源码及远端产物读回，不能将本节验收当作已发布。
+2026-10-16。当前阶段：代码、原生隔离验收、所有者明确确认后的PR #9合并及正式 v0.72.0-01 发布完成；固定镜像、Release/manifest/OCI及旧标签保持已独立读回。**本轮未部署任何生产NAS**，两台SSH预检均拒绝，生产部署仍待独立确认。下方早期候选/待发布段落保留过程，最终状态以“正式发布完成记录”为准。
 
 上游正式 v0.72.0 / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，旧上游 v0.71.0 / `a514e2063563e318ef73c2a17fad68057c4e300c`；NAS 实际发布基线 v0.71.0-02 / `9a06b658e75d96285ac98847ef5e6e67299a4085`，最新文档 main `77e69040d6cf8e17bb04edbad5406dee20a3f11e`。独立分支 `upgrade/upstream-v0.72.0`，原工作区不重置。
 
@@ -53,3 +53,26 @@ Cursor 统一订阅池、预付余额与未知额度处理；OpenCode 2.x 只读
 未覆盖：真实新Cursor方案账户、生产OpenCode数据/远端逐轮正文、物理NAS运行/生产统计/备份恢复和24小时运行。两台当前均SSH拒绝。本轮未创建新凭据或安装控制器，生产保护不放宽。
 
 尚待：按所有者既有PR规则确认合并，正式发布流程在最终合并源码上重跑原生镜像验收，推广固定tag/latest并创建Release；随后独立读回manifest、Tag、OCI、平台摘要与旧固定版本不变，再补本节发布结果。仅审批发布仍不授权生产部署。
+
+## 正式发布完成记录
+
+所有者在本会话明确确认“合并并正式发布”，不授权生产部署。PR #9已合并为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`；获批分支 `f81b39438b25cd38a5a7160ec11dcd7f9465e071`、最终PR合并态 `147ffaa69979b66e624da849b4aca5fe56d8bfd3` 与正式合并源码的完整tree均为 `c148174a052f88034579f8f4a9b1bf906a3800de`。运行源码与上节c37验收一致，差别仅后补文档。
+
+- [获批最终PR原生验证](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38813996822) 与 [最终十组恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38813996890) 全部成功，最终分支自动复审无发现；重复push验证因与PR同代码而取消，不是被跳过的失败门槛。
+- 最终PR持续maxRSS中位数（MiB）：amd64 Agent165.80→167.72 / Watcher56.35→55.82 / Hub119.06→118.99；arm64 Agent173.36→174.36 / Watcher53.97→53.99 / Hub117.71→118.50。三轮固定负载、既有阈值全部通过；结果不表示普遍性能改善或24小时生产观察。
+- [正式发布工作流38818647520](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38818647520)：amd64构建/候选实际运行复测、原生arm64对同一摘要复测、固定标签推广和Release创建全部成功。最终镜像两架构各1666 tests：1658 passed、0 failed、8平台/桌面skips。
+
+正式 [Release v0.72.0-01](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.72.0-01) 于北京时间2026-10-16 06:45:31发布，非草稿/非预发布。固定镜像 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.72.0-01`。
+
+| 来源 | 已核验固定摘要 |
+|---|---|
+| multiarch index / latest | `sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810` |
+| linux/amd64 | `sha256:ca6ff0dd482595cd9e0b8823235b4d8aca2d13105f539ae6db3e394f60521191` |
+| linux/arm64 | `sha256:34d65bfe98dd94980894f2ec22c28f7b8b7c3119d7d2a863b3e9f669e98ba5b0` |
+| release-manifest.json文件 | `sha256:c1b76308bf2b0b1e1c9e7e19db813ce344c6c47afbef6a7d458a5ab865b0eec5` |
+
+独立匿名Registry读回验证index、两个平台manifest和config字节摘要，OCI版本/源码均为本版和正式合并源码；Git Tag解引用相同，latest与固定index相同。Release manifest原字节/资产digest一致，迁移政策和compatibleFrom与tag源码一致。v69-01/v69-02/v70-01/v71-01/v71-02五个旧固定摘要前后完全相同。
+
+Release补充最终PR的30份冻结/完整恢复摘要、双架构资源/混合协议共4份证据、独立发布读回JSON与可读验收/升级说明；原release-manifest.json资产不覆盖。后补交接文档通过独立分支/PR提交，不增加NAS修订、不重建固定镜像。
+
+生产状态：本轮没有停机、拉镜像、改配置、改身份、触碰状态或部署任何NAS。DXP4800与DH4300Plus当前实际版本/架构/摘要仍以访问恢复后的独立核实为准；上次DXP v71-02记录不等于本轮已验收。部署确认清单已填入本版固定digest，但备份/恢复位置及维护窗口须另行确认。

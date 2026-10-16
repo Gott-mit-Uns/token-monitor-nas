@@ -1,5 +1,7 @@
 # v0.72.0-01 固定统计与费用验收
 
+正式发布源码/tag/OCI/manifest为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。最终获批分支与正式源码tree一致，最终PR冻结/完整恢复已在 [38813996890](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38813996890) 重跑通过，30份合成摘要读回；下表数值、输入fixture字节及v71-02旧/新同架构parser SHA均保持。下方c37记录是相同运行代码的前轮验收，不代替正式镜像/发布读回，后者见HANDOFF_0.72.md。
+
 最终运行源码 head `c37cd3c7d50380aac756bf3f78eb6d1c43981458`。原生演练使用 PR 合并态 `57034f385612baf1870f6f1de544dab43f4ae398`；两者完整 Git tree 均为 `7a7c90f3dc6011ce69677be85e1e83f44f923829`，已实际比较。以下是隔离合成数据，不能代替生产数据验收。
 
 [原生十组冻结与完整恢复工作流](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38812672835) 全部通过：v0.69.0-01、v0.69.0-02、v0.70.0-01、v0.71.0-01、v0.71.0-02 × linux/amd64、linux/arm64。每组包含真实固定 Rust parser、共享规范化、实际 HTTP Hub ingress、125 Token 控制器场景、含 reasoning 精确费用场景及完整一致状态恢复。

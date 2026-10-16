@@ -2,6 +2,8 @@
 
 ## v0.72.0-01 当前补丁
 
+正式发布源码/tag/OCI/manifest为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`，双架构原生验收与发布读回完成，五个旧固定标签保持。后补发布记录不改变补丁或重建固定镜像；生产NAS本轮均未部署。
+
 官方固定 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`。NAS-01～17 全部保留，尤其实际 Agent strict store/capture/dry-run snapshot 及失败后完整用量保留；增加 snapshot read fault 入口测试。
 
 新增 NAS-18：`app/src/hub/ingressOrdering.js` 与 server.js 接入。独立比较已知 usage/limits producer 时间，迟到旧快照不覆盖新用量/历史，额度单独上报保留完整历史与采集时间；重复上传不累加，重启继续使用持久化时间。无时间戳的旧客户端延续旧到达顺序，不能保证其乱序。保留标题撤销隐私 gate、持久化失败回滚；不引入计数/费用只增不减规则，不改变共享跨平台 core。`ingressOrdering.test.js` 验证迟到、重试、重复、重启、独立时钟、limits-only、合法降费和日界。
