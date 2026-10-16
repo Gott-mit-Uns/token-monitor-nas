@@ -54,6 +54,7 @@ function resolveBindHost(host, secret) {
 function createHub({
   port = 17321,
   host = '0.0.0.0',
+  displayName = '',
   secret = '',
   syncSessionTitles = false,
   staleAfterMs = DEFAULT_STALE_AFTER_MS,
@@ -65,6 +66,11 @@ function createHub({
   dataFile = path.join(projectRoot(), 'data', 'devices.json'),
   logger = console
 } = {}) {
+  // Explicit display metadata only; never infer it from a collector or container hostname.
+  const hubDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
+  if (hubDisplayName && ([...hubDisplayName].length > 80 || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(hubDisplayName))) {
+    throw new Error('Hub display name must be at most 80 characters without control or format characters.');
+  }
   const store = readHubStore(dataFile);
   if (!store.devices || typeof store.devices !== 'object') store.devices = {};
   // Subscriptions are shared by every device on this hub rather than owned by one
@@ -103,6 +109,7 @@ function createHub({
 
   function getStats() {
     const stats = aggregateDevices(Object.values(store.devices), staleAfterMs);
+    if (hubDisplayName) stats.hub = { displayName: hubDisplayName };
     stats.staleAfterMs = staleAfterMs;
     const history = aggregateHistory(Object.values(store.devices));
     stats.historyPreview = historyPreview(history);
@@ -560,7 +567,8 @@ if (require.main === module) {
 
   const syncSessionTitles = syncSessionTitlesEnabled(args.syncSessionTitles ?? args['sync-session-titles'] ?? process.env.TOKEN_MONITOR_SYNC_SESSION_TITLES);
   const windowsStreamEnabled = String(process.env.TOKEN_MONITOR_WINDOWS_STREAM_ENABLED || '').trim() === '1';
-  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, syncSessionTitles, windowsStreamEnabled });
+  const displayName = process.env.TOKEN_MONITOR_HUB_DISPLAY_NAME || '';
+  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, syncSessionTitles, windowsStreamEnabled, displayName });
   hub.start().then(() => {
     console.log(`Token Monitor hub listening on http://${hub.bindHost}:${port}`);
     console.log(`Data file: ${dataFile}`);

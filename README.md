@@ -44,6 +44,7 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 - **标题关闭、迁移或卸载**：删除状态或改变 Hub、凭据、设备 ID 前，先保留原身份与原状态完成旧 Hub 的标题撤销，见 [标题清理步骤](DEPLOYMENT.md#标题关闭迁移与卸载)。只删除本地状态不会清除旧 Hub 标题。
 - **Goose 与可选额度来源**：默认仍为 Hermes-only、limits 关闭。仅对真实存在且明确启用的来源配置只读挂载和 provider 白名单，见 [可选来源配置](OPTIONAL_SOURCES.md)。Compose 的 `environment` 优先于 `env_file`，仅向 `.env` 添加同名变量不会覆盖模板中的关闭开关。
 - **启用 NAS Hub**：同一镜像使用 `command: ["node", "src/hub/server.js"]`，配置独立的 `/data` 持久化目录及 Hub 环境变量。
+- **Hub 显示名称（待发布修订）**：在 Hub 服务设置 `TOKEN_MONITOR_HUB_DISPLAY_NAME=DXP4800`，客户端可从鉴权统计/SSE 快照的 `hub.displayName` 读取。Agent-only 服务无需设置；这不改变设备 ID。名称最长 80 个 Unicode 码点，拒绝控制/格式字符；未配置时省略字段，不猜测容器或采集设备名称。公开健康接口不返回此名称。
 - **Windows 分时接收**：Hub 设置 `TOKEN_MONITOR_WINDOWS_STREAM_ENABLED=1`，客户端 Hub 地址使用 `/windows` 路径。时段按上海时区和中国工作日历判断，工作日 07:00–17:00 使用 10 分钟周期。
 
 修改环境配置后需重建对应服务。Windows EXE Adapter 在独立仓库 [token-monitor-adapter](https://github.com/Gott-mit-Uns/token-monitor-adapter) 维护。
