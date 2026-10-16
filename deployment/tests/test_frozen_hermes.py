@@ -45,8 +45,8 @@ class FrozenHermesTest(unittest.TestCase):
             before, after = self.evidence(); mutation(after)
             with self.assertRaises(m.Refused): f.compare(before, after)
 
-    def test_070_and_071_baselines_require_equal_corrected_costs(self):
-        for version in ['v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02']:
+    def test_070_through_072_baselines_require_equal_corrected_costs(self):
+        for version in ['v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01']:
             with self.subTest(version=version):
                 before, after = self.evidence()
                 result = f.compare(after, after, version)
@@ -54,7 +54,7 @@ class FrozenHermesTest(unittest.TestCase):
                 self.assertTrue(all(v['expectedReductionUsd'] == 0 for v in result['reasoningCostCorrection'].values()))
                 with self.assertRaises(m.Refused): f.compare(before, after, version)
 
-    def test_071_cost_equality_does_not_hide_accounting_or_identity_changes(self):
+    def test_071_and_072_cost_equality_does_not_hide_accounting_or_identity_changes(self):
         for mutation in [lambda v: v['periods']['allTime'].__setitem__('totalTokens', 1725),
                 lambda v: v['periods']['month']['sessions'].pop('hermes:frozen-legacy'),
                 lambda v: v['history'][0].__setitem__('date', '2026-06-05'),
@@ -63,7 +63,8 @@ class FrozenHermesTest(unittest.TestCase):
                 lambda v: v['periods']['today'].__setitem__('costUsd', 0),
                 lambda v: v['history'][0].__setitem__('cost', 0)]:
             _, before = self.evidence(); after = copy.deepcopy(before); mutation(after)
-            with self.assertRaises(m.Refused): f.compare(before, after, 'v0.71.0-01')
+            for version in ['v0.71.0-01', 'v0.72.0-01']:
+                with self.assertRaises(m.Refused): f.compare(before, after, version)
 
     def test_synthetic_fixture_closed_and_consistent(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -78,12 +79,13 @@ class FrozenHermesTest(unittest.TestCase):
 
     def test_baselines_are_fixed_and_candidate_read_from_single_version_input(self):
         with tempfile.TemporaryDirectory() as tmp:
-            file = Path(tmp) / 'version'; file.write_text('v0.72.0-01\n')
+            file = Path(tmp) / 'version'; file.write_text('v0.72.0-02\n')
             self.assertEqual(exercise.BASELINES['v0.71.0-01'], 'sha256:209da1db610b38871eb9357f27b6d625c80441ec9853024256190fd4843b585a')
+            self.assertEqual(exercise.BASELINES['v0.72.0-01'], 'sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810')
             for version, digest in exercise.BASELINES.items():
                 ref, candidate = exercise.versions(version, file)
                 self.assertEqual(ref, m.IMAGE + '@' + digest)
-                self.assertEqual(candidate, 'v0.72.0-01')
+                self.assertEqual(candidate, 'v0.72.0-02')
             with self.assertRaises(m.Refused): exercise.versions('latest', file)
             file.write_text('v0.69.0-02')
             with self.assertRaises(m.Refused): exercise.versions('v0.69.0-02', file)
