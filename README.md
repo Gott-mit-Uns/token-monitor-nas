@@ -2,7 +2,7 @@
 
 基于 [Token Monitor](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到你配置的 Hub。镜像同时提供 Node Hub，支持 `linux/amd64` 和 `linux/arm64`。
 
-当前已发布 [`v0.72.0-01`](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.72.0-01)，固定上游正式 v0.72.0，推荐固定镜像 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.72.0-01`。本版移植 Cursor 统一订阅额度和 OpenCode 2.x 只读会话支持，新增 Hub 迟到用量/额度独立顺序保护，保留实际 Agent 归档失败保护、独立 Watcher、Windows 分时推送和所有 NAS 默认边界。原生双架构及十组冻结/完整恢复通过，固定摘要、发布读回和未覆盖项见 [本版交接](HANDOFF_0.72.md)。**正式发布不表示已部署：本轮未部署任何生产NAS。** 两台SSH预检均拒绝连接，当前实际版本、摘要及架构待分别核实；生产升级必须按 [逐台确认清单](DEPLOYMENT_PLAN_0.72.md) 另行得到所有者确认。
+本分支构建版本为 `v0.72.0-02`，固定上游正式 v0.72.0，在前版基础上提供可选的 Hub 显示名称。正式产物以 [Releases](https://github.com/Gott-mit-Uns/token-monitor-nas/releases) 中成功发布并包含不可变清单的版本为准，生产使用对应固定镜像与 digest。保留 Cursor/OpenCode 支持、Hub 迟到用量/额度保护、实际 Agent 归档失败保护、独立 Watcher、Windows 分时推送和所有 NAS 默认边界。名称合同见 [修订说明](HUB_DISPLAY_NAME.md)，发布与逐台部署要求见 [本修订交接](HANDOFF_0.72.0-02.md)。**正式发布不表示已部署。** 本次发布前两台 SSH 预检均拒绝连接；已获部署授权，但仍须按 [逐台计划](DEPLOYMENT_PLAN_0.72.0-02.md) 核实实际状态、备份与验收。
 
 ## 主要功能
 
@@ -44,6 +44,7 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 - **标题关闭、迁移或卸载**：删除状态或改变 Hub、凭据、设备 ID 前，先保留原身份与原状态完成旧 Hub 的标题撤销，见 [标题清理步骤](DEPLOYMENT.md#标题关闭迁移与卸载)。只删除本地状态不会清除旧 Hub 标题。
 - **Goose 与可选额度来源**：默认仍为 Hermes-only、limits 关闭。仅对真实存在且明确启用的来源配置只读挂载和 provider 白名单，见 [可选来源配置](OPTIONAL_SOURCES.md)。Compose 的 `environment` 优先于 `env_file`，仅向 `.env` 添加同名变量不会覆盖模板中的关闭开关。
 - **启用 NAS Hub**：同一镜像使用 `command: ["node", "src/hub/server.js"]`，配置独立的 `/data` 持久化目录及 Hub 环境变量。
+- **Hub 显示名称（v0.72.0-02 起）**：在 Hub 服务设置 `TOKEN_MONITOR_HUB_DISPLAY_NAME=DXP4800`，客户端可从鉴权统计/SSE 快照的 `hub.displayName` 读取。Agent-only 服务无需设置；这不改变设备 ID。名称最长 80 个 Unicode 码点，拒绝控制/格式字符；未配置时省略字段，不猜测容器或采集设备名称。公开健康接口不返回此名称。
 - **Windows 分时接收**：Hub 设置 `TOKEN_MONITOR_WINDOWS_STREAM_ENABLED=1`，客户端 Hub 地址使用 `/windows` 路径。时段按上海时区和中国工作日历判断，工作日 07:00–17:00 使用 10 分钟周期。
 
 修改环境配置后需重建对应服务。Windows EXE Adapter 在独立仓库 [token-monitor-adapter](https://github.com/Gott-mit-Uns/token-monitor-adapter) 维护。
