@@ -16,5 +16,6 @@ jobs:
           cat upstream-change-report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
+          retention-days: 30
           name: official-upstream-report
           path: upstream-change-report.md
