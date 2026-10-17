@@ -38,7 +38,7 @@ class GovernanceTests(unittest.TestCase):
         self.assertEqual(docs.policy_errors(self.root, ['app/tests/fixtures/HANDOFF_0.99.md'], []), [])
 
     def test_new_version_record_rejected_at_any_depth(self):
-        for name in ['HANDOFF_0.99.md', 'docs/nested/VALIDATION_2027-01-01.md', 'COST_VALIDATION_0.99.md', 'UPSTREAM_0.99_AUDIT.md']:
+        for name in ['HANDOFF_0.99.md', 'docs/nested/VALIDATION_2027-01-01.md', 'COST_VALIDATION_0.99.md', 'UPSTREAM_0.99_AUDIT.md', 'docs/nested/HANDOFF.md', 'notes/COST_MODEL.md', 'other/VALIDATION.md']:
             self.assertTrue(docs.policy_errors(self.root, [name], []), name)
 
     def test_machine_publication_exception_is_exact(self):
