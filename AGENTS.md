@@ -30,7 +30,7 @@
 
 ## 验证、产物与安全
 
-运行 `python3 scripts/check-docs.py --base origin/main` 和其轻量单元测试；CI执行相同检查。其自动范围为项目 root/docs/publications 本地 Markdown 链接与锚点、新增重复记录命名、封闭归档、新增非标准长期文档的声明及 README 变更依据。新长期文档在 PR 描述与提交说明写 `Documentation-Topic: 路径 | 新主题及为何现有入口不覆盖`。初次无新入口的任务不需要此字段。业务代码、测试夹具及 publication 机器记录保持有限例外。
+运行 `python3 scripts/check-docs.py --base origin/main` 和其轻量单元测试；CI执行相同检查。其自动范围为项目 root/docs/publications 本地 Markdown 链接与锚点、新增重复记录命名、封闭归档内容/存在性、固定当前入口存在性、新增非标准长期文档的声明及 README 变更依据。新长期文档在 PR 描述与提交说明写 `Documentation-Topic: 路径 | 新主题及为何现有入口不覆盖`。初次无新入口的任务不需要此字段。业务代码、测试夹具及 publication 机器记录保持有限例外。
 
 人工继续检查独有信息迁移、授权真实性、错误/未完成事项、成本/恢复口径、工具消费路径、脚本/模板冲突、保密和非 Markdown 引用；自动检查无法绝对阻止未来重复或规避。不得删规则或加宽泛例外以通过门槛。运行受影响测试并检查最终 diff；纯文档不做无必要的大构建。新分支、提交、推送及 PR 可执行，合并、版本发布、镜像推广和生产操作须当次明确授权。
 

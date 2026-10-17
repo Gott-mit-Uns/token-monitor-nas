@@ -87,8 +87,24 @@ def metadata(event_path):
     return event.get('pull_request', {}).get('body') or ''
 
 
-def policy_errors(root, added, changed, body='', readme_authorization='', readme_correction=''):
+def archive_errors(root, names=None):
     errors = []
+    for name in INITIAL_ARCHIVE if names is None else names:
+        path = root / name
+        if not path.is_file():
+            errors.append(f'{name}: required preserved audit is missing')
+        elif hashlib.sha256(path.read_bytes()).hexdigest() != INITIAL_ARCHIVE[name]:
+            errors.append(f'{name}: preserved audit differs from its reviewed hash')
+    return errors
+
+
+def required_entry_errors(root):
+    return [f'{name}: required current document entry is missing'
+            for name in sorted(CANONICAL) if not (root / name).is_file()]
+
+
+def policy_errors(root, added, changed, body='', readme_authorization='', readme_correction=''):
+    errors = archive_errors(root, [name for name in changed if name in INITIAL_ARCHIVE])
     for name in added:
         if fixture(name) or PUBLICATION.fullmatch(name):
             continue
@@ -103,7 +119,9 @@ def policy_errors(root, added, changed, body='', readme_authorization='', readme
             marker = re.search(r'^Documentation-Topic:\s*' + re.escape(name) + r'\s*\|\s*\S.+$', body, re.M)
             if not marker:
                 errors.append(f'{name}: new durable topic requires Documentation-Topic in PR description')
-    if 'README.md' in changed:
+    if 'README.md' in changed and not (root / 'README.md').is_file():
+        errors.append('README.md: the fixed README entry cannot be removed or renamed')
+    elif 'README.md' in changed:
         digest = hashlib.sha256((root / 'README.md').read_bytes()).hexdigest()
         if digest != INITIAL_README_SHA256:
             authorization = readme_authorization or next(iter(re.findall(r'^README-Authorization:\s*(https://\S+)\s*$', body, re.M)), '')
@@ -124,11 +142,12 @@ def main():
     tracked = git('ls-files', '-z').split('\0')
     tracked = [p for p in tracked if p and (ROOT / p).exists()]
     added = git('diff', '--no-renames', '--name-only', '--diff-filter=A', args.base, '--').splitlines()
-    changed = git('diff', '--name-only', args.base, '--').splitlines()
+    changed = git('diff', '--no-renames', '--name-only', args.base, '--').splitlines()
     body = metadata(os.environ.get('GITHUB_EVENT_PATH'))
     # Commit trailers keep the evidence available after merge and on push CI.
     body += '\n' + git('log', '--format=%B', args.base + '..HEAD')
-    errors = link_errors(ROOT, tracked)
+    errors = required_entry_errors(ROOT) + archive_errors(ROOT)
+    errors += link_errors(ROOT, tracked)
     errors += policy_errors(ROOT, added, changed, body, args.readme_authorization, args.readme_correction)
     for error in errors:
         print(error)

@@ -57,6 +57,29 @@ class GovernanceTests(unittest.TestCase):
         self.assertEqual(docs.policy_errors(self.root, [], ['README.md'], 'README-Authorization: https://github.com/owner/repo/issues/1'), [])
         self.assertEqual(docs.policy_errors(self.root, [], ['README.md'], 'README-Correction: Repair the broken installation link.'), [])
 
+    def test_changed_archive_content_or_deletion_cannot_bypass_policy(self):
+        name = next(iter(docs.INITIAL_ARCHIVE))
+        self.file(name, 'altered historical audit')
+        self.assertTrue(docs.policy_errors(self.root, [], [name]))
+        (self.root / name).unlink()
+        self.assertTrue(docs.policy_errors(self.root, [], [name]))
+
+    def test_removed_or_renamed_readme_remains_a_required_entry(self):
+        (self.root / 'README.md').rename(self.root / 'PRODUCT.md')
+        self.assertTrue(docs.policy_errors(self.root, [], ['README.md', 'PRODUCT.md']))
+
+    def test_all_current_entries_and_sealed_audits_are_required(self):
+        self.assertTrue(docs.required_entry_errors(self.root))
+        for name in docs.CANONICAL:
+            self.file(name, '# Current entry')
+        self.assertEqual(docs.required_entry_errors(self.root), [])
+        for name in docs.INITIAL_ARCHIVE:
+            self.file(name, (docs.ROOT / name).read_text(encoding='utf-8'))
+        self.assertEqual(docs.archive_errors(self.root), [])
+        name = next(iter(docs.INITIAL_ARCHIVE))
+        (self.root / name).unlink()
+        self.assertEqual(len(docs.archive_errors(self.root)), 1)
+
     def test_new_topic_needs_exact_path_and_reason(self):
         self.assertTrue(docs.policy_errors(self.root, ['docs/ARCHITECTURE.md'], []))
         self.assertEqual(docs.policy_errors(self.root, ['docs/ARCHITECTURE.md'], [], 'Documentation-Topic: docs/ARCHITECTURE.md | New architecture topic with no existing authority.'), [])
