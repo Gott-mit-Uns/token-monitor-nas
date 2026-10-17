@@ -1,10 +1,10 @@
 # 当前费用口径
 
-适用：上游 v0.72.0 / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，NAS v0.72.0-02；核对基线 `caa51169`。检查时间：2026-10-17（Asia/Shanghai）。来源：既有 COST_VALIDATION_0.71/0.72、上游差异审计，以及 [usage.js](../app/src/shared/usage.js)、[collector](../app/src/shared/collector.js)、[自定价映射](../app/src/shared/tokscaleCustomPricing.js)。本次解释既有规则，不修改计算或宣称真实账单验收。
+适用：上游 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`，NAS v0.73.0-01；NAS 起点 `e99661a9`。检查时间：2026-10-18（Asia/Shanghai）。来源：既有费用验收、官方 v0.72→v0.73 差异及固定 parser 合成回归，以及 [usage.js](../app/src/shared/usage.js)、[collector](../app/src/shared/collector.js)、[自定价映射](../app/src/shared/tokscaleCustomPricing.js)。费用公式沿用既有规则；会话观察值纠正与日期分配需独立验证，不宣称真实账单验收。
 
 ## 数据、币种与单位
 
-默认来源是只读 Hermes SQLite（主库及已存在 profiles），由仓库固定 Tokscale binary 解析，再经 shared 规范化、归档和 Hub 聚合。固定 pin 由 [manifest](../app/scripts/vendor/tokscale.json) 管理；当前 parser commit `fa5f0c13324838d1a988fda317597f9b90da7ad0`，不使用浮动上游。数据来源/模型识别、reported cost、价格缓存或显式自定价共同影响结果，不能只依据 Token 总数反推真实账单。
+默认来源是只读 Hermes SQLite（主库及已存在 profiles），由仓库固定 Tokscale binary 解析，再经 shared 规范化、归档和 Hub 聚合。固定 pin 由 [manifest](../app/scripts/vendor/tokscale.json) 管理；当前 parser commit `0154445d978eb081ea70d5154d98aa8670a1f9a2`，不使用浮动上游。数据来源/模型识别、reported cost、价格缓存或显式自定价共同影响结果，不能只依据 Token 总数反推真实账单。
 
 `costUsd`、clientCosts、modelCosts 是 USD。自定价 `inputPerM/outputPerM/cacheReadPerM/cacheWritePerM/cacheWrite1hPerM` 单位为 USD/百万 Token；0 是明确免费，缺省不是免费，非有限或负价格拒绝；至少 input/output 之一存在才接受映射。自定价写入 Tokscale 的 managed models，保留用户手工配置的其他模型。NAS 不额外把它换算成人民币或把 provider 额度统一当作费用。可选 MiniMax CNY/USD 余额是 provider 额度语义，不混入 Token 的 USD 费用账本；Notion 只产生额度窗口，不产生 Token/调用/费用。
 
@@ -31,3 +31,7 @@ Token 规范化为非负整数（`Math.round`）；shared 汇总内部以数值�
 确需费用变化的生产升级时，取得当次授权并按 [部署规范](../DEPLOYMENT.md#数据迁移和回滚) 完整备份/恢复。用一致只读源、相同价格缓存/自定价/时区/ID/512MiB/network none 的旧新 dry-run，私下保存完整原 accounting（0600）及状态。逐会话/模型/日期核对 Token 桶、归属、会话ID/数、messageCount、history、deviceId；逐项重建真实 reasoning/output 包含关系、价格及 reported-cost 策略，独立审阅精确旧→新预期。来源、价格、reported cost 或任何差异无法解释即停止。
 
 不得关闭 guard、用新值直接当 expected、全局替换旧快照费用或只比总计。原始冻结证据不改，公开仅放脱敏规则/合计/结论。已审阅且获生产授权后先 Hub 后 Agent，冻结核对后再验证真实增长与 fresh upload；失败保护新增状态并用本次完整快照＋旧准确镜像恢复。仅已知实时 `session.promptCache.observedAt` 可按已有现场比较规则排除，Token/模型费用/日期/设备/完整历史仍须核对；任何新忽略项须证明必要性。CI receipt 不代替生产回滚证明。
+
+## v0.73 数据修正
+
+完整扫描可以用权威会话统计替换旧归档观察值，包括合法零值；Today-only 监听或不完整预览不能抹去其他期间。匹配计时字段只影响生成速率，不改变 Token 费用公式。固定 parser 随官方升级；不得假设同 Token 总数证明逐日分配和费用一致，发布前以冻结 Hermes 输入逐项比较，生产以前后统计和真实同步单独验收。

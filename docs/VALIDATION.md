@@ -1,3 +1,11 @@
+# 当前验收
+
+## v0.73.0-01 当前工作
+
+2026-10-18：上游 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`；NAS 起点 `e99661a9e53802c22550b53e32238d96b1227eab`。本机 NAS 1732 项中 1721 通过、11 平台/桌面跳过、0 失败；发布辅助 67 项、部署 Python 59 项、文档规则 12 项通过。首轮 [七来源×双架构冻结/恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39074686566) 的 14 组全部成功；[原生产品/性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39074686550) 及最终审阅以 PR #17 最新提交检查为准。正式发布和 DXP4800 升级尚在执行，未完成不得记为通过。自动审阅指出历史 audit 指针须保留，已恢复原值；v0.73 适用决定留在 UPSTREAM.md 和 PR。已只读确认 DXP4800 Hub/Agent 运行 v0.72.0-02、amd64、revision `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，采集与上传健康。所有者本次授权跳过备份升级 DXP4800；DH4300plus 由所有者手动更新，助手不部署。
+
+以下为保留的历史证据，其适用范围不延伸到本版。
+
 # 当前验收记录
 
 适用：NAS v0.72.0-02；仓库文档基线 `caa51169`。检查时间：2026-10-17（Asia/Shanghai）。来源：基线提交内的 VALIDATION、历次 HANDOFF、费用验收及发布方式交接；历史原文可从 [索引](archive/README.md) 追溯。以下旧结果保留其提交与范围，本次未重跑运行时验收。

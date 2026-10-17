@@ -149,6 +149,7 @@ function summaryWithSessionUsageArchive(summary, now = new Date()) {
       canonicalSummary: true
     });
   }
+  delete visibleSummary.sessionUsageArchiveFullScan;
   if (syncSessionTitles) visibleSummary = applyHermesSessionTitles(visibleSummary, { logger: message => console.warn(message) });
   if (!dryRun) mark('collectedAt');
   return projectsEnabled ? applyProjectRollups(visibleSummary) : visibleSummary;

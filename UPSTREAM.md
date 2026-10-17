@@ -1,6 +1,6 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.72.0-02；2026-10-17 依 `caa51169` 仓库资料核对。官方稳定基线 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.73.0-01；2026-10-18 从 v0.72.0 三方合并核对。官方稳定基线 `v0.73.0` / `1190260afdcacd8998938de311e0435c306a18ed`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 
@@ -20,3 +20,7 @@ Node Hub、Agent 与 shared 使用同一稳定官方基线。源码映射为上�
 ## 长期兼容限制
 
 旧 JSON 归档迁移至 SQLite 后会移除旧 JSON，回退旧版需完整迁移前状态＋旧准确镜像。后续兼容字段不等于状态可随意倒退，详见 [部署/恢复](DEPLOYMENT.md#完整状态恢复)。Codex parser 缓存升级可能一次重解析，StepFun 身份绑定 refresh half；不要以此新增数据源或持久凭据。Hermes reasoning 包含关系、Goose 累计归创建日、额度与账本分离见费用/可选来源权威入口。
+
+## v0.73 适用决策
+
+shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Included 周期、匹配计时、OMP 本地详情及会话零值纠正同步；不提供远端正文 API。Hermes agent.log 日期证据和 Claude Desktop 的监听过滤映射到独立 watcherPolicy，保持默认 Hermes-only。归档 strict 失败保护和逐行读取、安全字典及 Hub 时序/持久化/SSE 补丁保留；Agent 上传前移除内部 fullScan 提示。Node Hub 上游本轮无直接改动，共享用量与运行闭包身份按本仓库重算，不复制官方哈希。桌面 renderer、更新器、Electron 专用测试、Worker 和网站不分发；相应上游说明用于差异判断，不复制为 NAS 功能。完整路径决策见本次 PR。
