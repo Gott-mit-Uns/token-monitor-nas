@@ -1,8 +1,16 @@
 # 当前验收
 
-## v0.73.0-01 当前工作
+## v0.73.0-01 已发布及 DXP4800 验收
 
-2026-10-18：上游 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`；NAS 起点 `e99661a9e53802c22550b53e32238d96b1227eab`。本机 NAS 1732 项中 1721 通过、11 平台/桌面跳过、0 失败；发布辅助 67 项、部署 Python 59 项、文档规则 12 项通过。首轮 [七来源×双架构冻结/恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39074686566) 的 14 组全部成功；[原生产品/性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39074686550) 及最终审阅以 PR #17 最新提交检查为准。正式发布和 DXP4800 升级尚在执行，未完成不得记为通过。自动审阅指出历史 audit 指针须保留，已恢复原值；v0.73 适用决定留在 UPSTREAM.md 和 PR。已只读确认 DXP4800 Hub/Agent 运行 v0.72.0-02、amd64、revision `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，采集与上传健康。所有者本次授权跳过备份升级 DXP4800；DH4300plus 由所有者手动更新，助手不部署。
+检查时间：2026-10-18（Asia/Shanghai）。官方 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`；NAS 正式源码 `61d43212bea55db685e1d52e8346b0d4b253e5c0`。起点 v0.72.0-02，DXP4800 amd64；本次没有连接或部署 DH4300plus。
+
+- [PR #17](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/17) 的 17 项检查通过；自动审阅的历史 audit 指针问题已修复，最新提交复审无新问题。本机 NAS 1732 项：1721 通过、11 平台/桌面跳过、0 失败；发布辅助 67、部署 Python 59、文档规则 12 项通过。
+- [原生 amd64/arm64 产品与性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39074950743)、[七来源×双架构冻结/完整恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39074950722) 全部成功。性能为 1000 会话、旧/新各三轮 60 秒合成负载，不代表长期生产稳定性或真实恢复能力。
+- [正式发布流水线](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39075567314) 三个 job 成功；最终镜像两架构原生运行验证、固定版本、仓库记录和 latest 推广均完成。本次所有者明确要求，另创建 [正式 Release](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.73.0-01)，不改变未来默认发布方式。清单在 [nas-publications](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/nas-publications/publications/v0.73.0-01/manifest.json)，index `sha256:48edfc344a513cebd8ed59c44f4504a40222c4ba44554d32300e888710daad34`；已从 DXP4800 核对固定 index、两个平台摘要及拉取镜像的源码/version/amd64 身份。
+- DXP4800 按本次明确授权跳过备份，先 Hub 后 Agent；两个服务均固定 v0.73.0-01，保持原设备 ID、目录、来源只读挂载、配置、共享设置及每服务 512MiB。均 healthy、0 重启，启动后日志错误计数为 0；SQLite quick_check 正常，归档会话及累计 Token/输出/缓存桶未减少。没有本次快照恢复凭据，不宣称验证了生产回滚。
+- 现场只读原始采集对比使用相同价格缓存、scanner 配置及既有 `Etc/UTC` bucketTimezone；源 DB/WAL 在两版读取前后指纹相同。旧月归档汇总高于旧 parser 的直接重算；新版完整扫描将月汇总纠正为新版 parser 输出。新 pin 按调用日志在月份之间重新分配已存在用量，累计 Token 不变，模型估价存在可复现变化。不能以保持旧的偏大月值作为验收，也不能把估价视为服务商账单。
+- 新版 today/month/allTime 的 Token 和费用与同配置直接解析相符。历史继续遵守既有保留/冻结账本边界，不能冒充全部按新 parser 重写；160 天 Hub 历史与持久化归档的只读投影逐日核对通过。其他设备历史摘要、四台设备身份和共享设置保持。
+- 本机 Agent 启动后真实上传及下一轮周期同步已观察到；普通统计/SSE、Windows gzip SSE 各自重连均返回四设备快照，独立 Watcher 进程存在。观察期没有新增 Hermes 消费用量，不将心跳宣称为新增 Token 验收。24 小时稳定性、物理客户端 UI/公网代理及真实账单仍未验收；DH4300plus 由所有者手动更新。
 
 以下为保留的历史证据，其适用范围不延伸到本版。
 
