@@ -14,7 +14,7 @@ const FIXED = `${IMAGE_REPOSITORY}:${VERSION}`;
 const LATEST = `${IMAGE_REPOSITORY}:latest`;
 
 function registryFixture({ fixed, latest = OTHER_DIGEST, intercept = () => null,
-  readMainRelease = () => ({ commit: RELEASE_COMMIT, version: VERSION }) } = {}) {
+  readMainRelease = () => ({ commit: RELEASE_COMMIT, version: VERSION }), updateLatest = true } = {}) {
   const entries = new Map([[SOURCE, DIGEST], [LATEST, latest]]);
   if (fixed) entries.set(FIXED, fixed);
   const calls = [];
@@ -42,7 +42,7 @@ function registryFixture({ fixed, latest = OTHER_DIGEST, intercept = () => null,
     throw new Error(`Unexpected synthetic command ${args[0]}`);
   };
   const promote = () => promoteNasImage({ version: VERSION, digest: DIGEST, releaseCommit: RELEASE_COMMIT,
-    readMainRelease, docker, log: () => {} });
+    readMainRelease, docker, log: () => {}, updateLatest });
   return { entries, calls, writes, promote };
 }
 
@@ -235,4 +235,12 @@ test('invalid candidate or version inputs fail before contacting Docker', () => 
   assert.throws(() => promoteNasImage({ version: 'v0.68.0-00', digest: DIGEST, docker }), /valid NAS release version/);
   assert.throws(() => promoteNasImage({ version: 'latest', digest: DIGEST, docker }), /valid NAS release version/);
   assert.throws(() => promoteNasImage({ version: VERSION, digest: DIGEST, releaseCommit: 'main', docker }), /valid release commit/);
+});
+
+test('fixed-only publication leaves latest untouched until repository record succeeds', () => {
+  const f = registryFixture({ updateLatest: false });
+  const result = f.promote();
+  assert.equal(result.latestSkipped, true);
+  assert.deepEqual(f.writes, [FIXED]);
+  assert.ok(!f.calls.some(args => args.at(-1) === LATEST));
 });

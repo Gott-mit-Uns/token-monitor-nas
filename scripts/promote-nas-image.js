@@ -77,7 +77,7 @@ function requireDigest(manifest, digest, description) {
   if (manifest?.digest !== digest) throw new Error(`${description} differs from the verified digest; refusing to continue.`);
 }
 
-function promoteNasImage({ version, digest, releaseCommit, readMainRelease = fetchMainRelease, docker = runDocker, log = console.log }) {
+function promoteNasImage({ version, digest, releaseCommit, readMainRelease = fetchMainRelease, docker = runDocker, log = console.log, updateLatest = true }) {
   const source = candidateReference(digest);
   if (!VERSION_PATTERN.test(version || '') || version.endsWith('-00')) {
     throw new Error('A valid NAS release version is required.');
@@ -118,6 +118,8 @@ function promoteNasImage({ version, digest, releaseCommit, readMainRelease = fet
   // partially successful release keeps the matching fixed tag intact.
   requireDigest(inspectManifest(fixed, { docker }), digest, 'Fixed version');
 
+  if (!updateLatest) return { version, digest, latestSkipped: true };
+
   // main can advance while the registry is being queried. Actions also keeps
   // all publishers in one concurrency group, so a later workflow cannot
   // promote between this guard and the latest write.
@@ -135,8 +137,8 @@ function main(argv = process.argv.slice(2), env = process.env) {
     console.log(candidateReference(env.CANDIDATE_DIGEST));
     return;
   }
-  if (argv.length) throw new Error('Usage: node scripts/promote-nas-image.js [--candidate-ref]');
-  return promoteNasImage({ version: env.NAS_VERSION, digest: env.CANDIDATE_DIGEST, releaseCommit: env.RELEASE_COMMIT });
+  if (argv.length && !(argv.length === 1 && argv[0] === '--fixed-only')) throw new Error('Usage: node scripts/promote-nas-image.js [--candidate-ref|--fixed-only]');
+  return promoteNasImage({ version: env.NAS_VERSION, digest: env.CANDIDATE_DIGEST, releaseCommit: env.RELEASE_COMMIT, updateLatest: !argv.includes('--fixed-only') });
 }
 
 if (require.main === module) {

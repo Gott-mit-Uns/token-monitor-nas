@@ -27,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test immutable release and explicit deployment requests
+      - name: Test repository publications and explicit deployment requests
         run: |
           node scripts/check-nas-version.js
           node --test scripts/tests/*.test.js

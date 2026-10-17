@@ -6,6 +6,7 @@ or production permission is granted by this repository. Output contains phase co
 only; Docker output, configuration, data and credentials stay in process memory.
 """
 import argparse
+import base64
 import contextlib
 import datetime as dt
 import fcntl
@@ -27,6 +28,8 @@ IMAGE = 'ghcr.io/gott-mit-uns/token-monitor-hermes'
 VERSION = re.compile(r'^v\d+\.\d+\.\d+-\d{2}$')
 SHA = re.compile(r'^[0-9a-f]{40}$')
 DIGEST = re.compile(r'^sha256:[0-9a-f]{64}$')
+PUBLICATION_BRANCH = 'nas-publications'
+LEGACY_VERSIONS = {'v0.69.0-02', 'v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01', 'v0.72.0-02'}
 
 class Refused(RuntimeError):
     pass
@@ -158,26 +161,58 @@ class GitHub:
         require(run.get('conclusion') == 'success' and run.get('status') == 'completed' and run.get('event') == 'workflow_dispatch'
             and run.get('head_branch') == 'main' and run.get('path') == '.github/workflows/approve-deployment.yml'
             and run.get('repository', {}).get('full_name') == REPO, 'approval_workflow_not_successful')
-        release = self.request('/releases/tags/' + req['version'])
-        require(not release.get('draft') and not release.get('prerelease') and release.get('tag_name') == req['version'], 'release_not_final')
-        assets = [a for a in release.get('assets', []) if a['name'] == 'release-manifest.json']
-        require(len(assets) == 1, 'release_manifest_missing')
-        url = assets[0]['browser_download_url']
-        require(url.startswith('https://github.com/' + REPO + '/releases/download/' + req['version'] + '/'), 'manifest_url_untrusted')
-        try:
-            with urllib.request.urlopen(url, timeout=30) as result:
-                require(result.geturl().startswith(('https://github.com/', 'https://release-assets.githubusercontent.com/', 'https://objects.githubusercontent.com/')), 'asset_redirect_untrusted')
-                manifest = json.load(result)
-        except Refused:
-            raise
-        except Exception:
-            raise Refused('manifest_fetch_failed') from None
-        require(manifest == req['manifest'], 'release_manifest_mismatch')
+        manifest = self.publication(req)
+        require(manifest == req['manifest'], 'publication_manifest_mismatch')
         ref = self.request('/git/ref/tags/' + req['version'])['object']
-        if ref['type'] == 'tag':
+        for _ in range(4):
+            if ref.get('type') != 'tag':
+                break
+            require(bool(SHA.fullmatch(ref.get('sha', ''))), 'invalid_tag_object')
             ref = self.request('/git/tags/' + ref['sha'])['object']
-        require(ref['type'] == 'commit' and ref['sha'] == req['sourceCommit'], 'release_tag_sha_mismatch')
+        require(ref.get('type') == 'commit' and ref.get('sha') == req['sourceCommit'], 'publication_tag_sha_mismatch')
+        source_policy = self.repository_file(req['sourceCommit'], 'deployment/release-policy.json', json_value=True)
+        require(source_policy.get('schemaVersion') == 1 and source_policy.get('version') == req['version']
+            and source_policy.get('migration') == manifest.get('migration')
+            and source_policy.get('compatibleFrom') == manifest.get('compatibleFrom'), 'publication_source_policy_mismatch')
+        require(self.repository_file(req['sourceCommit'], 'nas-version.txt').strip() == req['version'], 'publication_source_version_mismatch')
         return req
+    def repository_file(self, commit, path, json_value=False):
+        require(bool(SHA.fullmatch(commit or '')), 'invalid_publication_commit')
+        result = self.request('/contents/' + path + '?ref=' + commit)
+        require(isinstance(result, dict) and result.get('type') == 'file'
+            and result.get('encoding') == 'base64' and isinstance(result.get('content'), str), 'publication_file_unavailable')
+        try:
+            raw = base64.b64decode(''.join(result['content'].split()), validate=True)
+            value = raw.decode('utf-8')
+            return json.loads(value) if json_value else value
+        except Exception:
+            raise Refused('publication_file_invalid') from None
+    def publication(self, req):
+        commit, branch = req.get('publicationCommit'), req.get('publicationBranch')
+        if commit is None and branch is None:
+            # Only the six existing releases may use the repository migration
+            # records. New versions must carry a verified publication receipt.
+            require(req['version'] in LEGACY_VERSIONS, 'publication_receipt_required')
+            branch = 'main'
+            head = self.request('/git/ref/heads/main')
+            require(head.get('object', {}).get('type') == 'commit', 'invalid_publication_branch')
+            commit = head['object']['sha']
+        else:
+            require(bool(SHA.fullmatch(commit or '')) and branch in [PUBLICATION_BRANCH, 'main'], 'invalid_publication_receipt')
+            require(branch == PUBLICATION_BRANCH or req['version'] in LEGACY_VERSIONS, 'invalid_publication_branch')
+            head = self.request('/git/ref/heads/' + branch)
+            require(head.get('object', {}).get('type') == 'commit' and bool(SHA.fullmatch(head['object'].get('sha', ''))), 'invalid_publication_branch')
+            ancestry = self.request('/compare/' + commit + '...' + head['object']['sha'])
+            require(ancestry.get('status') in ['identical', 'ahead'], 'publication_receipt_not_in_history')
+        folder = 'publications/' + req['version'] + '/'
+        manifest = self.repository_file(commit, folder + 'manifest.json', json_value=True)
+        require(isinstance(manifest, dict), 'publication_file_invalid')
+        # Guidance is part of a complete publication, never executable input.
+        for name in ['UPGRADE.md', 'ROLLBACK.md']:
+            guidance = self.repository_file(commit, folder + name)
+            require(req['version'] in guidance and req['sourceCommit'] in guidance
+                and req['imageDigest'] in guidance, 'publication_guidance_mismatch')
+        return manifest
     def report(self, deployment_id, state, code):
         posted = self.request('/deployments/' + str(deployment_id) + '/statuses', {
             'state': state, 'description': 'NAS controlled deployment: ' + code,

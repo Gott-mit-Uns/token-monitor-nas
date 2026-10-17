@@ -1,9 +1,7 @@
 name: Test and publish NAS image
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - '**/*.md'
+    tags: ['v*.*.*-*']
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,9 +26,14 @@ jobs:
         run: |
           node app/scripts/nas-hub-build.js
           version=$(node scripts/check-nas-version.js)
+          test "$GITHUB_REF" = "refs/tags/$version"
           echo "value=$version" >> "$GITHUB_OUTPUT"
-      - name: Test release promotion recovery without registry access
-        run: node --test scripts/tests/*.test.js
+      - name: Test publication and deployment gates without registry or NAS access
+        shell: bash
+        run: |
+          mkdir -p /tmp/nas-publication-tests
+          node --test scripts/tests/*.test.js 2>&1 | tee /tmp/nas-publication-tests/node-tests.txt
+          python3 -m unittest discover -s deployment/tests -v 2>&1 | tee /tmp/nas-publication-tests/python-tests.txt
       - name: Build and test without NAS data
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -74,6 +77,13 @@ jobs:
           docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/verify-vendored-tokscale-clients.js
           docker run --rm --init -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v "$PWD/app/tests:/opt/token-monitor/tests:ro" "$image" node scripts/verify-vendored-tokscale.js
           docker run --rm --init -v "$PWD/app/tests:/opt/token-monitor/tests:ro" -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" "$image" node scripts/test-nas.js
+      - name: Save publication test records in CI
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-gate-tests
+          path: /tmp/nas-publication-tests/*.txt
+          if-no-files-found: warn
   verify_arm64:
     needs: build_amd64
     runs-on: ubuntu-24.04-arm
@@ -114,16 +124,22 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Promote verified digest with recoverable immutable version tagging
+      - name: Publish immutable fixed image after native verification
         env:
           NAS_VERSION: ${{ needs.build_amd64.outputs.version }}
           CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
           RELEASE_COMMIT: ${{ github.sha }}
-        run: node scripts/promote-nas-image.js
-      - name: Complete immutable GitHub Release after image verification
+        run: node scripts/promote-nas-image.js --fixed-only
+      - name: Record verified manifest and upgrade/rollback notes in repository
         env:
           GITHUB_TOKEN: ${{ github.token }}
           NAS_VERSION: ${{ needs.build_amd64.outputs.version }}
           CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
           RELEASE_COMMIT: ${{ github.sha }}
-        run: node scripts/ensure-nas-release.js
+        run: node scripts/nas-publication.js
+      - name: Update latest only after repository record verification
+        env:
+          NAS_VERSION: ${{ needs.build_amd64.outputs.version }}
+          CANDIDATE_DIGEST: ${{ needs.build_amd64.outputs.digest }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        run: node scripts/promote-nas-image.js
