@@ -35,4 +35,4 @@ Hub 迟到保护分别处理 usage/limits：只有可信 Hub receivedAt 且 prod
 
 ## 继续工作
 
-开始任务读取 [AGENTS](../AGENTS.md) 与本文件；验收更新 [VALIDATION](VALIDATION.md)，费用规则更新 [COST_MODEL](COST_MODEL.md)。旧版过程和独有审计见 [有限历史索引](archive/README.md)。任务总结放 PR/回复，不新增版本交接或仓库报告。
+开始任务读取 [AGENTS](../AGENTS.md) 与本文件；验收更新 [VALIDATION](VALIDATION.md)，费用规则更新 [COST_MODEL](COST_MODEL.md)。旧版过程和独有审计见 [有限历史索引](archive/README.md)。任务总结放 PR/回复，不新增版本交接或仓库报告。当前记录的唯一入口约束也覆盖其他目录的大小写变体，不能用新主题声明建立第二套记录；未完成验收继续在固定入口保留。

@@ -41,6 +41,14 @@ class GovernanceTests(unittest.TestCase):
         for name in ['HANDOFF_0.99.md', 'docs/nested/VALIDATION_2027-01-01.md', 'COST_VALIDATION_0.99.md', 'UPSTREAM_0.99_AUDIT.md', 'docs/nested/HANDOFF.md', 'notes/COST_MODEL.md', 'other/VALIDATION.md']:
             self.assertTrue(docs.policy_errors(self.root, [name], []), name)
 
+    def test_case_variants_cannot_create_a_second_current_record(self):
+        for name in ['notes/handoff.md', 'notes/validation.md', 'notes/cost_model.md',
+                     'notes/HandOff.Md', 'notes/Validation.MD', 'notes/Cost_Model.md']:
+            body = f'Documentation-Topic: {name} | Claimed distinct topic must not bypass the unique current entry.'
+            self.assertTrue(docs.policy_errors(self.root, [name], [], body), name)
+        for name in ['docs/HANDOFF.md', 'docs/VALIDATION.md', 'docs/COST_MODEL.md']:
+            self.assertEqual(docs.policy_errors(self.root, [name], []), [])
+
     def test_machine_publication_exception_is_exact(self):
         for name in ['manifest.json', 'UPGRADE.md', 'ROLLBACK.md']:
             self.assertEqual(docs.policy_errors(self.root, [f'publications/v0.99.0-01/{name}'], []), [])

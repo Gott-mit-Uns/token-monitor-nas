@@ -113,7 +113,7 @@ def policy_errors(root, added, changed, body='', readme_authorization='', readme
             if INITIAL_ARCHIVE.get(name) != digest:
                 errors.append(f'{name}: archive is closed; review a specific policy change first')
             continue
-        if DUPLICATE.match(Path(name).stem) or (Path(name).name in {'HANDOFF.md', 'VALIDATION.md', 'COST_MODEL.md'} and name not in CANONICAL):
+        if DUPLICATE.match(Path(name).stem) or (Path(name).name.casefold() in {'handoff.md', 'validation.md', 'cost_model.md'} and name not in CANONICAL):
             errors.append(f'{name}: update the canonical current document instead')
         if name.lower().endswith('.md') and name not in CANONICAL:
             marker = re.search(r'^Documentation-Topic:\s*' + re.escape(name) + r'\s*\|\s*\S.+$', body, re.M)
