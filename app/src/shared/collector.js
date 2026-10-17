@@ -1284,6 +1284,8 @@ async function collectUsageOnce(options) {
     wslStatus,
     periodWindows: computePeriodWindows(collectedAt),
     historyAvailable: options.historyEnabled !== false,
+    // Private archive hint: these three report requests finished this tick.
+    sessionUsageArchiveFullScan: !anchorUsed,
     today,
     month,
     allTime

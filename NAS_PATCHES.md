@@ -1,6 +1,6 @@
 # NAS 专用补丁契约
 
-适用：NAS v0.72.0-02；2026-10-17 按 `caa51169` 核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
+适用：NAS v0.73.0-01；2026-10-18 与上游 v0.73.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
 
 ## 必须保留的补丁
 

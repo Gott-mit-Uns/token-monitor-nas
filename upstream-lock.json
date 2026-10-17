@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Javis603/token-monitor",
-  "tag": "v0.72.0",
-  "commit": "126e9a43dcc51d3d7b2609231eac9974ba73bed7",
-  "previousTag": "v0.71.0",
-  "previousCommit": "a514e2063563e318ef73c2a17fad68057c4e300c",
-  "nasBaseline": "77e69040d6cf8e17bb04edbad5406dee20a3f11e",
+  "tag": "v0.73.0",
+  "commit": "1190260afdcacd8998938de311e0435c306a18ed",
+  "previousTag": "v0.72.0",
+  "previousCommit": "126e9a43dcc51d3d7b2609231eac9974ba73bed7",
+  "nasBaseline": "e99661a9e53802c22550b53e32238d96b1227eab",
   "scope": [
     "src/shared",
     "src/agent",
@@ -13,10 +13,9 @@
     "package.json",
     "package-lock.json"
   ],
-  "audit": "UPSTREAM_0.72_AUDIT.md",
+  "audit": "UPSTREAM.md",
   "patches": "NAS_PATCHES.md",
-  "nasRevision": "v0.72.0-01",
-  "revisionBaseline": "9a06b658e75d96285ac98847ef5e6e67299a4085",
-  "revisionNotes": "Cursor unified-plan quota parsing and OpenCode 2.x read-only metadata/detail support; preserve strict Agent archive publication and all NAS behavior. Stable release only; no desktop updater backport. Adds Node Hub producer-time ordering protection discovered by mandatory regression tests; no timestamp-less-client ordering guarantee.",
-  "publishedAt": "2026-10-15T19:00:09Z"
+  "nasRevision": "v0.73.0-01",
+  "revisionBaseline": "e99661a9e53802c22550b53e32238d96b1227eab",
+  "revisionNotes": "Three-way merge v0.73.0 shared/runtime, Tokscale 4.19.1 pinned fork, corrected session totals including zero, matched timing, Cursor quotas, source/watch metadata. Preserve NAS strict archives, streaming reads, isolated watchers, Hub ordering and privacy. No new sources enabled."
 }
