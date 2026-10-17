@@ -53,7 +53,7 @@ NAS-18 的顺序时间必须有可信 Hub 接收时间，producer 最多超前5�
 - Hermes `history.js` disjoint reasoning 与新版固定 parser 配套；Token 不因 reasoning cost 修正而减少。
 - Codex 压缩读取与会话详情仅共享模块，plain/zst 同 ID 不重复；provider 更新只访问合成 fixtures 或显式启用的配置。
 - StepFun 续期回调异常只打印固定文本，避免异常 message 泄露凭据；失败、超时和取消测试保留。
-- 新共享测试加入实际 `test-nas.js` 执行清单，桌面 UI/Worker 断言明确排除。测试范围以 [UPGRADE_0.70.md](UPGRADE_0.70.md) 当前证据为准。
+- 新共享测试加入实际 `test-nas.js` 执行清单，桌面 UI/Worker 断言明确排除。测试范围以 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md) 当前证据为准。
 
 ## 历史 v0.69 三方合并重点
 

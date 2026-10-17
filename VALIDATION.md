@@ -1,5 +1,7 @@
 # Upgrade validation — 2026-09-08
 
+历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+
 ## 最新 v0.72.0-02 正式发布完成（2026-10-16，所有者自行更新 NAS）
 
 PR #11 已合并，source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`。本地 NAS 1671 项中1660通过、0失败、11既有平台跳过；发布辅助59项、部署Python51项通过。最终PR原生amd64/arm64及六来源×两架构冻结/完整恢复全部通过。正式发布工作流 [38908457055](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38908457055) 的三个任务全部成功，固定镜像与latest为 `sha256:81413b1a4fcb30757f906bc732dcfbfe6883cb27683dffaaad98ea7ced9b8715`，两个平台OCI源码一致，旧六个固定标签不变。44个Release附件摘要全部核对，原始manifest及三份补充关键记录匿名下载回读一致，原始manifest未覆盖。仅新增可选鉴权Hub名称，不变更统计、计费或存储；真实指纹、统计与范围见 [本修订交接](HANDOFF_0.72.0-02.md)。
@@ -10,7 +12,7 @@ PR #11 已合并，source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef55
 
 获所有者明确确认后PR #9合并，正式source/tag/OCI/manifest为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。[最终发布流程](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38818647520) 全部成功，最终镜像两架构各1666项1658通过、0失败、8平台跳过；固定index `sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810` 与latest相同。独立匿名Registry/Release读回确认平台摘要、OCI、Tag、原始manifest与源码一致，旧五个固定标签不变。最终获批PR原生与十组恢复重新通过，自动复审无发现。正式发布完成，生产NAS均未部署，逐台确认仍独立进行。以下为发布前验收记录，详细最终来源和摘要见HANDOFF_0.72.md。
 
-固定上游 `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，运行提交 `c37cd3c7d50380aac756bf3f78eb6d1c43981458`。本机1666项1655通过0失败11平台跳过；原生amd64/arm64各1666项1658通过0失败8跳过。两个有效自动审查发现已修复，最终运行提交审查无发现。五来源×两架构冻结/完整恢复、真实固定Tokscale、混合协议8组合/每架构和固定资源基准全部通过；阈值不变，来源/权限/512MiB默认值不变。v71-02→本版1845Token、缓存、reasoning语义、会话/逐日/设备与USD0.006445费用保持；跨v69的已知reasoning修正有精确差异oracle。发布辅助59项、Python部署51项通过。工作流、实际指纹、资源数字和限制见 [HANDOFF_0.72.md](HANDOFF_0.72.md)，详细统计见 [COST_VALIDATION_0.72.md](COST_VALIDATION_0.72.md)。代码与验收完成，不等于正式镜像或Release已发布；生产未部署，两台SSH拒绝，逐台计划见 [DEPLOYMENT_PLAN_0.72.md](DEPLOYMENT_PLAN_0.72.md)。
+固定上游 `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，运行提交 `c37cd3c7d50380aac756bf3f78eb6d1c43981458`。本机1666项1655通过0失败11平台跳过；原生amd64/arm64各1666项1658通过0失败8跳过。两个有效自动审查发现已修复，最终运行提交审查无发现。五来源×两架构冻结/完整恢复、真实固定Tokscale、混合协议8组合/每架构和固定资源基准全部通过；阈值不变，来源/权限/512MiB默认值不变。v71-02→本版1845Token、缓存、reasoning语义、会话/逐日/设备与USD0.006445费用保持；跨v69的已知reasoning修正有精确差异oracle。发布辅助59项、Python部署51项通过。工作流、实际指纹、资源数字和限制见 [HANDOFF_0.72.md](HANDOFF_0.72.md)，详细统计见 [COST_VALIDATION_0.72.md](COST_VALIDATION_0.72.md)。代码与验收完成，不等于正式镜像或Release已发布；生产未部署，两台SSH拒绝，逐台计划见 [统一部署说明](DEPLOYMENT.md)。
 
 ## 历史 v0.71.0-02 完成记录（2026-10-15）
 
@@ -69,12 +71,12 @@ the Hub is offline. No automatic device deletion is enabled.
 
 ## v0.69.0-01 candidate validation — 2026-10-12
 
-Official tag locked to `3f106ae3d4712b26cced8272f0d488eaab0de1e6`; NAS baseline `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`. Evidence and remaining release/deployment gates are recorded in [UPGRADE_0.69.md](UPGRADE_0.69.md). Historical deployment results above are not verification of this candidate. No production data or NAS was accessed for this upgrade.
+Official tag locked to `3f106ae3d4712b26cced8272f0d488eaab0de1e6`; NAS baseline `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`. Evidence and remaining release/deployment gates are recorded in [UPGRADE_0.69.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.69.md). Historical deployment results above are not verification of this candidate. No production data or NAS was accessed for this upgrade.
 
 Native candidate CI 38195738924 passed at source commit acdad0e7d1e368a515bc67aad94e5ac0e500d421 on Linux amd64 and arm64, Node 22.23.2. Each architecture passed 990/992 NAS tests, with zero failures and two Windows-native platform skips, plus 31 promotion tests. Each architecture also passed all 15 fixed-workload regression gates in three repeats with 60-second soak. See UPGRADE_0.69.md and synthetic-only evidence JSON for complete measurements, source fingerprints and scope. No production deployment or fixed-tag publication occurred.
 
 ## v0.70.0-01 candidate — 2026-10-14
 
-Current validation/release/deployment stages are recorded in [UPGRADE_0.70.md](UPGRADE_0.70.md). Historical production results above do not verify the current candidate. Shipping Linux/native Docker checks and production acceptance are separate from local macOS tests.
+Current validation/release/deployment stages are recorded in [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md). Historical production results above do not verify the current candidate. Shipping Linux/native Docker checks and production acceptance are separate from local macOS tests.
 
 本轮源码与原生容器/冻结/恢复/性能检查和正式发布已完成，证据见 UPGRADE_0.70.md；生产仍未升级，两台实际部署验收均不计为通过。

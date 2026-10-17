@@ -1,12 +1,12 @@
 # NAS 版本规则
 
-今后只发布 Git tag 与多架构镜像，不创建 NAS GitHub Release。版本清单及升级/回退说明写入仓库发布记录，原始测试日志与报告留在 CI；历史 Release 和固定产物保留。新发布须有匹配源码的版本 tag、完整仓库记录、固定镜像及两架构 OCI 核验，不能仅凭 tag 存在认定成功。细节见 [NAS_PUBLICATION.md](NAS_PUBLICATION.md)。本次只改发布流程，不增加 NAS 版本、不重建当前镜像。
+今后只发布 Git tag 与多架构镜像，不创建 NAS GitHub Release。机器清单写入仓库发布记录，升级/回退说明统一维护在 DEPLOYMENT.md，原始测试日志与报告留在 CI；历史 NAS Release 已按所有者要求清理，Git tag、固定镜像和校验仍需的 manifest 保留。新发布须有匹配源码的版本 tag、完整仓库记录、固定镜像及两架构 OCI 核验，不能仅凭 tag 存在认定成功。细节见 [NAS_PUBLICATION.md](NAS_PUBLICATION.md)。本次只改发布流程，不增加 NAS 版本、不重建当前镜像。
 
 最新已正式发布的名称修复修订为 `v0.72.0-02`，上游仍固定 v0.72.0；source/tag/OCI/manifest 绑定 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，固定镜像与 latest 已经双架构原生验收并核验同一 index。所有者自行更新 NAS 容器，本任务未部署或验收生产。实际行为与可选合同见 [HUB_DISPLAY_NAME.md](HUB_DISPLAY_NAME.md)，发布清单与生产验收分开核实，见 [本修订交接](HANDOFF_0.72.0-02.md)。下述 v0.72.0-01 是不可改写的前版发布记录。
 
 历史 `v0.72.0-01` 已正式发布，固定官方 v0.72.0，源码/tag/OCI/manifest均绑定 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`；新官方版本按规则从 -01 起，旧固定标签保持不变。后补发布文档不重建或改写此固定版。代码、原生测试、镜像摘要与生产状态见 [HANDOFF_0.72.md](HANDOFF_0.72.md)。本轮没有生产部署，部署仍需要所有者另行确认。
 
-历史修订 `v0.71.0-02` 已正式发布：固定官方 0.71.0，不变更 schema 或计费规则。修复 Agent 归档失败仍可能上报的入口；Git Tag/OCI/manifest绑定 `9a06b658e75d96285ac98847ef5e6e67299a4085`，最终发布与生产状态分别见 [本修订交接](HANDOFF_0.71.0-02.md)。`v0.71.0-01` 镜像、标签与 Release 保持不可变。后补维护文档不重建或改写固定镜像。
+历史修订 `v0.71.0-02` 已正式发布：固定官方 0.71.0，不变更 schema 或计费规则。修复 Agent 归档失败仍可能上报的入口；Git Tag/OCI/manifest绑定 `9a06b658e75d96285ac98847ef5e6e67299a4085`，最终发布与生产状态分别见 [本修订交接](HANDOFF_0.71.0-02.md)。`v0.71.0-01` 镜像和 Git tag 保持不可变，旧 Release 页面已清理。后补维护文档不重建或改写固定镜像。
 
 NAS 镜像与 Git tag 使用同一个版本号：`v<官方版本>-<两位 NAS 修订号>`。
 

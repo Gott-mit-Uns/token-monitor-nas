@@ -1,5 +1,7 @@
 # v0.71.0 NAS 升级交接
 
+历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+
 后续修订：本文件保留 `v0.71.0-01` 的历史记录；实际 Agent 归档失败保护于 `v0.71.0-02` 补齐并完成DXP升级，见 [最新交接](HANDOFF_0.71.0-02.md)。DH4300Plus所有者后续说明曾自行更新，本轮新修订仍SSH拒绝，未由本任务部署，不能将下文当时“未操作”解读为用户没有更新。
 
 日期：2026-10-15（Asia/Shanghai）。当前状态：代码对齐完成、原生双架构验收完成、v0.71.0-01 正式发布、DXP4800 Hub+Agent 已部署并验收；DH4300Plus 因 SSH 拒绝连接阻塞。下列基线和实施边界是审计记录，实际完成证据见末节，不将发布结果代替部署结果。
@@ -40,7 +42,7 @@ PR [#7](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/7) 已合并，�
 
 ### 正式镜像与发布
 
-[正式发布工作流 38640590947](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38640590947) 的 amd64、arm64、promote 全部通过；[Release](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.71.0-01) 和 release-manifest 已匿名读回。
+[正式发布工作流 38640590947](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38640590947) 的 amd64、arm64、promote 全部通过；[Git tag](https://github.com/Gott-mit-Uns/token-monitor-nas/tree/v0.71.0-01) 和 release-manifest 已匿名读回。
 
 | 身份 | 摘要 |
 |---|---|

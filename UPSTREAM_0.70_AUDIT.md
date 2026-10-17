@@ -193,6 +193,6 @@ NAS 已有 `iterateSessionRows`、full-load 暂存及异常 cursor cleanup；上
 
 ## 当前证据限制
 
-本地本轮 NAS suite 共1296项：1285通过、0失败、11跳过（5项桌面断言、1项Windows roots、3项仅Linux本机行为、2项Windows PID行为）；SQLite store专项42/42通过。跳过不能算通过，本地结果不替代原生amd64/arm64、冻结双版本Docker或生产验证；最终提交的完整结果以 [UPGRADE_0.70.md](UPGRADE_0.70.md)、[VALIDATION.md](VALIDATION.md) 及CI artifact为准。StepFun候选的续期持久化失败日志已使用固定文本，不输出异常message可能携带的敏感值。
+本地本轮 NAS suite 共1296项：1285通过、0失败、11跳过（5项桌面断言、1项Windows roots、3项仅Linux本机行为、2项Windows PID行为）；SQLite store专项42/42通过。跳过不能算通过，本地结果不替代原生amd64/arm64、冻结双版本Docker或生产验证；最终提交的完整结果以 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md)、[VALIDATION.md](VALIDATION.md) 及CI artifact为准。StepFun候选的续期持久化失败日志已使用固定文本，不输出异常message可能携带的敏感值。
 
 本审计子任务未执行生产NAS登录、容器变更、外部账户访问、Git提交或镜像发布。主任务本轮只读核验DXP4800仍为v0.69.0-01，Hub+Agent健康，未检测到控制器；DH4300Plus SSH拒绝，真实角色/权限未核实。来源实际镜像摘要、完整部署配置和挂载身份应以主任务私有只读记录为准，不在公开仓库记录生产私有路径。原生CI、正式发布和生产部署当前pending。发布后必须先生成本轮部署报告并等待所有者明确确认，然后才可备份和依次升级。

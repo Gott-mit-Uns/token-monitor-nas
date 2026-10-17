@@ -1,5 +1,7 @@
 # v0.70.0 NAS 升级交接
 
+历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+
 日期：2026-10-14（Asia/Shanghai）。本交接记录本轮范围、已核实来源和剩余验收门槛。当前状态为 **candidate adapted / local tests passed / native CI pending / release pending / production deployment pending**；后续只有补充可核验的结果后才能改变各阶段状态。文档存在或候选源码已适配均不表示正式镜像发布成功或 NAS 已部署。
 
 ## 精确目标与起点
@@ -48,7 +50,7 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 
 目标版Release URL、index digest、架构digest、发布commit已作为核验结果记录在末节。发布或验证受权限/签名/流程阻碍时停在对应阶段，保留证据和准确限制。
 
-本地本轮NAS suite1296项：1285通过、0失败、11跳过；跳过为5项桌面断言、1项Windows roots、3项Linux本机行为、2项Windows PID行为。SQLite store采用完整上游v0.70等价实现并保留NAS及新官方fault tests，专项42/42通过。CatPawwatch边界已合到轻量watcherPolicy，collector源指纹保持；StepFun续期持久化失败日志改为固定文本以保护敏感异常内容。本地平台结果不代替新镜像两架构Docker实测，最终结果见 [UPGRADE_0.70.md](UPGRADE_0.70.md) 和 [VALIDATION.md](VALIDATION.md)。
+本地本轮NAS suite1296项：1285通过、0失败、11跳过；跳过为5项桌面断言、1项Windows roots、3项Linux本机行为、2项Windows PID行为。SQLite store采用完整上游v0.70等价实现并保留NAS及新官方fault tests，专项42/42通过。CatPawwatch边界已合到轻量watcherPolicy，collector源指纹保持；StepFun续期持久化失败日志改为固定文本以保护敏感异常内容。本地平台结果不代替新镜像两架构Docker实测，最终结果见 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md) 和 [VALIDATION.md](VALIDATION.md)。
 
 ## 验证待办
 
@@ -85,7 +87,7 @@ NAS专项契约必须继续保留：独立轻量Watcher默认 `TOKEN_MONITOR_WAT
 
 ## 本轮完成记录（后于前述实施门槛）
 
-PR #6 已合并至 `02413928fef06abc99e181f253228e549fb4582f`。原生完整回归38476097610、四组合冻结/恢复38476097653、正式发布38477243551全部通过。固定v0.70.0-01 / latest index `sha256:848d6c0b59c35be8e5d9f69d29d347404f2b2988964c8b4838579e24e8621e64`，amd64 `sha256:32cd4993c3c21c43133d53c88cee48beae06a5477a63ad3c17941818af66a9da`，arm64 `sha256:fdc33c32014c794cf7e233aa56093a8c2292843da0cbca95b97430873f93d86b`。release-manifest、OCI、Git Tag、来源迁移政策和两个旧固定标签已独立核验，完整证据见 [UPGRADE_0.70.md](UPGRADE_0.70.md)。前述测试/发布待办已完成；剩余门槛仅为明确列出的生产来源核查、授权、私有备份和部署验收。
+PR #6 已合并至 `02413928fef06abc99e181f253228e549fb4582f`。原生完整回归38476097610、四组合冻结/恢复38476097653、正式发布38477243551全部通过。固定v0.70.0-01 / latest index `sha256:848d6c0b59c35be8e5d9f69d29d347404f2b2988964c8b4838579e24e8621e64`，amd64 `sha256:32cd4993c3c21c43133d53c88cee48beae06a5477a63ad3c17941818af66a9da`，arm64 `sha256:fdc33c32014c794cf7e233aa56093a8c2292843da0cbca95b97430873f93d86b`。release-manifest、OCI、Git Tag、来源迁移政策和两个旧固定标签已独立核验，完整证据见 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md)。前述测试/发布待办已完成；剩余门槛仅为明确列出的生产来源核查、授权、私有备份和部署验收。
 
 所有者选择先完成发布，DH4300Plus核查稍后。DXP已只读确认v0.69.0-01 Hub+Agent、独立Watcher、健康采集/上传；DH SSH拒绝，角色/版本/digest/权限尚未核实。没有停止/重建容器，没有新生产备份，没有控制器安装/权限或长期凭据/调度变更。待DH来源核查后一次性报告两设备具体方案并获得本轮生产确认。不能把正式发布或CI回滚凭据当成生产授权。
 

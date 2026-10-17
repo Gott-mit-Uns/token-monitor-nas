@@ -7,7 +7,7 @@ const SHA = /^[a-f0-9]{40}$/;
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const RECORD_BRANCH = 'nas-publications';
 const LEGACY_VERSIONS = new Set(['v0.69.0-02', 'v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01', 'v0.72.0-02']);
-const FILES = ['manifest.json', 'UPGRADE.md', 'ROLLBACK.md'];
+const FILES = ['manifest.json'];
 function validVersion(value) { return VERSION.test(value || '') && !value.endsWith('-00'); }
 function command(program, args) {
   const result = spawnSync(program, args, { encoding: 'utf8', timeout: 120_000, maxBuffer: 8 * 1024 * 1024 });
@@ -45,12 +45,9 @@ function createManifest({ version, sourceCommit, imageDigest, policy, inspect })
 }
 
 function publicationFiles(manifest) {
-  const identity = `Version: ${manifest.version}\nSource: ${manifest.sourceCommit}\nImage: ${manifest.imageRepository}@${manifest.imageDigest}\n`;
-  return {
-    'manifest.json': `${JSON.stringify(manifest, null, 2)}\n`,
-    'UPGRADE.md': `# Upgrade ${manifest.version}\n\n${identity}\nAllowed source versions: ${manifest.compatibleFrom.join(', ')}.\n\n${manifest.migration.notes}\n\nVerify the Git tag, both platform OCI revisions and fixed image digest. A tag alone does not prove publication is complete. Before changing containers, identify each NAS independently, stop writers and back up complete consistent Hub/Agent state, original configuration, permissions and SQLite WAL/SHM. Keep device IDs, paths, read-only mounts and old exact images. Upgrade DXP4800 Hub then Agent; validate DH4300Plus Agent-only independently. Check preserved tokens, cache, reasoning, costs, sessions, daily history and devices, followed by a real new upload and restart recovery. Do not enable new sources, quotas or credentials. Publication does not authorize production deployment.\n`,
-    'ROLLBACK.md': `# Rollback ${manifest.version}\n\n${identity}\nPolicy: ${manifest.rollback.mode}.\n\n${manifest.rollback.reason}\n\nProtect new data and preserve the failed state before recovery. Use the old exact image with the complete closed pre-upgrade snapshot and original configuration/permissions. Do not overlay backups onto changing state, downgrade only the image, remove volumes, clear history or recreate device identity. Automatic rollback remains fail-closed unless its existing locally verified rehearsal receipt binds this exact image/state pair; otherwise use the reviewed manual restore procedure. A CI synthetic restore is not a production restore receipt.\n`
-  };
+  // Migration and rollback policy already live in the canonical manifest.
+  // Generic operator instructions are maintained once in DEPLOYMENT.md.
+  return { 'manifest.json': `${JSON.stringify(manifest, null, 2)}\n` };
 }
 function githubApi(repository, token) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || '')) throw new Error('Invalid repository.');
@@ -146,7 +143,7 @@ async function ensureNasPublication({ version, sourceCommit, imageDigest, policy
   }
   const parentCommit = parent && await api('GET', `git/commits/${parent}`);
   if (parent && !SHA.test(parentCommit?.tree?.sha || '')) throw new Error('Cannot verify publication history.');
-  // One tree/commit/ref update records all three files atomically. Non-fast-forward
+  // One tree/commit/ref update appends the version manifest atomically. Non-fast-forward
   // updates are refused, so concurrent writers require a fresh read and safe retry.
   const tree = await api('POST', 'git/trees', { body: {
     ...(parent ? { base_tree: parentCommit.tree.sha } : {}),

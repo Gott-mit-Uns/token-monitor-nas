@@ -28,7 +28,7 @@ Hermes reasoning normalization and the fixed Tokscale `fa5f0c13324838d1a988fda31
 
 No mandatory SQLite schema or Hub JSON format migration. Codex parser caches advance from version 12 to 15 and may reparse once; StepFun's optional account identity becomes stable across access-token refresh. Existing unknown/optional fields remain handled by the unchanged shared normalization and Hub protocol. Full pre-deployment state backup and closed restore verification remain necessary.
 
-Audit: [UPSTREAM_0.70_AUDIT.md](UPSTREAM_0.70_AUDIT.md). Validation, release and deployment are distinct gates in [UPGRADE_0.70.md](UPGRADE_0.70.md). Formal v0.70.0-01 is published at NAS commit `02413928fef06abc99e181f253228e549fb4582f`; native tests, immutable digest/manifest evidence and the separate pending production gate are recorded there. The records below describe earlier versions.
+Audit: [UPSTREAM_0.70_AUDIT.md](UPSTREAM_0.70_AUDIT.md). Validation, release and deployment are distinct gates in [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md). Formal v0.70.0-01 is published at NAS commit `02413928fef06abc99e181f253228e549fb4582f`; native tests, immutable digest/manifest evidence and the separate pending production gate are recorded there. The records below describe earlier versions.
 
 ## NAS v0.69.0-01
 
@@ -36,7 +36,7 @@ Audit: [UPSTREAM_0.70_AUDIT.md](UPSTREAM_0.70_AUDIT.md). Validation, release and
 
 新会话身份和父子字段不改变 accounting key；瞬时活动不归档。SQLite schema 与 Hub 文件格式无强制迁移，但首轮采集会更新已有锚点和附加元数据，因此仍须停机完整备份并保留旧状态副本。默认 Hermes-only；headless 活动轮询关闭，不开启额外客户端扫描。
 
-完整上游逐项决策：[UPSTREAM_0.69_AUDIT.md](UPSTREAM_0.69_AUDIT.md)。维护补丁：[NAS_PATCHES.md](NAS_PATCHES.md)。验证与发布状态：[UPGRADE_0.69.md](UPGRADE_0.69.md)。本版已通过原生双架构发布验收，正式 Release 和固定镜像见升级报告。以下章节是历史版本记录。
+完整上游逐项决策：[UPSTREAM_0.69_AUDIT.md](UPSTREAM_0.69_AUDIT.md)。维护补丁：[NAS_PATCHES.md](NAS_PATCHES.md)。验证与发布状态：[UPGRADE_0.69.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.69.md)。本版已通过原生双架构发布验收，正式 Release 和固定镜像见升级报告。以下章节是历史版本记录。
 
 ## NAS v0.68.0-05
 

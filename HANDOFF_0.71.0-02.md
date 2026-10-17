@@ -1,5 +1,7 @@
 # v0.71.0-02 Agent 归档失败保护
 
+历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+
 当前完成状态：代码与测试完成，正式 `v0.71.0-02` 已发布，DXP4800 Hub+Agent 已实际升级并验证；DH4300Plus SSH拒绝，未由本任务部署此修订。下列候选准备段落保留历史，最终结果以“完成记录”为准。
 
 2026-10-15。所有者授权：修复实际 Agent 归档失败继续上报、补入口级回归及标题清理/可选来源文档；验证后正式发布新修订并按原一致性备份、每台最多5分钟维护及失败恢复条件部署。先 DXP4800 Hub→Agent，再 DH4300Plus Agent-only。WorkBuddy 多账户、真实登录/新凭据和远端逐轮正文不实施。
@@ -35,7 +37,7 @@ DH4300Plus所有者已说明自行更新；本修订预检SSH仍Connection refus
 - [正式发布 38660022767](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38660022767)：amd64构建/测试、原生arm64复测、promotion和Release全部通过。最终发布镜像也重复通过NAS suite。
 - 干净公开历史扫描1511文件版本、0发现；本机发布辅助59项、Python部署51项通过。真实配置、Cookie、原始用户/工作区身份、数据库和运行日志未进入公开材料。
 
-正式[Release](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.71.0-02)及镜像 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.71.0-02` 已匿名读回。Release包含不可变manifest和28份合成测试/性能/发布读回材料。
+正式[Git tag](https://github.com/Gott-mit-Uns/token-monitor-nas/tree/v0.71.0-02)及镜像 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.71.0-02` 已匿名读回。Release包含不可变manifest和28份合成测试/性能/发布读回材料。
 
 | 镜像 | 固定摘要 |
 |---|---|

@@ -1,12 +1,12 @@
 # GitHub 发布与 NAS 受控拉取部署
 
-当前发布版本为 v0.72.0-02，所有者自行更新容器，本任务未部署或验收生产 NAS。NAS 今后只发 Git tag 和多架构镜像，不再依赖 GitHub Release。版本清单及升级/回退说明保存在仓库，详见 [发布流程](NAS_PUBLICATION.md) 和 [发布记录](publications/README.md)。
+当前发布版本为 v0.72.0-02，所有者自行更新容器，本任务未部署或验收生产 NAS。NAS 今后只发 Git tag 和多架构镜像，不再依赖 GitHub Release。机器清单保存在仓库，升级/回退步骤在本文统一维护，详见 [发布流程](NAS_PUBLICATION.md) 和 [发布记录](publications/README.md)。
 
 以下控制程序是既有可选设计，当前未在 NAS 安装；本次只调整仓库代码，不部署、不安装程序、不创建凭据。首次安装、权限调整及生产部署仍须单独授权。镜像发布、部署请求、实际部署分别验收。
 
 ## 审查结论与设计
 
-`Test and publish NAS image` 改为由明确版本 tag 触发；手动重试也必须选择同一个 tag。保留 amd64 和原生 arm64 验证、摘要读回及固定版本保护。先发布/核验固定镜像，将 `manifest.json`、`UPGRADE.md`、`ROLLBACK.md` 原子写入仓库 `nas-publications` 分支的 `publications/<版本>/`，完整读回后才更新 latest。记录与 Git tag、两个 OCI 版本/源码、源码版本和迁移政策必须一致；冲突拒绝覆盖，分支更新失败保持 latest 不变。六个历史版本使用 main 上迁入的原字节清单，不再读取旧 Release API。
+`Test and publish NAS image` 改为由明确版本 tag 触发；手动重试也必须选择同一个 tag。保留 amd64 和原生 arm64 验证、摘要读回及固定版本保护。先发布/核验固定镜像，将唯一的 `manifest.json` 原子写入仓库 `nas-publications` 分支的 `publications/<版本>/`，完整读回后才更新 latest。记录与 Git tag、两个 OCI 版本/源码、源码版本和迁移政策必须一致；冲突拒绝覆盖，分支更新失败保持 latest 不变。六个历史版本使用 main 上迁入的原字节清单，不再读取旧 Release API。
 
 独立 `Approve controlled NAS deployment` 只接受从 `main` 手动执行 `workflow_dispatch`。按所有者要求，没有额外 GitHub Environment 人工审批；手动选择目标 NAS、当前版本和目标版本并执行，就是批准这一部署请求。推送 main、创建 Git tag、发布镜像或记录、更新 latest 均不会触发 NAS 控制程序部署。请求记录在 GitHub Deployments，task 为 `nas-pull`，环境名称只用于区分两台 NAS，不启用额外环境审批。请求有 24 小时有效期，版本必须递增，不替换未完成请求。
 
@@ -105,8 +105,11 @@ gh api --silent --method POST repos/Gott-mit-Uns/token-monitor-nas/deployments/D
 完整当前报告见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。仓库发布记录提供版本/源 SHA/摘要清单及升级/回退说明；生产结果可在仓库 Deployments 和 NAS 本地私有 `deployment-<id>.json` 查验。公网 Windows UI、24 小时持续运行及生产恢复演练需另行验收。
 
 
-## 从 Release 清单迁移
+## 仓库清单与历史清理
 
 已发布的六份清单按原字节迁入 `publications/<版本>/manifest.json`，与原 Git tag、源码版本及迁移政策核对一致；既有 Release 不删除、不改写。新手动请求读取仓库记录并携带 `publicationCommit` / `publicationBranch`；控制程序验证记录提交属于 `nas-publications` 历史，六个历史版本也允许 main 上的迁入记录。旧有效请求没有记录指针时，仅六个历史版本可以从固定的 main 提交读取迁入记录；新版本缺少指针拒绝。原始测试数据不进入记录分支。
 
 旧控制程序仍依赖 Release，因此不能直接处理今后的新版本；若未来明确启用受控部署，应先单独审阅/更新本地控制程序，再批准部署请求。本任务不执行该安装。当前由所有者手工更新容器的流程不依赖控制程序，也不需要 GitHub Release。
+
+
+已删除重复的逐版本 UPGRADE.md / ROLLBACK.md；发布与审批只读取 manifest，其中 migration/rollback/compatibleFrom 仍须与源码政策匹配。NAS 消费者不再以额外说明文件存在作为部署门槛；缺失、损坏、身份不符或政策不匹配的 manifest 仍拒绝，不放宽备份、冻结统计、身份或恢复保护。

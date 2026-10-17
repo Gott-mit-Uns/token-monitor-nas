@@ -1,5 +1,7 @@
 # NAS v0.72.0-01 交接
 
+历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+
 2026-10-16。当前阶段：代码、原生隔离验收、所有者明确确认后的PR #9合并及正式 v0.72.0-01 发布完成；固定镜像、Release/manifest/OCI及旧标签保持已独立读回。**本轮未部署任何生产NAS**，两台SSH预检均拒绝，生产部署仍待独立确认。下方早期候选/待发布段落保留过程，最终状态以“正式发布完成记录”为准。
 
 上游正式 v0.72.0 / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，旧上游 v0.71.0 / `a514e2063563e318ef73c2a17fad68057c4e300c`；NAS 实际发布基线 v0.71.0-02 / `9a06b658e75d96285ac98847ef5e6e67299a4085`，最新文档 main `77e69040d6cf8e17bb04edbad5406dee20a3f11e`。独立分支 `upgrade/upstream-v0.72.0`，原工作区不重置。
@@ -30,7 +32,7 @@ Cursor 统一订阅池、预付余额与未知额度处理；OpenCode 2.x 只读
 
 ## 生产升级计划（需要另行确认）
 
-逐台确认清单见 [DEPLOYMENT_PLAN_0.72.md](DEPLOYMENT_PLAN_0.72.md)。本轮通过现有安全SSH配置只读连接 DXP4800 与 DH4300Plus，二者均 Connection refused；当前实际版本/摘要/架构/备份未核实。没有绕过限制或改变任一设备。
+逐台确认清单见 [统一部署说明](DEPLOYMENT.md)。本轮通过现有安全SSH配置只读连接 DXP4800 与 DH4300Plus，二者均 Connection refused；当前实际版本/摘要/架构/备份未核实。没有绕过限制或改变任一设备。
 
 本轮发布不授权生产部署。每台设备须重新只读核实当前固定版本、源码与 digest、架构、服务形态、实际 ID、状态目录和只读挂载。历史交接的 DXP4800 v0.71.0-02 不能代替本轮核实；DH4300Plus 曾被用户手工更新，当前版本须独立读取，SSH 拒绝不得绕过。
 
@@ -62,7 +64,7 @@ Cursor 统一订阅池、预付余额与未知额度处理；OpenCode 2.x 只读
 - 最终PR持续maxRSS中位数（MiB）：amd64 Agent165.80→167.72 / Watcher56.35→55.82 / Hub119.06→118.99；arm64 Agent173.36→174.36 / Watcher53.97→53.99 / Hub117.71→118.50。三轮固定负载、既有阈值全部通过；结果不表示普遍性能改善或24小时生产观察。
 - [正式发布工作流38818647520](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38818647520)：amd64构建/候选实际运行复测、原生arm64对同一摘要复测、固定标签推广和Release创建全部成功。最终镜像两架构各1666 tests：1658 passed、0 failed、8平台/桌面skips。
 
-正式 [Release v0.72.0-01](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.72.0-01) 于北京时间2026-10-16 06:45:31发布，非草稿/非预发布。固定镜像 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.72.0-01`。
+正式 [Git tag v0.72.0-01](https://github.com/Gott-mit-Uns/token-monitor-nas/tree/v0.72.0-01) 于北京时间2026-10-16 06:45:31发布，非草稿/非预发布。固定镜像 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.72.0-01`。
 
 | 来源 | 已核验固定摘要 |
 |---|---|

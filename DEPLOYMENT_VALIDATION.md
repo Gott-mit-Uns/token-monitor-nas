@@ -1,10 +1,12 @@
 # 自动发布、受控部署与回滚演练报告
 
+历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+
 最新完成为 `v0.71.0-02`：原生双架构运行与4来源×2架构冻结/恢复通过；版本/源码/双架构镜像摘要/清单读回一致。DXP4800 Hub→Agent已实际升级，完整私有一致性备份及旧镜像保留，3571归档会话/历史/Token/费用/日期/设备保护与新上传验收通过，停机37.67秒。DH4300Plus由所有者说明前版曾自行更新；本修订仍SSH拒绝，未由本任务部署。详见 [本修订交接](HANDOFF_0.71.0-02.md)。下面的“当前/最新”均属当时历史记录。
 
 当前最新完成：2026-10-15，v0.71.0-01正式发布并独立读回，原生三来源×两架构冻结/完整恢复及独立含reasoning人工路径全部通过。DXP4800 Hub+Agent从实际0.70升级至固定0.71，完整私有备份、真实新上传、独立Watcher、API/SSE、实际core/adapter身份和3568归档会话/完整历史保持通过；最后成功切换段38.9秒。DH4300Plus SSH拒绝，尚未升级。当前保护、摘要、工作流与恢复条件见 [HANDOFF_0.71.md](HANDOFF_0.71.md)；生产费用变化路径仍须 [审阅手动方案](COST_VALIDATION_0.71.md)。以下v0.70及更早段落均为历史记录。
 
-当前状态：`v0.70.0-01` 已正式发布，本轮生产部署未执行。原生两来源版本×两架构冻结与部署恢复演练通过，见 [UPGRADE_0.70.md](UPGRADE_0.70.md)。下列 v0.69.0-02 内容是保留的历史记录。
+当前状态：`v0.70.0-01` 已正式发布，本轮生产部署未执行。原生两来源版本×两架构冻结与部署恢复演练通过，见 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md)。下列 v0.69.0-02 内容是保留的历史记录。
 
 历史状态：`v0.69.0-02` 已正式发布，生产首次接入和部署未执行。原生双架构隔离部署演练已通过，原有全量回归与性能检查单独记录。
 
@@ -47,7 +49,7 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 
 2026-10-12 经所有者明确授权，[PR #5](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/5) 已合并。正式版本源码及 Git Tag 指向 `ec79dc7bff697ed5568b013578a8ec8d6261e67e`。合并前最终源码 `26e3b3816155eb5934f2569eb3166798a949d200` 的 [隔离部署检查](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38205511351) 和 [完整原生回归](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38205511347) 均成功。
 
-合并后的 [正式发布流程 38207757130](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38207757130) 全部成功：amd64 构建及候选运行测试、原生 arm64 对同一候选摘要运行测试、不可覆盖标签推广和自动 Release 创建。正式 [v0.69.0-02 Release](https://github.com/Gott-mit-Uns/token-monitor-nas/releases/tag/v0.69.0-02) 为非草稿、非预发行；发布流程上传并读回 `release-manifest.json`。独立匿名下载清单及 GHCR index、架构 manifest 和 OCI config 后再次核验，版本和源码 SHA 一致。
+合并后的 [正式发布流程 38207757130](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38207757130) 全部成功：amd64 构建及候选运行测试、原生 arm64 对同一候选摘要运行测试、不可覆盖标签推广和自动 Release 创建。当时正式 Release 为非草稿、非预发行，源码仍可通过 [v0.69.0-02 Git tag](https://github.com/Gott-mit-Uns/token-monitor-nas/tree/v0.69.0-02) 查询；发布流程上传并读回 `release-manifest.json`。独立匿名下载清单及 GHCR index、架构 manifest 和 OCI config 后再次核验，版本和源码 SHA 一致。
 
 | 对象 | 已核验摘要 |
 | --- | --- |
@@ -66,6 +68,6 @@ Python 控制程序测试 36 项通过，覆盖阶段顺序、Hub 失败阻止 A
 
 ## v0.70 candidate continuation — 2026-10-14
 
-New native per-source exercises and frozen-data comparisons are required for v0.70.0-01; see [UPGRADE_0.70.md](UPGRADE_0.70.md). Earlier v0.69 test runs are historical evidence, not acceptance of this candidate. No production controller installation, permission change, deployment or production rollback rehearsal is included in the source upgrade. CI sandbox receipts remain invalid for production.
+New native per-source exercises and frozen-data comparisons are required for v0.70.0-01; see [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md). Earlier v0.69 test runs are historical evidence, not acceptance of this candidate. No production controller installation, permission change, deployment or production rollback rehearsal is included in the source upgrade. CI sandbox receipts remain invalid for production.
 
 本轮 [38476097653](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38476097653) 四组合演练、[38476097610](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38476097610) 完整原生回归及 [38477243551](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38477243551) 正式发布已全部通过；结果和固定摘要已独立读回。生产未部署，DH4300Plus核查由所有者要求稍后进行。
