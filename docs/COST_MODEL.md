@@ -1,6 +1,6 @@
 # 当前费用口径
 
-适用：上游 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`，NAS v0.73.0-01；核对基线 `caa51169`。检查时间：2026-10-17（Asia/Shanghai）。来源：既有 COST_VALIDATION_0.71/0.72、上游差异审计，以及 [usage.js](../app/src/shared/usage.js)、[collector](../app/src/shared/collector.js)、[自定价映射](../app/src/shared/tokscaleCustomPricing.js)。本次解释既有规则，不修改计算或宣称真实账单验收。
+适用：上游 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`，NAS v0.73.0-01；NAS 起点 `e99661a9`。检查时间：2026-10-18（Asia/Shanghai）。来源：既有费用验收、官方 v0.72→v0.73 差异及固定 parser 合成回归，以及 [usage.js](../app/src/shared/usage.js)、[collector](../app/src/shared/collector.js)、[自定价映射](../app/src/shared/tokscaleCustomPricing.js)。费用公式沿用既有规则；会话观察值纠正与日期分配需独立验证，不宣称真实账单验收。
 
 ## 数据、币种与单位
 
