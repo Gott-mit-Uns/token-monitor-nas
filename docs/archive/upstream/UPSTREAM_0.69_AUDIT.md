@@ -226,4 +226,4 @@ NAS 不是完整桌面 fork。核心源码放在 `app/src/shared`、`app/src/age
 
 核对：参考 22 项，选择合入 11 项，排除 53 项，引入 55 项；合计 141 项。
 
-最终原生验收：CI [38195738924](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38195738924)，源码提交 `acdad0e7d1e368a515bc67aad94e5ac0e500d421`，两架构各 992 项/990 通过/0 失败/2 个 Windows 原生平台跳过，各 15 项固定数据性能门禁通过。完整数值和限制见 [UPGRADE_0.69.md](UPGRADE_0.69.md)；不代表生产 NAS 或真实 Windows 公网验收。
+最终原生验收：CI [38195738924](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38195738924)，源码提交 `acdad0e7d1e368a515bc67aad94e5ac0e500d421`，两架构各 992 项/990 通过/0 失败/2 个 Windows 原生平台跳过，各 15 项固定数据性能门禁通过。完整数值和限制见 [UPGRADE_0.69.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/caa511690e827db518c401b54bf663b4132e04e2/UPGRADE_0.69.md)；不代表生产 NAS 或真实 Windows 公网验收。

@@ -28,7 +28,7 @@ NAS 本地固定安装经过审阅的 Python 标准库控制程序，每次主�
 
 `.env`、原 Compose、设备 ID、挂载、安全限制及状态目录保留在各自 NAS。控制程序生成仅覆盖镜像的私有 Compose override，验证合并后的有效配置除镜像外完全一致；后续受控重建必须继续使用该 override，不能单独对原 Compose 执行 pull/up 而绕过版本固定。普通容器 restart 不改变镜像。
 
-DH4300Plus 当前 Compose 和状态目录存在组/其他用户可写权限，控制程序会拒绝接入。获得授权后应核对 ACL 和实际业务访问，再收紧权限；不能直接递归 chmod 整个 Hermes 或更换设备数据所有者。DXP4800 的配置和状态权限已符合只读审查预期，但控制程序与回报凭据尚未安装。
+2026-10-12 的旧审查曾发现 DH4300Plus Compose 和状态目录存在组/其他用户可写权限；现状未重新核实，若仍存在，控制程序会拒绝接入。获得授权后应核对 ACL 和实际业务访问，再收紧权限；不能直接递归 chmod 整个 Hermes 或更换设备数据所有者。DXP4800 的配置和状态权限已符合只读审查预期，但控制程序与回报凭据尚未安装。
 
 ## 部署顺序及失败边界
 
@@ -72,11 +72,13 @@ Agent 在状态目录内的私有 `agent-sync-credentials.json` 保存旧目标�
 
 恢复不是仅换镜像：先停服务，将失败后的状态改名保留，再还原完整停机状态、原 Compose 和 `.env`，使用已经保留的旧镜像 ID 依次启动 Hub/Agent，重新验证旧镜像身份、数据库、历史、独立 Watcher、采集及上传。回滚验证失败则停止并要求人工处理。任何路径都不删除镜像、历史或失败现场。
 
+恢复涉及 Windows 接入路径时，恢复已保存的 Hub 地址和独立 Adapter 配置，避免空客户端覆盖远端共享设置。Hub 启动可规范化空字符串标题，比较解析后的语义，不能用 JSON 字节序列变化推断用量或已授权非空标题丢失；非空标题、计数和历史保护仍必须核对。
+
 隔离演练凭据绑定隔离项目路径，不能直接拿 CI 的 `/tmp` 凭据用于生产。生产自动回滚仍须经过额外授权的本地演练和审阅；首次接入默认不配置 `rollbackReceiptFile`。当前 CLI 不提供跳过验证或手工制造有效凭据的捷径。
 
 ## 首次接入步骤（尚未执行）
 
-1. 审阅并合并本 PR，通过发布工作流产生新版本和不可变清单。旧 `v0.69.0-01` 没有新清单，因此不能被这个新流程自动批准，原手动回退资料继续保留。
+1. 审阅拟安装的具体控制程序版本及其支持的仓库清单格式。仅选择已有完整仓库发布记录、固定镜像和迁移政策且来源已验收的目标；不要从旧文档推断来源资格，原手动回退资料继续保留。
 2. 获取所有者对每台 NAS 接入、所需权限调整和部署的明确授权。特别确认 DH4300Plus 路径/ACL、既有调度或第三方镜像更新任务。停止任何会绕过受控流程自动重建这些服务的更新任务须单独列入授权范围。
 3. 将经过审阅的 `deployment/nas_pull.py` 和 `verify-state.js` 固定安装到 NAS root 控制的目录。不要从请求或 latest 自动下载并执行控制程序。使用本机 Python 3.9+、现有 Docker Compose v2，不连接外网 Docker API。
 4. 分别从 `deployment/DXP4800.example.json`、`DH4300Plus.example.json` 创建私有配置，核实实际路径、设备 ID和服务。配置和本地 GitHub 状态回报凭据 root 所有且 0600，控制目录 0700。凭据只授予此仓库 Deployments 写权限，首次保存通过私有安全渠道，禁止写在命令行、Compose、Git、Actions 日志或本报告中。
@@ -102,7 +104,7 @@ gh api --silent --method POST repos/Gott-mit-Uns/token-monitor-nas/deployments/D
 
 `Validate controlled deployment` 在原生 amd64 和 arm64 运行发布/请求逻辑测试、控制器失败路径测试，并使用真实 Docker、旧版镜像、新版候选镜像、合成 Hermes SQLite 和独立临时 Compose 演练分阶段升级和全状态回滚。PR 候选镜像不发布，GitHub/Registry 写操作用合成 API 验证；Docker 演练不包含生产 NAS 数据或权限。
 
-完整当前报告见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。仓库发布记录提供版本/源 SHA/摘要清单及升级/回退说明；生产结果可在仓库 Deployments 和 NAS 本地私有 `deployment-<id>.json` 查验。公网 Windows UI、24 小时持续运行及生产恢复演练需另行验收。
+完整当前报告见 [当前验收](docs/VALIDATION.md)。仓库发布记录提供版本/源 SHA/摘要清单及升级/回退说明；生产结果可在仓库 Deployments 和 NAS 本地私有 `deployment-<id>.json` 查验。公网 Windows UI、24 小时持续运行及生产恢复演练需另行验收。
 
 
 ## 从 Release 清单迁移

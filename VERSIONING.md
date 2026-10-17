@@ -1,33 +1,15 @@
 # NAS 版本规则
 
-今后只发布 Git tag 与多架构镜像，不创建 NAS GitHub Release。版本清单及升级/回退说明写入仓库发布记录，原始测试日志与报告留在 CI；历史 Release 和固定产物保留。新发布须有匹配源码的版本 tag、完整仓库记录、固定镜像及两架构 OCI 核验，不能仅凭 tag 存在认定成功。细节见 [NAS_PUBLICATION.md](NAS_PUBLICATION.md)。本次只改发布流程，不增加 NAS 版本、不重建当前镜像。
+适用：现有 NAS tag＋镜像＋仓库发布记录方式；核对时间2026-10-17，基线 `caa51169`。发布状态见 [HANDOFF](docs/HANDOFF.md)，本文件不维护版本流水。
 
-最新已正式发布的名称修复修订为 `v0.72.0-02`，上游仍固定 v0.72.0；source/tag/OCI/manifest 绑定 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，固定镜像与 latest 已经双架构原生验收并核验同一 index。所有者自行更新 NAS 容器，本任务未部署或验收生产。实际行为与可选合同见 [HUB_DISPLAY_NAME.md](HUB_DISPLAY_NAME.md)，发布清单与生产验收分开核实，见 [本修订交接](HANDOFF_0.72.0-02.md)。下述 v0.72.0-01 是不可改写的前版发布记录。
+NAS 镜像与 Git tag 同号：`v<官方版本>-<两位 NAS 修订号>`。
 
-历史 `v0.72.0-01` 已正式发布，固定官方 v0.72.0，源码/tag/OCI/manifest均绑定 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`；新官方版本按规则从 -01 起，旧固定标签保持不变。后补发布文档不重建或改写此固定版。代码、原生测试、镜像摘要与生产状态见 [HANDOFF_0.72.md](HANDOFF_0.72.md)。本轮没有生产部署，部署仍需要所有者另行确认。
+- 官方基础取 `app/package.json` 的完整三段数字版本；每次新官方基础从修订01起，例如官方0.63.1→NAS v0.63.1-01。
+- 官方基础不变、运行时/封装补丁变化时修订递增；普通纯文档后补不重建镜像、不增加修订。固定 tag、镜像、manifest 和旧 Release 不覆盖、不改写。
+- `nas-version.txt` 是 NAS 发布号唯一输入；Dockerfile 默认构建号一致，app/package 保留官方版本；上游锁定文件维持准确来源。
+- 固定镜像、OCI version、Git tag 和仓库 manifest 版本完全一致；Agent上报省略v，客户端自行显示前缀。latest只能指向通过原生双架构验收并完整记录的镜像，不能充当来源身份。
+- 本仓库现行不创建 NAS GitHub Release；历史 Release 保留。新发布要求明确版本 tag、固定镜像、源码政策/两平台OCI及仓库三份记录共同核验，通过后才推广latest，详见 [发布规范](NAS_PUBLICATION.md)。失败沿用已核验同一digest恢复，不能重建不同摘要覆盖固定版。
+- 每次升级记录官方 tag/SHA、NAS补丁、迁移/恢复约束；执行 `node scripts/check-nas-version.js`、适用NAS测试，compatibleFrom每个来源都需两架构冻结/完整恢复的实际证据。不能照抄历史名单。
+- 早期0.54.1等旧标签保留回退用途，不恢复旧编号。Windows Adapter在独立仓库维护adapter-v*，不得用于NAS镜像。
 
-历史修订 `v0.71.0-02` 已正式发布：固定官方 0.71.0，不变更 schema 或计费规则。修复 Agent 归档失败仍可能上报的入口；Git Tag/OCI/manifest绑定 `9a06b658e75d96285ac98847ef5e6e67299a4085`，最终发布与生产状态分别见 [本修订交接](HANDOFF_0.71.0-02.md)。`v0.71.0-01` 镜像、标签与 Release 保持不可变。后补维护文档不重建或改写固定镜像。
-
-NAS 镜像与 Git tag 使用同一个版本号：`v<官方版本>-<两位 NAS 修订号>`。
-
-- 官方基础版本取自 `app/package.json`，必须是完整的三段数字版本，例如 `0.63.1`。
-- 每次引入一个新的官方版本，NAS 修订号从 `01` 开始：官方 `v0.63.1` → NAS `v0.63.1-01`；以后官方 `v0.64.1` → NAS `v0.64.1-01`。
-- 官方基础不变、仅修改 NAS 封装或补丁时，修订号依次增加：`v0.63.1-02`、`v0.63.1-03`。不可覆盖已发布的固定镜像标签或 Release。
-- `nas-version.txt` 是 NAS 发布号的唯一输入；`app/package.json` 保留官方源码版本。Dockerfile 默认构建号必须与 `nas-version.txt` 一致。
-- Docker 固定镜像标签、OCI 版本标签、Git tag 和仓库清单版本必须完全一致。Hub 上报的 NAS Agent 版本省略开头的 `v`，例如 `0.67.0-01`，桌面端会添加显示前缀。`latest` 只指向最近通过双架构测试的镜像。
-- 每次更新同时记录官方 tag 与提交 SHA、NAS 补丁和迁移说明，运行 `node scripts/check-nas-version.js` 与 NAS 测试，再发布。
-- 早期 `0.54.1` 等旧标签是历史版本，保留回退用途，不沿用其编号规则。
-
-源码升级时保留 NAS 专用 Docker、健康检查、超时、去重、权限和持久化边界；先在状态副本上验证归档迁移。GitHub 发布不会自动更新 NAS 容器。
-
-Windows Adapter 使用独立仓库 `Gott-mit-Uns/token-monitor-adapter` 与 `adapter-v<版本>`。不要在本仓库提交 Adapter 源码或发布 Adapter EXE，也不要把 Adapter 的版本号用于 NAS 镜像。
-
-历史已发布版本 `v0.69.0-02`，固定标签、Release 和 latest 已由双架构验收后的现有发布流程创建。后续仅文档更新不重建或覆盖这一固定版本；运行时代码变化须增加 NAS 修订号。PR 原生验证不发布镜像或改写已有标签。
-
-`v0.69.0-02` 已正式发布自动 Release 与受控部署能力，源码提交为 `ec79dc7bff697ed5568b013578a8ec8d6261e67e`；生产接入和部署未执行。Release manifest 将版本、固定总/子摘要、OCI版本/源码 SHA、Git Tag 和来源迁移政策绑定。发布失败可恢复草稿，但不覆盖已有固定 Tag或清单。生产部署请求只能选择正式发布且有清单的版本，不将源码分支或 latest作为部署目标。
-
-历史版本为 `v0.70.0-01`，官方 SHA 和实际验收记录见 `upstream-lock.json` / `UPGRADE_0.70.md`。创建候选时已核实该 Tag/Release 未占用。发布仍须最终源码原生双架构验收及固定 digest 推广；正式发布已经原生双架构验证，source `02413928fef06abc99e181f253228e549fb4582f`。`compatibleFrom` 的 v0.69.0-01 与 v0.69.0-02 必须分别完成两架构的冻结数据及完整状态恢复演练，本轮两来源、两架构冻结/完整恢复全部通过；后续未通过的来源应删除，不能照抄旧政策。
-
-历史候选创建记录 v0.71.0-01：2026-10-15 起始实时核验Tag未占用。正式发布须同一最终源码的原生双架构Docker与所有声明来源的冻结/恢复验收。新增NAS构建身份对应实际源闭包，不能只改package版本或复制官方注册值。发布结果与生产部署结果分别记录在 HANDOFF_0.71.md。
-
-后续完成：v0.71.0-01已正式发布，source/tag/OCI/manifest绑定e92d9add64efbb9985fb482880d9d95734354183，固定index与latest一致，旧固定标签不改写。三来源×两架构冻结/完整恢复全部通过，compatibleFrom按实际证据保留。DXP4800已升级并验收，DH4300Plus SSH阻塞。上述“候选”句是编号创建历史；文档后补不改变镜像源码或增加修订号，不重建/覆盖本固定版。
+保持只读挂载、设备身份、持久化、超时、去重和权限边界；状态副本先验迁移与恢复。发布、审批请求、NAS实际部署是三个独立阶段；仅推送main不发布镜像，发布成功不自动更新容器。

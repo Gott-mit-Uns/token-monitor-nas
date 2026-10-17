@@ -60,6 +60,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          retention-days: 30
           name: synthetic-performance-${{ matrix.arch }}
           path: /tmp/token-monitor-performance/*.json
           if-no-files-found: warn
