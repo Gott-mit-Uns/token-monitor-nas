@@ -64,4 +64,4 @@ Notion headless 读取已有私有环境中的 `TOKEN_MONITOR_NOTION_COOKIE`、`
 
 其他客户端同样需显式 `TOKEN_MONITOR_CLIENTS` 选择及与固定扫描器一致的最小只读挂载；其他额度来源需 `TOKEN_MONITOR_LIMITS_ENABLED=1`、明确 provider 白名单和已支持的 headless 配置。没有实际来源或有效认证时，不把模块注册、健康进程存在或 fixture 通过视为已完成采集。
 
-WorkBuddy 多账户、桌面官方浏览器登录与刷新凭据持久化不在本轮范围；不导入桌面凭据。Pi/CodeBuddy 的共享明细解析代码存在，不代表 Hub 已提供远端聊天正文/逐轮接口。`TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED` 仅控制逐会话统计条目的上传；`TOKEN_MONITOR_SYNC_SESSION_TITLES` 单独控制标题，关闭与迁移须遵循 [标题清理步骤](DEPLOYMENT.md#标题关闭迁移与卸载)。
+WorkBuddy 多账户、桌面官方浏览器登录与刷新凭据持久化不在本轮范围；不导入桌面凭据。Pi/CodeBuddy 的共享明细解析代码存在，不代表 Hub 已提供远端聊天正文/逐轮接口。`TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED` 仅控制逐会话统计条目的上传；`TOKEN_MONITOR_SYNC_SESSION_TITLES` 单独控制标题，关闭与迁移须遵循 [标题清理步骤](DEPLOYMENT.md#身份迁移与标题撤销)。
