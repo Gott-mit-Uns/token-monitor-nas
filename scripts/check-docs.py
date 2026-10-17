@@ -92,7 +92,7 @@ def policy_errors(root, added, changed, body='', readme_authorization='', readme
     for name in added:
         if fixture(name) or PUBLICATION.fullmatch(name):
             continue
-        if name.startswith('docs/archive/upstream/'):
+        if name.startswith('docs/archive/') and name != 'docs/archive/README.md':
             digest = hashlib.sha256((root / name).read_bytes()).hexdigest()
             if INITIAL_ARCHIVE.get(name) != digest:
                 errors.append(f'{name}: archive is closed; review a specific policy change first')
@@ -123,7 +123,7 @@ def main():
     git('rev-parse', '--verify', args.base + '^{commit}')
     tracked = git('ls-files', '-z').split('\0')
     tracked = [p for p in tracked if p and (ROOT / p).exists()]
-    added = git('diff', '--name-only', '--diff-filter=A', args.base, '--').splitlines()
+    added = git('diff', '--no-renames', '--name-only', '--diff-filter=A', args.base, '--').splitlines()
     changed = git('diff', '--name-only', args.base, '--').splitlines()
     body = metadata(os.environ.get('GITHUB_EVENT_PATH'))
     # Commit trailers keep the evidence available after merge and on push CI.

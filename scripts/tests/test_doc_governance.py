@@ -47,9 +47,9 @@ class GovernanceTests(unittest.TestCase):
         self.assertTrue(docs.policy_errors(self.root, ['publications/v0.99.0-01/HANDOFF_0.99.md'], []))
 
     def test_archive_additions_require_a_specific_policy_review(self):
-        name = 'docs/archive/upstream/UPSTREAM_0.99_AUDIT.md'
-        self.file(name, 'new process')
-        self.assertTrue(docs.policy_errors(self.root, [name], []))
+        for name in ['docs/archive/upstream/UPSTREAM_0.99_AUDIT.md', 'docs/archive/temporary-report.md']:
+            self.file(name, 'new process')
+            self.assertTrue(docs.policy_errors(self.root, [name], []))
 
     def test_readme_metadata_presence_does_not_imply_true_authorization(self):
         self.assertTrue(docs.policy_errors(self.root, [], ['README.md']))
