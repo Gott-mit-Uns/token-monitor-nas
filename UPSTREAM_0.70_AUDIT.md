@@ -9,11 +9,11 @@
 | 上一官方基线 | `v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`，原 `upstream-lock.json` |
 | 目标官方基线 | `v0.70.0` / `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`；annotated tag peeled commit 已核对，不误用 tag object `0d104c0b59c5739e4020eeb86bbc029b0b095345` |
 | NAS 当前源码起点 | `9d23bed717ded9e850b2035ec55a511aaec9082c`，后于现有正式运行源码的 README 整理提交 |
-| 现有正式发布记录 | `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`；本地 tag、`VERSIONING.md` 和 `DEPLOYMENT_VALIDATION.md` 相符。发布平台的实时核验以本轮主报告为准 |
+| 现有正式发布记录 | `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`；本地 tag、`VERSIONING.md` 和 `VALIDATION.md` 相符。发布平台的实时核验以本轮主报告为准 |
 | 独立工作区 | `work/token-monitor-nas-070` / `upgrade/upstream-v0.70.0`；审计开始该隔离工作区无未提交修改 |
 | 候选发布号 | `v0.70.0-01`，正式使用前仍须确认远端 tag/Release/固定镜像未占用 |
 
-已阅读 `AGENTS.md`、`README.md`、`UPSTREAM.md`、`SECURITY.md`、旧 `upstream-lock.json`、`NAS_PATCHES.md`、`VERSIONING.md`、`UPGRADE_0.69.md`、`DEPLOYMENT_VALIDATION.md` 和 `UPSTREAM_0.69_AUDIT.md`。`UPSTREAM.md` 历史章节和 `UPGRADE_0.69.md` 标题较旧，不能据标题判断最新正式版本。`DEPLOYMENT_VALIDATION.md` 的正式 v0.69.0-02 记录是旧发布证据，不是本次 0.70 测试或 NAS 接入证明。生产角色/权限和控制器必须重新只读核查。
+已阅读 `AGENTS.md`、`README.md`、`UPSTREAM.md`、`SECURITY.md`、旧 `upstream-lock.json`、`NAS_PATCHES.md`、`VERSIONING.md`、`UPGRADE_0.69.md`、`VALIDATION.md` 和 `UPSTREAM_0.69_AUDIT.md`。`UPSTREAM.md` 历史章节和 `UPGRADE_0.69.md` 标题较旧，不能据标题判断最新正式版本。`VALIDATION.md` 的正式 v0.69.0-02 记录是旧发布证据，不是本次 0.70 测试或 NAS 接入证明。生产角色/权限和控制器必须重新只读核查。
 
 三方审阅使用：旧官方 v0.69 commit → 目标官方 v0.70 commit；旧官方 v0.69 `src/*` → NAS 起点 `app/src/*` 的已有补丁；最后检查新官方变化与 NAS 补丁交叉。官方两提交净差为 **116 个文件**，其中共享运行源码 29 个；`src/agent`、`src/hub` 本次上游净差均为零。Hub 与 Agent 从同一 `app/src/shared` 装载，不能给它们各自选择不同 Tokscale/history 基线。无需上游整个目录覆盖，也不从 Worker 副本移植 Node Hub。
 
@@ -193,6 +193,6 @@ NAS 已有 `iterateSessionRows`、full-load 暂存及异常 cursor cleanup；上
 
 ## 当前证据限制
 
-本地本轮 NAS suite 共1296项：1285通过、0失败、11跳过（5项桌面断言、1项Windows roots、3项仅Linux本机行为、2项Windows PID行为）；SQLite store专项42/42通过。跳过不能算通过，本地结果不替代原生amd64/arm64、冻结双版本Docker或生产验证；最终提交的完整结果以 [UPGRADE_0.70.md](UPGRADE_0.70.md)、[VALIDATION.md](VALIDATION.md) 及CI artifact为准。StepFun候选的续期持久化失败日志已使用固定文本，不输出异常message可能携带的敏感值。
+本地本轮 NAS suite 共1296项：1285通过、0失败、11跳过（5项桌面断言、1项Windows roots、3项仅Linux本机行为、2项Windows PID行为）；SQLite store专项42/42通过。跳过不能算通过，本地结果不替代原生amd64/arm64、冻结双版本Docker或生产验证；最终提交的完整结果以 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md)、[VALIDATION.md](VALIDATION.md) 及CI artifact为准。StepFun候选的续期持久化失败日志已使用固定文本，不输出异常message可能携带的敏感值。
 
 本审计子任务未执行生产NAS登录、容器变更、外部账户访问、Git提交或镜像发布。主任务本轮只读核验DXP4800仍为v0.69.0-01，Hub+Agent健康，未检测到控制器；DH4300Plus SSH拒绝，真实角色/权限未核实。来源实际镜像摘要、完整部署配置和挂载身份应以主任务私有只读记录为准，不在公开仓库记录生产私有路径。原生CI、正式发布和生产部署当前pending。发布后必须先生成本轮部署报告并等待所有者明确确认，然后才可备份和依次升级。

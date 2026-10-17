@@ -2,7 +2,7 @@
 
 ## 已发布 v0.72.0-02：Hub 显示名称
 
-正式 v0.72.0-02 增加可选 `TOKEN_MONITOR_HUB_DISPLAY_NAME`，仅通过鉴权 `/api/stats` 和普通/Windows SSE 完整快照返回 `hub.displayName`。不修改 Agent 身份、计费、持久化、同步来源、公开 health 或生产配置。旧客户端可忽略新增字段，旧 Hub 缺字段仍兼容。实际 Node 运行时 revision 8 按源码重新生成，shared core revision 84 不变。PR #11 已合并，正式 source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`；双架构镜像与 Release 已发布，固定摘要见 [交接记录](HANDOFF_0.72.0-02.md)。所有者自行更新容器，本任务未部署或验收生产 NAS。
+正式 v0.72.0-02 增加可选 `TOKEN_MONITOR_HUB_DISPLAY_NAME`，仅通过鉴权 `/api/stats` 和普通/Windows SSE 完整快照返回 `hub.displayName`。不修改 Agent 身份、计费、持久化、同步来源、公开 health 或生产配置。旧客户端可忽略新增字段，旧 Hub 缺字段仍兼容。实际 Node 运行时 revision 8 按源码重新生成，shared core revision 84 不变。PR #11 已合并，正式 source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`；双架构镜像已发布，旧Release页面已清理，固定摘要见 [交接记录](HANDOFF.md)。所有者自行更新容器，本任务未部署或验收生产 NAS。
 
 在本版保留下面 NAS-01～18 全部补丁。以下版本叙述是历史记录，不是当前发布状态。
 
@@ -14,11 +14,11 @@
 
 新增 NAS-18：`app/src/hub/ingressOrdering.js` 与 server.js 接入。独立比较已知 usage/limits producer 时间，迟到旧快照不覆盖新用量/历史，额度单独上报保留完整历史与采集时间；重复上传不累加，重启继续使用持久化时间。无时间戳的旧客户端延续旧到达顺序，不能保证其乱序。保留标题撤销隐私 gate、持久化失败回滚；不引入计数/费用只增不减规则，不改变共享跨平台 core。`ingressOrdering.test.js` 验证迟到、重试、重复、重启、独立时钟、limits-only、合法降费和日界。
 
-Cursor/OpenCode 三个 provider 与旧官方相同，无 NAS 冲突，按正式 tag 原样更新；不启用新源/额度/账户。Watcher 默认隔离、五分钟采集、60 秒防抖、Hermes 只读、512MiB、Windows 10/30 分钟 SSE 均保留。发布与生产状态见 [本轮交接](HANDOFF_0.72.md)，以下为历史。
+Cursor/OpenCode 三个 provider 与旧官方相同，无 NAS 冲突，按正式 tag 原样更新；不启用新源/额度/账户。Watcher 默认隔离、五分钟采集、60 秒防抖、Hermes 只读、512MiB、Windows 10/30 分钟 SSE 均保留。发布与生产状态见 [本轮交接](HANDOFF.md)，以下为历史。
 
 NAS-18 的顺序时间必须有可信 Hub 接收时间，producer 最多超前5分钟；未来/缺失/异常时间不作为持久顺序水位，避免时钟纠正后永久拒绝统计。首份额度在完整用量之前保留 `limitsOnly` 标记且不建立用量时钟，标记可跨Hub重启；完整用量接受后清除。上述时间不可比较时保留旧到达顺序语义，不保证该异常区间的乱序。
 
-历史已发布修订 `v0.71.0-02`，官方固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c` 不变。新增 NAS-01 入口保护：Agent archive store、capture、dry-run snapshot 均启用 strict；capture 失败在替换 archive、更新 DeviceState、采集健康及投递之前退出，limits-only 继续携带上次完整用量。入口级证据见 `app/tests/agent/archivePublication.test.js`；原生双架构及8组冻结恢复通过，DXP4800已升级并验收，DH4300Plus SSH阻塞。发布和部署结果见 [本修订交接](HANDOFF_0.71.0-02.md)。以下起点和版本叙述为历史。
+历史已发布修订 `v0.71.0-02`，官方固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c` 不变。新增 NAS-01 入口保护：Agent archive store、capture、dry-run snapshot 均启用 strict；capture 失败在替换 archive、更新 DeviceState、采集健康及投递之前退出，limits-only 继续携带上次完整用量。入口级证据见 `app/tests/agent/archivePublication.test.js`；原生双架构及8组冻结恢复通过，DXP4800已升级并验收，DH4300Plus SSH阻塞。发布和部署结果见 [本修订交接](HANDOFF.md)。以下起点和版本叙述为历史。
 
 官方目标基线：`v0.70.0` / `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。已发布 NAS 版本：`v0.70.0-01`。接管起点为正式 `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`，旧官方基线 `v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`。
 
@@ -53,7 +53,7 @@ NAS-18 的顺序时间必须有可信 Hub 接收时间，producer 最多超前5�
 - Hermes `history.js` disjoint reasoning 与新版固定 parser 配套；Token 不因 reasoning cost 修正而减少。
 - Codex 压缩读取与会话详情仅共享模块，plain/zst 同 ID 不重复；provider 更新只访问合成 fixtures 或显式启用的配置。
 - StepFun 续期回调异常只打印固定文本，避免异常 message 泄露凭据；失败、超时和取消测试保留。
-- 新共享测试加入实际 `test-nas.js` 执行清单，桌面 UI/Worker 断言明确排除。测试范围以 [UPGRADE_0.70.md](UPGRADE_0.70.md) 当前证据为准。
+- 新共享测试加入实际 `test-nas.js` 执行清单，桌面 UI/Worker 断言明确排除。测试范围以 [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md) 当前证据为准。
 
 ## 历史 v0.69 三方合并重点
 
@@ -87,4 +87,4 @@ Goose DB/WAL事件与SHM自循环过滤纳入轻量watcherPolicy，独立Watcher
 
 NAS自有core/node adapter与官方不同，不能复制上游最新注册hash冒充一致。app/scripts/nas-hub-build.js从实际portable共享依赖和完整Node本地依赖闭包（含NAS Hub helper与日历、package/lock）计算SHA-256，排除注册表避免自引用；继承上游历史后只追加本次NAS core/node记录。旧客户端遇到未知构建应保持unknown提示，不伪装current。本仓库不分发或部署Worker副本，不为不存在的Worker生成新身份。
 
-v0.71额外NAS严格publication保护：坏SQLite单row JSON、无效session及legacy row在读取/迁移/增量capture前拒绝，错误不覆盖完整设备数据、不提交半成品、不提前推进revision；合法prune tombstone及非严格历史读取行为保留。上游与NAS测试均执行。生产费用保护不放宽，仅保存私有旧/新冻结证据、补齐稳定会话日期与periodWindows；跨0.70使用已审阅手动方案与独立含reasoning原生演练。正式发布和真实DXP部署验收、DH访问阻塞见HANDOFF_0.71.md。
+v0.71额外NAS严格publication保护：坏SQLite单row JSON、无效session及legacy row在读取/迁移/增量capture前拒绝，错误不覆盖完整设备数据、不提交半成品、不提前推进revision；合法prune tombstone及非严格历史读取行为保留。上游与NAS测试均执行。生产费用保护不放宽，仅保存私有旧/新冻结证据、补齐稳定会话日期与periodWindows；跨0.70使用已审阅手动方案与独立含reasoning原生演练。正式发布和真实DXP部署验收、DH访问阻塞见HANDOFF.md。

@@ -49,7 +49,7 @@ function fixture(options = {}) {
   const ensure = (override = {}) => ensureNasPublication({ version, sourceCommit, imageDigest, policy, readSource, inspect, api, log: () => {}, ...override });
   return { ensure, inspect, api, calls, mutations, get head() { return head; }, get files() { return files; }, set files(value) { files = value; } };
 }
-test('records all files atomically without creating a Release or changing the version tag', async () => {
+test('records the canonical manifest atomically without creating a Release or changing the version tag', async () => {
   const f = fixture();
   const result = await f.ensure();
   assert.equal(result.manifest.sourceCommit, sourceCommit);
@@ -86,8 +86,8 @@ test('missing or moved Git tags, OCI mismatch and invalid policy prevent reposit
   await assert.rejects(() => f.ensure({ policy: { ...policy, compatibleFrom: [] } }), /differs from source/);
   assert.equal(f.mutations.length, 0);
 });
-test('an existing manifest or either guidance document cannot be overwritten', async () => {
-  for (const name of ['manifest.json', 'UPGRADE.md', 'ROLLBACK.md']) {
+test('an existing version manifest cannot be overwritten', async () => {
+  for (const name of ['manifest.json']) {
     const f = fixture(); await f.ensure(); const count = f.mutations.length;
     f.files[`publications/${version}/${name}`] = '{}';
     await assert.rejects(f.ensure, /refusing to overwrite/);
@@ -98,8 +98,8 @@ test('partial publication record and absent future publication fail closed witho
   const f = fixture();
   await assert.rejects(() => readVerifiedPublication({ version, api: f.api, inspect: f.inspect }), /complete repository/);
   assert.ok(!f.calls.some(x => x[1] === 'git/ref/heads/main'));
-  await f.ensure(); delete f.files[`publications/${version}/ROLLBACK.md`];
-  await assert.rejects(() => readVerifiedPublication({ version, api: f.api, inspect: f.inspect }), /repository publication file/);
+  await f.ensure(); delete f.files[`publications/${version}/manifest.json`];
+  await assert.rejects(() => readVerifiedPublication({ version, api: f.api, inspect: f.inspect }), /complete repository/);
 });
 test('reader validates tagged source policy and moved tag after publication', async () => {
   const f = fixture(); await f.ensure();
@@ -125,18 +125,19 @@ test('each architecture must have exactly one valid platform entry and matching 
     const data = f.inspect(ref, field); if (field === 'Image') data.architecture = 'other'; return data;
   }]) assert.throws(() => createManifest({ version, sourceCommit, imageDigest, policy, inspect }));
 });
-test('all six legacy repository imports preserve canonical manifest and bound guidance', () => {
+test('all six legacy repository imports preserve canonical manifest without duplicated guidance', () => {
   for (const v of LEGACY_VERSIONS) {
     const folder = path.join(__dirname, '../../publications', v);
     const bytes = fs.readFileSync(path.join(folder, 'manifest.json'), 'utf8');
     const manifest = JSON.parse(bytes); assert.equal(manifest.version, v);
     const files = publicationFiles(manifest);
     for (const [name, expected] of Object.entries(files)) assert.equal(fs.readFileSync(path.join(folder, name), 'utf8'), expected);
+    for (const name of ['UPGRADE.md', 'ROLLBACK.md']) assert.equal(fs.existsSync(path.join(folder, name)), false);
   }
 });
 test('legacy records are read from main at a pinned commit without Release API access', async () => {
   const v = 'v0.72.0-02', files = {};
-  for (const name of ['manifest.json', 'UPGRADE.md', 'ROLLBACK.md']) files[name] = fs.readFileSync(path.join(__dirname, '../../publications', v, name), 'utf8');
+  for (const name of ['manifest.json']) files[name] = fs.readFileSync(path.join(__dirname, '../../publications', v, name), 'utf8');
   const manifest = JSON.parse(files['manifest.json']); const head = 'f'.repeat(40);
   const api = async (method, endpoint) => {
     assert.equal(method, 'GET'); assert.ok(!endpoint.startsWith('releases'));
@@ -162,7 +163,7 @@ test('a conflicting version added between initial lookup and commit preparation 
   const api = async (method, endpoint, args) => {
     if (endpoint === 'git/ref/heads/nas-publications' && ++reads === 2) {
       const manifest = createManifest({ version, sourceCommit, imageDigest, policy, inspect: f.inspect });
-      const files = publicationFiles(manifest); files['ROLLBACK.md'] = 'Conflicting concurrent publication';
+      const files = publicationFiles(manifest); files['manifest.json'] = 'Conflicting concurrent publication';
       for (const [name, value] of Object.entries(files)) f.files[`publications/${version}/${name}`] = value;
     }
     return f.api(method, endpoint, args);

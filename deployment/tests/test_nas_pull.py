@@ -472,8 +472,6 @@ class RepositoryDiscoveryTest(unittest.TestCase):
         commit = req.get('publicationCommit', 'e' * 40)
         documents = {
             folder + 'manifest.json': file(req['manifest']),
-            folder + 'UPGRADE.md': file(req['version'] + req['sourceCommit'] + req['imageDigest']),
-            folder + 'ROLLBACK.md': file(req['version'] + req['sourceCommit'] + req['imageDigest']),
             'nas-version.txt': file(req['version']),
             'deployment/release-policy.json': file({'schemaVersion': 1, 'version': req['version'],
                 'compatibleFrom': req['manifest']['compatibleFrom'], 'migration': req['manifest']['migration']})
@@ -558,7 +556,7 @@ class RepositoryDiscoveryTest(unittest.TestCase):
         with self.assertRaisesRegex(m.Refused, 'source_policy_mismatch'):
             api.discover()
 
-    def test_changed_manifest_or_missing_guidance_is_refused(self):
+    def test_changed_or_missing_manifest_is_refused(self):
         import base64
         api, _, replies = self.github()
         key = next(k for k in replies if 'publications/' in k and 'manifest.json' in k)
@@ -568,7 +566,7 @@ class RepositoryDiscoveryTest(unittest.TestCase):
         with self.assertRaisesRegex(m.Refused, 'publication_manifest_mismatch'):
             api.discover()
         api, _, replies = self.github()
-        key = next(k for k in replies if 'ROLLBACK.md' in k)
+        key = next(k for k in replies if 'publications/' in k and 'manifest.json' in k)
         del replies[key]
         with self.assertRaises(m.Refused):
             api.discover()

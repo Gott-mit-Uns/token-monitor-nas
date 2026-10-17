@@ -207,11 +207,6 @@ class GitHub:
         folder = 'publications/' + req['version'] + '/'
         manifest = self.repository_file(commit, folder + 'manifest.json', json_value=True)
         require(isinstance(manifest, dict), 'publication_file_invalid')
-        # Guidance is part of a complete publication, never executable input.
-        for name in ['UPGRADE.md', 'ROLLBACK.md']:
-            guidance = self.repository_file(commit, folder + name)
-            require(req['version'] in guidance and req['sourceCommit'] in guidance
-                and req['imageDigest'] in guidance, 'publication_guidance_mismatch')
         return manifest
     def report(self, deployment_id, state, code):
         posted = self.request('/deployments/' + str(deployment_id) + '/statuses', {

@@ -1,51 +1,46 @@
-# GitHub 发布与 NAS 受控拉取部署
+# 统一部署与回退
 
-当前发布版本为 v0.72.0-02，所有者自行更新容器，本任务未部署或验收生产 NAS。NAS 今后只发 Git tag 和多架构镜像，不再依赖 GitHub Release。版本清单及升级/回退说明保存在仓库，详见 [发布流程](NAS_PUBLICATION.md) 和 [发布记录](publications/README.md)。
+当前固定版本及生产边界见 [HANDOFF.md](HANDOFF.md)，镜像/代码验收见 [VALIDATION.md](VALIDATION.md)，统计与合法降费的人工复核见 [COST_ACCOUNTING.md](COST_ACCOUNTING.md)。只维护本文，不按版本新增升级/回退说明。
 
-以下控制程序是既有可选设计，当前未在 NAS 安装；本次只调整仓库代码，不部署、不安装程序、不创建凭据。首次安装、权限调整及生产部署仍须单独授权。镜像发布、部署请求、实际部署分别验收。
+所有者目前自行更新NAS容器；本任务不执行生产部署、不安装控制器、不创建凭据。生产操作、权限调整、控制程序安装和现场恢复演练仍须明确授权。发布、部署批准、设备实际升级与业务验收分别记录，CI或容器running不能代替真实业务验证。
 
-## 审查结论与设计
+## 通用前置核对
 
-`Test and publish NAS image` 改为由明确版本 tag 触发；手动重试也必须选择同一个 tag。保留 amd64 和原生 arm64 验证、摘要读回及固定版本保护。先发布/核验固定镜像，将 `manifest.json`、`UPGRADE.md`、`ROLLBACK.md` 原子写入仓库 `nas-publications` 分支的 `publications/<版本>/`，完整读回后才更新 latest。记录与 Git tag、两个 OCI 版本/源码、源码版本和迁移政策必须一致；冲突拒绝覆盖，分支更新失败保持 latest 不变。六个历史版本使用 main 上迁入的原字节清单，不再读取旧 Release API。
+逐台确认当前/目标版本和架构、真实Git tag及源码、固定镜像index/本机子摘要/OCI、仓库manifest、源码迁移政策和已测试来源。manifest中的compatibleFrom必须来自相应原生冻结/恢复验收，不能因镜像可拉取就推断兼容。tag单独存在或latest更新不是完整发布证明；发布过程见 [NAS_PUBLICATION.md](NAS_PUBLICATION.md)。
 
-独立 `Approve controlled NAS deployment` 只接受从 `main` 手动执行 `workflow_dispatch`。按所有者要求，没有额外 GitHub Environment 人工审批；手动选择目标 NAS、当前版本和目标版本并执行，就是批准这一部署请求。推送 main、创建 Git tag、发布镜像或记录、更新 latest 均不会触发 NAS 控制程序部署。请求记录在 GitHub Deployments，task 为 `nas-pull`，环境名称只用于区分两台 NAS，不启用额外环境审批。请求有 24 小时有效期，版本必须递增，不替换未完成请求。
+核对实际设备ID、Hub/Agent角色、配置、只读数据源、目录和权限；模板不能覆盖现有配置。不扩大来源、额度、挂载或权限，不自动停止其他更新任务。维护窗口须涵盖停写、完整备份、冻结比较、分阶段升级及失败恢复。
 
-NAS 本地固定安装经过审阅的 Python 标准库控制程序，每次主动 HTTPS 查询 GitHub，获取已成功执行的指定手动工作流产生的请求。它不接受 GitHub 下发的命令、脚本、路径或 Compose；版本清单只提供校验后的版本、源码 SHA 和镜像摘要。镜像从现有 GHCR 按摘要拉取，无须公网 SSH、Docker API、Webhook 或新的 CI/CD 平台。
-
-## 两台 NAS 的边界
-
-以下是 2026-10-12 只读核实的现有结构。接入时仍须重新核实，不能直接用模板替换生产配置。
+下表仅为2026-10-12历史只读记录，接入前必须重新核实，不代表当前现场；已有设备ID即使不同也原样保留。
 
 | 项目 | DXP4800 | DH4300Plus |
 | --- | --- | --- |
-| 项目目录 | `/volume1/docker/token-monitor-hermes-agent` | `/volume4/docker/token-monitor-nas` |
-| Compose | `docker-compose.yaml` | `docker-compose.yaml` |
-| 本地服务 | `token-monitor-hub`、`token-monitor-nas` | `token-monitor-nas` |
-| 设备 ID | `DXP4800` | `DH4300Plus` |
-| Agent 状态 | 项目下 `state` | 项目下 `state` |
-| Hub 状态 | 项目下 `hub-data` | 使用现有远端 Hub，不新增本地 Hub |
-| Hermes 只读来源 | `/volume1/docker/hermes` | `/volume4/docker/hermes` |
+| 历史项目目录 | `/volume1/docker/token-monitor-hermes-agent` | `/volume4/docker/token-monitor-nas` |
+| 历史服务 | `token-monitor-hub`、`token-monitor-nas` | `token-monitor-nas` |
+| 历史设备ID | `DXP4800` | `DH4300Plus` |
+| Agent状态 | 项目下state | 项目下state |
+| Hub状态 | 项目下hub-data | 使用既有远端Hub |
+| 历史只读Hermes路径 | `/volume1/docker/hermes` | `/volume4/docker/hermes` |
 
-`.env`、原 Compose、设备 ID、挂载、安全限制及状态目录保留在各自 NAS。控制程序生成仅覆盖镜像的私有 Compose override，验证合并后的有效配置除镜像外完全一致；后续受控重建必须继续使用该 override，不能单独对原 Compose 执行 pull/up 而绕过版本固定。普通容器 restart 不改变镜像。
+历史曾观察到DH4300Plus部分路径可被组/其他用户写入，不能据此假定当前仍然如此。控制程序会拒绝不安全路径；如需调整ACL/权限，应先核实现有业务并取得授权，不能递归更改Hermes数据权限或绕过访问限制。
 
-DH4300Plus 当前 Compose 和状态目录存在组/其他用户可写权限，控制程序会拒绝接入。获得授权后应核对 ACL 和实际业务访问，再收紧权限；不能直接递归 chmod 整个 Hermes 或更换设备数据所有者。DXP4800 的配置和状态权限已符合只读审查预期，但控制程序与回报凭据尚未安装。
+## 手工升级顺序
 
-## 部署顺序及失败边界
+1. 按前置核对逐台记录准确身份，保留旧镜像ID、repo digest及原配置。仅在实际Hub服务显式设置 `TOKEN_MONITOR_HUB_DISPLAY_NAME=DXP4800`；Agent-only不需要，不能改deviceId代替。
+2. 停止本项目写入者，确认Hub/Agent停止；备份原Compose、私有环境配置、完整Agent状态/历史/归档SQLite及Hub状态，包括DB/WAL/SHM，保留owner/mode。校验一致性、integrity_check和副本可读性。私有备份及原始用量不进入Git、CI或公开日志。
+3. 用SQLite backup API对主库和既有profile生成只读快照，在隔离状态副本上以旧/新准确镜像执行dry-run。固定输入、价格缓存/自定价、时区、设备ID和资源限制，逐项比较Token/缓存/reasoning、费用、session ID/数、创建日期、逐日/period和完整历史。合法费用修正按 [费用口径](COST_ACCOUNTING.md) 另行人工审阅，不关闭统计保护。
+4. 先DXP4800 Hub，Agent保持停止。验证镜像身份、健康、鉴权API、SSE断线重连、已启用的Windows分时/gzip、完整设备与历史、标题许可/隐私代次、共享设置和订阅。持久化失败或历史异常即停止，不进入Agent阶段。
+5. 再更新同机Agent，确认本次启动后成功采集及上传、Hub真正fresh接收、独立Watcher子进程、SQLite完整性、旧会话键/日期及完整历史；随后验证重试/重连和重启恢复。不得永久停更却仅凭健康标签判成功。
+6. DXP4800验收完成后才独立处理DH4300Plus Agent-only，验证既有远端Hub接收结果；不能用另一台NAS的原生或现场结果代替。恢复采集后的真实增长另记，不能掩盖冻结数据减少。
 
-1. 核实请求出处：指定仓库、`nas-pull` task、机器人创建者、main 上的指定手动工作流已成功完成、请求未过期、仓库发布记录完整、清单与批准内容一致、Git tag 对应同一源码 SHA；新请求绑定记录 commit/分支，并验证该 commit 在记录分支的历史中，所有文件从该 commit 读取。拒绝降级或重复请求。
-2. 取得本地独占锁。未完成的旧日志、设备 ID/版本不符、未知服务、配置/挂载不符、非 Hermes-only、非独立 Watcher、路径链接或不安全权限均停止。确认有本地回报凭据，无法提供最终 GitHub 结果时不开始部署。
-3. 按目标摘要拉取镜像，验证本机架构、OCI 版本和源码 SHA、RepoDigest。记录各旧镜像 ID/摘要并保留本地回滚标签。
-4. 停止本项目 Hub 和 Agent，确认已经停止。备份原 Compose、私有 `.env`、完整 Agent 状态和本地 Hub 状态，包括 SQLite WAL/SHM，保留权限和所有者。所有备份与详细验收记录仅存 NAS 本地。
-5. 对 root/profile Hermes 数据库作只读 SQLite 快照，在独立状态副本上运行旧、新 Agent dry-run，核对固定数据下会话、Token 和历史。正式 Hermes 数据不被修改。
-6. DXP4800 先更新 Hub，Agent 保持停止。验证 Docker 健康、认证 API、SSE 断线重连、已启用时的 Windows gzip，以及历史、设备、标题许可不变、策略代次不下降、共享设置和订阅。正常重启可以推进隐私代次。失败则不开始 Agent 阶段。
-7. 更新 Agent，等待本次启动后成功采集和上传、Hub 新鲜接收设备记录及真正的独立 Watcher 子进程。核对 SQLite 完整性、旧会话键、历史与统计。DH4300Plus 跳过本地 Hub 阶段，但必须验收现有远端 Hub 接收结果。
-8. 全部验证后 GitHub Deployment 才记为 success；NAS 私有日志记录时间、旧/目标摘要及各阶段结果。queued 表示等待，in_progress 表示执行，均不是成功。回报失败会留下 `verified-report-pending` 并阻止下一次部署，但保留已经验收健康的新版服务运行。使用 `--retry-report DEPLOYMENT_ID` 重新核实运行镜像、配置、健康和数据后，仅补发并读回确认结果，不重新部署。
+任何差异、断网、归档/SQLite/上传错误、资源回归或访问受阻都停止后续动作，保留现场与备份。跨日/月按窗口验证正常today/month过期，同时保留累计值与完整历史；不能机械要求所有日期窗口只增不减。不可通过加内存、清状态或放宽断言绕过失败。
 
-中断、验收失败或崩溃均停止后续动作。已经进入停机阶段而没有安全恢复证明时，相关服务保持停止供调查；这是明确的可用性取舍，不会盲目继续或通过提高内存限制掩盖问题。应在维护窗口执行；跨日/月时按统计窗口验证，过期 today/month 的正常清理必须同时满足累计统计和完整历史保留。
+## 完整状态恢复
 
-## 数据迁移和回滚
+回退须使用已保留的旧准确镜像和同一份完整停机快照、原Compose/私有配置及owner/mode。先停服务，将失败后的状态另行保留并保护新增数据，再恢复完整一致性副本，按Hub→Agent启动旧服务并验证旧身份、数据库、归档/历史、独立Watcher、采集及真实上传。不能叠加恢复到变化中的状态、只切旧镜像、删除卷或清空历史，不重建设备身份；恢复失败时停止供调查。
 
-### 标题关闭、迁移与卸载
+默认自动回滚关闭。只有目标政策允许restore-snapshot，且NAS本地root私有演练receipt绑定实际来源/目标版本、目标源码/digest、旧镜像ID/digest/源码和配置指纹时才可自动恢复。状态迁移缺少完整恢复计划必须在停机前拒绝。CI合成receipt绑定隔离路径，不能移到生产；没有制造或跳过有效恢复证明的捷径。
+
+## 身份迁移与标题撤销
 
 此步骤只适用于曾启用标题同步的 Agent。标题默认关闭；逐会话统计开关 `TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED` 不代表上传聊天正文或逐轮内容。标题许可同时受 Hub 开关、发送设备许可及策略代次限制。
 
@@ -64,49 +59,24 @@ Agent 在状态目录内的私有 `agent-sync-credentials.json` 保存旧目标�
 
 撤销清理的是旧 Hub 当前存储中的会话文字，不删除本地完整用量归档，也不会抹去既有备份或客户端已保存的副本。标题清理完成后才进行身份迁移或卸载；迁移后的身份与状态仍须按正常部署验收。
 
-### 完整状态恢复
+## 可选受控部署（未在NAS安装）
 
-每个新版本源码中包含 `deployment/release-policy.json`，绑定版本、允许的来源版本、是否涉及状态格式迁移以及恢复说明，并进入仓库版本清单；清单同时绑定最终镜像摘要，读取时固定记录 commit。不能因镜像可拉取就推断数据向后兼容。
+此节是既有仓库能力，不是当前已启用的自动更新服务。未来接入须先取得每台设备、权限/任务调度调整及控制程序安装的独立授权；当前所有者的手工更新不依赖它。
 
-默认自动回滚关闭。自动回滚必须同时具备：该版本声明支持 `restore-snapshot`、本地 root 私有恢复演练凭据有效，来源版本、目标版本、目标源码与摘要、各旧镜像 ID/摘要/源码和本地配置指纹完全匹配。状态格式迁移没有经过验证的恢复计划时，部署在停机前拒绝。
+审批工作流只接受从main手动执行workflow_dispatch，指定单台NAS、实际来源和目标版本；手动执行是该部署请求的批准，没有额外Environment审批。main/tag/镜像/记录/latest更新均不触发生产部署。请求为GitHub Deployments的nas-pull task，按设备分环境，24小时有效，目标必须递增，不替换未完成请求。
 
-恢复不是仅换镜像：先停服务，将失败后的状态改名保留，再还原完整停机状态、原 Compose 和 `.env`，使用已经保留的旧镜像 ID 依次启动 Hub/Agent，重新验证旧镜像身份、数据库、历史、独立 Watcher、采集及上传。回滚验证失败则停止并要求人工处理。任何路径都不删除镜像、历史或失败现场。
+审批先校验仓库manifest、固定镜像、两个OCI和源码版本/政策及Git tag，再固定publicationCommit/publicationBranch。消费者独立验证请求机器人、仓库、成功的指定main手动审批工作流、有效期及部署SHA；确认记录提交属于分支历史，从固定提交读取manifest并重验tag/源码政策。仅六个迁入历史版本可使用main记录或旧无指针请求，新版缺收据拒绝；不接受远端下发脚本、路径或Compose。
 
-隔离演练凭据绑定隔离项目路径，不能直接拿 CI 的 `/tmp` 凭据用于生产。生产自动回滚仍须经过额外授权的本地演练和审阅；首次接入默认不配置 `rollbackReceiptFile`。当前 CLI 不提供跳过验证或手工制造有效凭据的捷径。
+本地控制程序只主动HTTPS访问GitHub/GHCR，不开放公网SSH/Docker API/Webhook。接入时固定安装同一受审阅提交的完整deployment程序及其所需验证依赖，不从请求或latest自动下载执行，也不能只复制入口脚本遗漏其配套文件。运行所需Docker权限相当于主机管理能力，维护者及安装路径必须可信。
 
-## 首次接入步骤（尚未执行）
+本地配置和既有状态回报凭据需root所有且0600，控制目录0700；Compose/状态/挂载必须满足现有权限和防链接要求。身份、服务、状态目录、挂载和策略与实际配置不符时拒绝。首次保存凭据仅经私有安全渠道，不写入命令行、Compose、Git、Actions日志或文档。缺少回报能力时不开始部署；本任务不创建这些配置或凭据。
 
-1. 审阅并合并本 PR，通过发布工作流产生新版本和不可变清单。旧 `v0.69.0-01` 没有新清单，因此不能被这个新流程自动批准，原手动回退资料继续保留。
-2. 获取所有者对每台 NAS 接入、所需权限调整和部署的明确授权。特别确认 DH4300Plus 路径/ACL、既有调度或第三方镜像更新任务。停止任何会绕过受控流程自动重建这些服务的更新任务须单独列入授权范围。
-3. 将经过审阅的 `deployment/nas_pull.py` 和 `verify-state.js` 固定安装到 NAS root 控制的目录。不要从请求或 latest 自动下载并执行控制程序。使用本机 Python 3.9+、现有 Docker Compose v2，不连接外网 Docker API。
-4. 分别从 `deployment/DXP4800.example.json`、`DH4300Plus.example.json` 创建私有配置，核实实际路径、设备 ID和服务。配置和本地 GitHub 状态回报凭据 root 所有且 0600，控制目录 0700。凭据只授予此仓库 Deployments 写权限，首次保存通过私有安全渠道，禁止写在命令行、Compose、Git、Actions 日志或本报告中。
-5. 本地执行 `python3 /固定安装目录/nas_pull.py --config /私有配置路径 --check`，该检查不更新容器。配置检查也不代表真实部署验收。
-6. 授权后用 NAS 现有任务调度器每 5 分钟运行一次上述程序，不添加 SSH 常驻访问或 Docker API。无有效请求时只返回 no-approved-deployment；重复执行由独占锁和私有日志防止重复部署。
-7. 从 GitHub Actions 手动执行 `Approve controlled NAS deployment`，指定单台 NAS、实际当前版本和正式目标版本。分台执行：先 DXP4800，再观察并执行 DH4300Plus。等待 NAS 主动拉取和最终状态；不要把工作流成功视为 NAS 成功。
+接入前先用同版程序的--check核对配置，使用隔离副本完成恢复演练；--check不是部署验收。经明确授权后可用既有调度器每5分钟主动查询一次，无有效请求不操作；本地独占锁、私有阶段日志与重放保护防止重复部署。升级仍执行本文相同的停写备份、冻结比较、Hub→Agent和真实业务门槛。未知服务、损坏记录、基线不健康、未完成日志或恢复证明不符均停止，不能通过删日志绕过。
 
-控制程序使用 Docker 权限，具有主机级能力，安装目录、本地配置及其维护者必须可信。此权限由首次接入授权授予，不能把控制程序当成普通低权限用户服务。公开 GitHub Deployment 状态只包含通用验收代码，不回传真实会话、用量、文件、日志或密钥。
+控制程序将准确镜像写入私有控制目录的 `image-override.json`，不会改写基础 Compose 文件。此后每次手工重建、修改配置或执行本文中的标题撤销命令，都必须保留基础文件及该 override 的同一组 `-f` 参数；例如 `docker compose -f /实际路径/compose.yml -f /实际控制目录/image-override.json up -d`。只使用基础文件会丢失固定镜像选择，可能重新拉起基础配置中的旧镜像或 `latest`。备份和恢复也必须包含这份 override，并核验合并后的镜像与原准确 digest 一致。
 
-## 回报重试与受阻请求
+queued/in_progress分别表示等待/执行，只有全部现场验收并成功回读GitHub状态后才是success。NAS私有日志保留准确镜像、阶段及结果；公开状态仅使用通用验收代码，不上传会话、真实用量、文件、日志或敏感信息。
 
-GitHub 暂时不可用而现场已验收时，用固定本地程序执行 `--config /私有配置路径 --retry-report DEPLOYMENT_ID`。该操作重新检查镜像、配置、健康及数据，只补发并读回确认状态，不拉取镜像、不停止或重建服务。
+现场已验证但回报暂时失败时保留verified-report-pending，阻止新请求并保持已验收服务；固定程序的--retry-report DEPLOYMENT_ID重新核对运行镜像、配置、健康和数据后，只补报并读回状态，不拉镜像或重建。未完成日志或过期queued须核查现场/备份，再由维护者结束相应GitHub请求，不能把结束请求当作恢复或验收。
 
-未完成日志必须先核查现场及备份，不能通过删除日志跳过检查。过期且从未执行的 queued 请求，可在核查后由维护者结束：
-
-```sh
-gh api --silent --method POST repos/Gott-mit-Uns/token-monitor-nas/deployments/DEPLOYMENT_ID/statuses -f state=inactive -f description='Expired unexecuted request; reviewed by maintainer' -F auto_inactive=false
-```
-
-这只结束 GitHub 请求，不恢复 NAS 数据或容器，不能替代部署或回滚验收。所有命令都从既有私有凭据文件读取认证，不在命令行放令牌。
-
-## 证据与演练
-
-`Validate controlled deployment` 在原生 amd64 和 arm64 运行发布/请求逻辑测试、控制器失败路径测试，并使用真实 Docker、旧版镜像、新版候选镜像、合成 Hermes SQLite 和独立临时 Compose 演练分阶段升级和全状态回滚。PR 候选镜像不发布，GitHub/Registry 写操作用合成 API 验证；Docker 演练不包含生产 NAS 数据或权限。
-
-完整当前报告见 [DEPLOYMENT_VALIDATION.md](DEPLOYMENT_VALIDATION.md)。仓库发布记录提供版本/源 SHA/摘要清单及升级/回退说明；生产结果可在仓库 Deployments 和 NAS 本地私有 `deployment-<id>.json` 查验。公网 Windows UI、24 小时持续运行及生产恢复演练需另行验收。
-
-
-## 从 Release 清单迁移
-
-已发布的六份清单按原字节迁入 `publications/<版本>/manifest.json`，与原 Git tag、源码版本及迁移政策核对一致；既有 Release 不删除、不改写。新手动请求读取仓库记录并携带 `publicationCommit` / `publicationBranch`；控制程序验证记录提交属于 `nas-publications` 历史，六个历史版本也允许 main 上的迁入记录。旧有效请求没有记录指针时，仅六个历史版本可以从固定的 main 提交读取迁入记录；新版本缺少指针拒绝。原始测试数据不进入记录分支。
-
-旧控制程序仍依赖 Release，因此不能直接处理今后的新版本；若未来明确启用受控部署，应先单独审阅/更新本地控制程序，再批准部署请求。本任务不执行该安装。当前由所有者手工更新容器的流程不依赖控制程序，也不需要 GitHub Release。
+旧版控制程序仍依赖已清理的Release，未来启用前必须单独审阅更新。原生CI使用合成GitHub/Registry写接口、真实Docker及隔离状态测试失败恢复；CI成功不能证明生产安装、权限或恢复已验证。完整当前范围见 [VALIDATION.md](VALIDATION.md)。

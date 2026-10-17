@@ -39,7 +39,7 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 
 - **仅同步汇总**：设置 `TOKEN_MONITOR_SYNC_SESSION_DETAILS_ENABLED=0`，保留汇总、历史和本地归档，省略上传的逐会话明细。
 - **同步会话标题**：Hub 和上传设备均设置 `TOKEN_MONITOR_SYNC_SESSION_TITLES=1`。
-- **标题关闭、迁移或卸载**：删除状态或改变 Hub、凭据、设备 ID 前，先保留原身份与原状态完成旧 Hub 的标题撤销，见 [标题清理步骤](DEPLOYMENT.md#标题关闭迁移与卸载)。只删除本地状态不会清除旧 Hub 标题。
+- **标题关闭、迁移或卸载**：删除状态或改变 Hub、凭据、设备 ID 前，先保留原身份与原状态完成旧 Hub 的标题撤销，见 [标题清理步骤](DEPLOYMENT.md#身份迁移与标题撤销)。只删除本地状态不会清除旧 Hub 标题。
 - **Goose 与可选额度来源**：默认仍为 Hermes-only、limits 关闭。仅对真实存在且明确启用的来源配置只读挂载和 provider 白名单，见 [可选来源配置](OPTIONAL_SOURCES.md)。Compose 的 `environment` 优先于 `env_file`，仅向 `.env` 添加同名变量不会覆盖模板中的关闭开关。
 - **启用 NAS Hub**：同一镜像使用 `command: ["node", "src/hub/server.js"]`，配置独立的 `/data` 持久化目录及 Hub 环境变量。
 - **Hub 显示名称**：在 Hub 服务设置 `TOKEN_MONITOR_HUB_DISPLAY_NAME=DXP4800`，客户端可从鉴权统计/SSE 快照的 `hub.displayName` 读取。Agent-only 服务无需设置；这不改变设备 ID。名称最长 80 个 Unicode 码点，拒绝控制/格式字符；未配置时省略字段，不猜测容器或采集设备名称。公开健康接口不返回此名称。
@@ -51,9 +51,19 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 
 升级前备份状态目录、Compose 和 `.env`，保留旧镜像；升级时保持设备 ID 和持久化路径。旧 JSON 归档迁移到 SQLite 后，回退旧版需同时恢复迁移前的状态，不能只切换镜像。不要执行 `docker compose down -v`，也不要提交真实密钥或运行数据。
 
-- [部署与更新](DEPLOYMENT.md)
-- [升级与回退](UPGRADE_0.70.md)
+- [统一部署与回退](DEPLOYMENT.md)
 - [上游来源](UPSTREAM.md) · [NAS 补丁](NAS_PATCHES.md) · [版本规则](VERSIONING.md)
 - [数据安全](SECURITY.md)
+
+## 长期维护记录
+
+| 文档 | 用途 |
+| --- | --- |
+| [当前验收](VALIDATION.md) | 当前镜像/代码的实际结果、CI和未覆盖项 |
+| [费用口径](COST_ACCOUNTING.md) | Token/reasoning/费用定义、合法差异及人工复核 |
+| [当前交接](HANDOFF.md) | 源码、发布与生产的当前状态及后续边界 |
+| [统一部署与回退](DEPLOYMENT.md) | 逐台核对、备份、升级顺序及完整恢复 |
+
+以上四类直接更新原文件，不按版本增加一套记录；历史过程从Git查询，原始测试记录留在CI。上游审计、配置说明和机器校验清单仍按各自用途维护。
 
 许可证：[MIT](LICENSE)。
