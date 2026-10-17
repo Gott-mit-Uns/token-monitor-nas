@@ -2,7 +2,7 @@
 
 基于 [Token Monitor](https://github.com/Javis603/token-monitor) 的 NAS Docker Agent，采集 Hermes 用量并同步到你配置的 Hub。镜像同时提供 Node Hub，支持 `linux/amd64` 和 `linux/arm64`。
 
-当前正式发布版本为 [`v0.72.0-02`](https://github.com/Gott-mit-Uns/token-monitor-nas/tree/v0.72.0-02)，固定上游正式 v0.72.0，在前版基础上提供可选的 Hub 显示名称。NAS 今后只发布 Git tag 和通过原生双架构验收的镜像，不再创建 GitHub Release。机器校验所需清单见 [仓库版本记录](publications/README.md)，统一升级及回退步骤见 [部署说明](DEPLOYMENT.md)，发布规则见 [NAS 发布流程](NAS_PUBLICATION.md)；生产使用记录中对应的固定镜像与 digest。保留 Cursor/OpenCode 支持、Hub 迟到用量/额度保护、实际 Agent 归档失败保护、独立 Watcher、Windows 分时推送和所有 NAS 默认边界。名称合同见 [修订说明](HUB_DISPLAY_NAME.md)，发布与逐台部署要求见 [本修订交接](HANDOFF_0.72.0-02.md)。**正式发布不表示已部署。** 本次发布前两台 SSH 预检均拒绝连接；所有者随后选择自行更新 NAS 容器，本任务未部署或验收生产设备。手工更新仍应参考 [逐台计划](DEPLOYMENT.md)，保留身份、配置与完整状态。
+当前正式发布版本为 [`v0.72.0-02`](https://github.com/Gott-mit-Uns/token-monitor-nas/tree/v0.72.0-02)，固定上游正式 v0.72.0，在前版基础上提供可选的 Hub 显示名称。NAS 今后只发布 Git tag 和通过原生双架构验收的镜像，不再创建 GitHub Release。机器校验所需清单见 [仓库版本记录](publications/README.md)，统一升级及回退步骤见 [部署说明](DEPLOYMENT.md)，发布规则见 [NAS 发布流程](NAS_PUBLICATION.md)；生产使用记录中对应的固定镜像与 digest。保留 Cursor/OpenCode 支持、Hub 迟到用量/额度保护、实际 Agent 归档失败保护、独立 Watcher、Windows 分时推送和所有 NAS 默认边界。名称合同见 [修订说明](HUB_DISPLAY_NAME.md)，发布与逐台部署要求见 [本修订交接](HANDOFF.md)。**正式发布不表示已部署。** 本次发布前两台 SSH 预检均拒绝连接；所有者随后选择自行更新 NAS 容器，本任务未部署或验收生产设备。手工更新仍应参考 [逐台计划](DEPLOYMENT.md)，保留身份、配置与完整状态。
 
 ## 主要功能
 
@@ -59,3 +59,15 @@ docker exec token-monitor-nas node src/agent/nasHealth.js
 - [数据安全](SECURITY.md)
 
 许可证：[MIT](LICENSE)。
+
+
+## 长期维护记录
+
+| 文档 | 用途 |
+| --- | --- |
+| [当前验收](VALIDATION.md) | 当前镜像/代码的实际结果、CI和未覆盖项 |
+| [费用口径](COST_ACCOUNTING.md) | Token/reasoning/费用定义、合法差异及人工复核 |
+| [当前交接](HANDOFF.md) | 源码/发布/生产分别到哪一步，以及下一步边界 |
+| [统一部署与回退](DEPLOYMENT.md) | 两台NAS的前置核对、备份、升级顺序及完整恢复 |
+
+以上四类直接更新原文件，不再为每个版本增加一套记录；历史过程从Git查询，原始测试记录留在CI。上游审计、配置说明和机器校验清单仍按各自用途维护。

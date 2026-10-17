@@ -2,23 +2,23 @@
 
 ## 最新 NAS v0.72.0-02
 
-官方稳定基线仍为 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，没有改用 main 或预发布。基于已发布 v0.72.0-01 增加可选鉴权 Hub 显示名称，shared core revision 84 保持，Node runtime revision 8 按真实源码生成。PR #11 已合并，2026-10-16 21:35:40（北京时间）正式发布；source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，固定 index 与 latest 同为 `sha256:81413b1a4fcb30757f906bc732dcfbfe6883cb27683dffaaad98ea7ced9b8715`。六个旧固定标签不变。发布、原生双架构与恢复证据见 [本修订交接](HANDOFF_0.72.0-02.md)。所有者自行更新容器，本任务未部署或验收生产 NAS。`upstream-lock.json` 的 tag/commit 继续锁定同一官方稳定版，其中 nasRevision/revisionBaseline 记录引入官方 0.72 的 -01 对齐操作；本次仅 NAS 修订的发布号以 nas-version.txt 为准，正式源码由 Release manifest 锁定。以下为历史记录。
+官方稳定基线仍为 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，没有改用 main 或预发布。基于已发布 v0.72.0-01 增加可选鉴权 Hub 显示名称，shared core revision 84 保持，Node runtime revision 8 按真实源码生成。PR #11 已合并，2026-10-16 21:35:40（北京时间）正式发布；source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`，固定 index 与 latest 同为 `sha256:81413b1a4fcb30757f906bc732dcfbfe6883cb27683dffaaad98ea7ced9b8715`。六个旧固定标签不变。发布、原生双架构与恢复证据见 [本修订交接](HANDOFF.md)。所有者自行更新容器，本任务未部署或验收生产 NAS。`upstream-lock.json` 的 tag/commit 继续锁定同一官方稳定版，其中 nasRevision/revisionBaseline 记录引入官方 0.72 的 -01 对齐操作；本次仅 NAS 修订的发布号以 nas-version.txt 为准，正式源码由仓库机器manifest锁定。以下为历史记录。
 
 ## 历史 NAS v0.72.0-01
 
 已于北京时间2026-10-16 06:45:31正式发布，NAS源码 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。原生amd64/arm64最终镜像测试、固定标签/Release/OCI清单及匿名Registry读回通过；本轮两台生产NAS均未部署，访问阻塞与独立部署确认计划见交接。后补文档不改写固定镜像。
 
-官方稳定 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，由 v0.71.0-02 最小增量对齐。Cursor 新统一方案额度与 OpenCode 2.x 元数据/本地详情移植，桌面更新器、窗口和显示分组排除。补 Node Hub 迟到上传保护；无 schema、parser pin 或计费口径迁移，NAS 默认配置不变。逐文件决策见 [审计](UPSTREAM_0.72_AUDIT.md)，实际验证/发布/生产状态见 [交接](HANDOFF_0.72.md)。
+官方稳定 `v0.72.0` / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，由 v0.71.0-02 最小增量对齐。Cursor 新统一方案额度与 OpenCode 2.x 元数据/本地详情移植，桌面更新器、窗口和显示分组排除。补 Node Hub 迟到上传保护；无 schema、parser pin 或计费口径迁移，NAS 默认配置不变。逐文件决策见 [审计](UPSTREAM_0.72_AUDIT.md)，实际验证/发布/生产状态见 [交接](HANDOFF.md)。
 
 ## NAS v0.71.0-02
 
-官方仍固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c`。基于已发布 `v0.71.0-01` / `e92d9add64efbb9985fb482880d9d95734354183` 补齐 Agent 实际入口的归档错误发布保护。无 parser pin、计费或格式迁移；Hub 共享源码与闭包哈希保持实际一致，不虚增 Hub 身份。新入口测试、标题清理、可选来源配置与本次验收见 [HANDOFF_0.71.0-02.md](HANDOFF_0.71.0-02.md)。下面记录前版发布时状态；DH4300Plus 后由所有者说明自行更新，本修订只读预检仍 SSH 拒绝，不能推断其当前版本。
+官方仍固定 `v0.71.0` / `a514e2063563e318ef73c2a17fad68057c4e300c`。基于已发布 `v0.71.0-01` / `e92d9add64efbb9985fb482880d9d95734354183` 补齐 Agent 实际入口的归档错误发布保护。无 parser pin、计费或格式迁移；Hub 共享源码与闭包哈希保持实际一致，不虚增 Hub 身份。新入口测试、标题清理、可选来源配置与本次验收见 [HANDOFF.md](HANDOFF.md)。下面记录前版发布时状态；DH4300Plus 后由所有者说明自行更新，本修订只读预检仍 SSH 拒绝，不能推断其当前版本。
 
 ## NAS v0.71.0-01
 
 固定官方 v0.71.0 `a514e2063563e318ef73c2a17fad68057c4e300c`，上一基线 v0.70.0 `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`。逐文件差异见 UPSTREAM_0.71_AUDIT.md，共享三方合并见 UPSTREAM_0.71_SHARED.md。Agent与Node Hub无上游本体净差，加载同一app/src/shared。Tokscale固定二进制pin没有变化，既有fork的Goose解析通过新增真实binary契约验收后才可宣称支持。桌面登录、托盘、界面和Electron内存管理不入容器。
 
-NAS core/Node adapter使用实际闭包hash，Worker未分发；旧客户端的unknown身份提示不能靠复制官方注册值消除。上游19个Worker共享副本、registry及声明哈希已静态核对一致。正式源码为e92d9add64efbb9985fb482880d9d95734354183，原生双架构与六组冻结/恢复通过，v0.71.0-01已发布并读回；DXP4800 Hub+Agent已实际升级，DH4300Plus SSH拒绝连接。完整证据及剩余边界见 HANDOFF_0.71.md。以下保留历史。
+NAS core/Node adapter使用实际闭包hash，Worker未分发；旧客户端的unknown身份提示不能靠复制官方注册值消除。上游19个Worker共享副本、registry及声明哈希已静态核对一致。正式源码为e92d9add64efbb9985fb482880d9d95734354183，原生双架构与六组冻结/恢复通过，v0.71.0-01已发布并读回；DXP4800 Hub+Agent已实际升级，DH4300Plus SSH拒绝连接。完整证据及剩余边界见 HANDOFF.md。以下保留历史。
 
 ## NAS v0.70.0-01
 

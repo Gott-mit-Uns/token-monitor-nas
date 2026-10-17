@@ -9,11 +9,11 @@
 | 上一官方基线 | `v0.69.0` / `3f106ae3d4712b26cced8272f0d488eaab0de1e6`，原 `upstream-lock.json` |
 | 目标官方基线 | `v0.70.0` / `ac4eeb2c4aea239dd94b67f074c73f69aafc46f8`；annotated tag peeled commit 已核对，不误用 tag object `0d104c0b59c5739e4020eeb86bbc029b0b095345` |
 | NAS 当前源码起点 | `9d23bed717ded9e850b2035ec55a511aaec9082c`，后于现有正式运行源码的 README 整理提交 |
-| 现有正式发布记录 | `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`；本地 tag、`VERSIONING.md` 和 `DEPLOYMENT_VALIDATION.md` 相符。发布平台的实时核验以本轮主报告为准 |
+| 现有正式发布记录 | `v0.69.0-02` / `ec79dc7bff697ed5568b013578a8ec8d6261e67e`；本地 tag、`VERSIONING.md` 和 `VALIDATION.md` 相符。发布平台的实时核验以本轮主报告为准 |
 | 独立工作区 | `work/token-monitor-nas-070` / `upgrade/upstream-v0.70.0`；审计开始该隔离工作区无未提交修改 |
 | 候选发布号 | `v0.70.0-01`，正式使用前仍须确认远端 tag/Release/固定镜像未占用 |
 
-已阅读 `AGENTS.md`、`README.md`、`UPSTREAM.md`、`SECURITY.md`、旧 `upstream-lock.json`、`NAS_PATCHES.md`、`VERSIONING.md`、`UPGRADE_0.69.md`、`DEPLOYMENT_VALIDATION.md` 和 `UPSTREAM_0.69_AUDIT.md`。`UPSTREAM.md` 历史章节和 `UPGRADE_0.69.md` 标题较旧，不能据标题判断最新正式版本。`DEPLOYMENT_VALIDATION.md` 的正式 v0.69.0-02 记录是旧发布证据，不是本次 0.70 测试或 NAS 接入证明。生产角色/权限和控制器必须重新只读核查。
+已阅读 `AGENTS.md`、`README.md`、`UPSTREAM.md`、`SECURITY.md`、旧 `upstream-lock.json`、`NAS_PATCHES.md`、`VERSIONING.md`、`UPGRADE_0.69.md`、`VALIDATION.md` 和 `UPSTREAM_0.69_AUDIT.md`。`UPSTREAM.md` 历史章节和 `UPGRADE_0.69.md` 标题较旧，不能据标题判断最新正式版本。`VALIDATION.md` 的正式 v0.69.0-02 记录是旧发布证据，不是本次 0.70 测试或 NAS 接入证明。生产角色/权限和控制器必须重新只读核查。
 
 三方审阅使用：旧官方 v0.69 commit → 目标官方 v0.70 commit；旧官方 v0.69 `src/*` → NAS 起点 `app/src/*` 的已有补丁；最后检查新官方变化与 NAS 补丁交叉。官方两提交净差为 **116 个文件**，其中共享运行源码 29 个；`src/agent`、`src/hub` 本次上游净差均为零。Hub 与 Agent 从同一 `app/src/shared` 装载，不能给它们各自选择不同 Tokscale/history 基线。无需上游整个目录覆盖，也不从 Worker 副本移植 Node Hub。
 

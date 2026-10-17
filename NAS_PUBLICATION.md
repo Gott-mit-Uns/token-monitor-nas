@@ -32,3 +32,6 @@ NAS 今后只发布版本 Git tag 与 `ghcr.io/gott-mit-uns/token-monitor-hermes
 ## 历史资料清理
 
 旧 GitHub Release 及其附件已删除，Git tag 和镜像保留。机器校验仍依赖的六份 manifest 保留；12 份重复逐版本升级/回退文本、两份过期部署计划、两份旧升级报告及已结束的流程交接删除。历史源码、完整旧文档和旧发布行为可通过 Git 历史查询；仍有维护价值的上游审计、补丁与统计口径记录保留。原始 CI 证据仍受 Actions 保留期限制，不能把已经清理的 Release 附件描述成可下载。
+
+
+维护记录固定为 [VALIDATION.md](VALIDATION.md)、[COST_ACCOUNTING.md](COST_ACCOUNTING.md)、[HANDOFF.md](HANDOFF.md)、[DEPLOYMENT.md](DEPLOYMENT.md)，旧交接/费用/部署验收已归并，后续不按版本新增同类文件。机器manifest和上游审计不属于重复的人工过程记录，保留其校验和维护用途。

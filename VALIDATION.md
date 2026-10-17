@@ -1,82 +1,33 @@
-# Upgrade validation — 2026-09-08
+# 当前验收记录
 
-历史记录说明（2026-10-17）：旧 NAS Release 页面及附件已按所有者授权清理，Git tag 和镜像保留，机器清单见 publications/README.md；下方的发布/下载验收是当时结果，不代表旧附件目前仍可下载。当前升级和回退统一参考 DEPLOYMENT.md。
+维护日期：2026-10-17。仅保留当前有效结论及可追溯CI链接，旧阶段记录保存在Git历史，原始日志/JSON留在CI。费用规则见 [COST_ACCOUNTING.md](COST_ACCOUNTING.md)，生产状态见 [HANDOFF.md](HANDOFF.md)。
 
-## 最新 v0.72.0-02 正式发布完成（2026-10-16，所有者自行更新 NAS）
+## 证据对象与结果
 
-PR #11 已合并，source/tag/OCI/manifest 为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`。本地 NAS 1671 项中1660通过、0失败、11既有平台跳过；发布辅助59项、部署Python51项通过。最终PR原生amd64/arm64及六来源×两架构冻结/完整恢复全部通过。正式发布工作流 [38908457055](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38908457055) 的三个任务全部成功，固定镜像与latest为 `sha256:81413b1a4fcb30757f906bc732dcfbfe6883cb27683dffaaad98ea7ced9b8715`，两个平台OCI源码一致，旧六个固定标签不变。44个Release附件摘要全部核对，原始manifest及三份补充关键记录匿名下载回读一致，原始manifest未覆盖。仅新增可选鉴权Hub名称，不变更统计、计费或存储；真实指纹、统计与范围见 [本修订交接](HANDOFF_0.72.0-02.md)。
+| 对象 | 证据与结论 | 限制 |
+| --- | --- | --- |
+| 已发布 v0.72.0-02 镜像 | source/tag/OCI为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`；[发布流水线](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38908457055) 的amd64、原生arm64和推广均成功；[机器清单](publications/v0.72.0-02/manifest.json)绑定index和两个子摘要 | 发布时QEMU仅用于候选构建，两架构的运行验证独立在原生runner执行；不表示生产已更新 |
+| 名称补丁的源代码 | 本地NAS 1671项：1660通过、0失败、11既有平台跳过；[最终原生验证](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38905362171)及[六来源恢复演练](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38905362182)通过 | PR合成merge与正式源码的完整tree同为 `bbab1aa9d503bdc14725b3e781b6cc9c740732fb`；原生证据可按树绑定，不冒称同一个提交 |
+| 发布方式调整 PR #13 | 代码 `040726779536a347122fe84cb88df2dee6805ac6` 的[原生验证](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38923997527)和[恢复演练](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38923997539)共14项通过，自动审查无发现；已合并 | 不增加版本号，不重建上述固定镜像；首次真实tag触发新流程及专用分支写入未执行 |
+| 清理代码 PR #15，文档收敛前 | 代码 `5df2b2bb492bc09bc105865228c4ef491cf55222`：Node发布/审批67项、Python部署59项通过；[原生验证](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38993201357)及[恢复演练](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38993201492)共14项通过，自动审查无发现 | 本表固定到实际已测试提交；随后文档提交的结果见[PR当前检查](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/15/checks)，不移记历史测试 |
 
-所有者最新指令“我自己更新 NAS 容器”覆盖此前助手部署授权。本任务没有部署或验收DXP4800、DH4300Plus，实际版本与状态不能用发布结果代替。真机Android、公网网络、真实账号及生产恢复/持续运行仍未覆盖。以下版本均为历史记录。
+## 必须保持的回归边界
 
-## 历史 v0.72.0-01 正式发布完成（2026-10-16，生产未部署）
+- 归档读取、写入、capture或dry-run snapshot失败时，真实Agent入口停止错误用量发布；额度独报和心跳仍保留最后完整用量及历史。见 `app/tests/agent/archivePublication.test.js` 与归档store测试。
+- 已知usage/limits producer时间的乱序、重试、重复和重启不重复累计或覆盖较新数据；未来/异常/无时间戳保留明确降级语义，不伪造乱序保证。见 `app/tests/hub/ingressOrdering.test.js`。
+- Hub持久化失败回滚内存；损坏状态不初始化为空库；SSE背压、取消和重连释放资源，Windows分时推送和标题撤销保护保留。
+- 原生两架构分别跑Tokscale固定二进制、解析/共享契约、NAS全套、固定负载及混合版本测试。旧/新Hub、Agent、客户端八种合成组合与固定统计比较通过；不能把一次构建、模拟器运行或QEMU结果当成全部原生运行。
+- 恢复矩阵固定六来源 `v0.69.0-01`、`v0.69.0-02`、`v0.70.0-01`、`v0.71.0-01`、`v0.71.0-02`、`v0.72.0-01` × amd64/arm64，分别执行独立解析/上传、无reasoning控制器、含reasoning人工场景和完整状态恢复。新声明来源必须另行通过，不能照抄兼容列表。
+- 发布和部署记录校验tag/源码/OCI/digest、迁移及恢复政策；缺失、损坏、冲突、分支历史不符、无效审批或过期请求均拒绝。只有既有六个版本允许main迁入清单及旧无指针请求，新版缺记录收据拒绝。
 
-获所有者明确确认后PR #9合并，正式source/tag/OCI/manifest为 `8444a9b1f3aeb88e164fd20b9773a9984d3d33a0`。[最终发布流程](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/38818647520) 全部成功，最终镜像两架构各1666项1658通过、0失败、8平台跳过；固定index `sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810` 与latest相同。独立匿名Registry/Release读回确认平台摘要、OCI、Tag、原始manifest与源码一致，旧五个固定标签不变。最终获批PR原生与十组恢复重新通过，自动复审无发现。正式发布完成，生产NAS均未部署，逐台确认仍独立进行。以下为发布前验收记录，详细最终来源和摘要见HANDOFF_0.72.md。
+## 统计与清理核验
 
-固定上游 `126e9a43dcc51d3d7b2609231eac9974ba73bed7`，运行提交 `c37cd3c7d50380aac756bf3f78eb6d1c43981458`。本机1666项1655通过0失败11平台跳过；原生amd64/arm64各1666项1658通过0失败8跳过。两个有效自动审查发现已修复，最终运行提交审查无发现。五来源×两架构冻结/完整恢复、真实固定Tokscale、混合协议8组合/每架构和固定资源基准全部通过；阈值不变，来源/权限/512MiB默认值不变。v71-02→本版1845Token、缓存、reasoning语义、会话/逐日/设备与USD0.006445费用保持；跨v69的已知reasoning修正有精确差异oracle。发布辅助59项、Python部署51项通过。工作流、实际指纹、资源数字和限制见 [HANDOFF_0.72.md](HANDOFF_0.72.md)，详细统计见 [COST_VALIDATION_0.72.md](COST_VALIDATION_0.72.md)。代码与验收完成，不等于正式镜像或Release已发布；生产未部署，两台SSH拒绝，逐台计划见 [统一部署说明](DEPLOYMENT.md)。
+v0.71.0-02→v0.72.0-01的固定Hermes样例保留1845 Token、缓存70/25、2会话、2日期、1设备及USD0.006445；v0.72.0-01→-02仅加名称，不改变统计/费用/格式。跨v0.70的已知reasoning降费按 [费用口径](COST_ACCOUNTING.md) 精确验收，不关闭Token/历史保护。
 
-## 历史 v0.71.0-02 完成记录（2026-10-15）
+旧NAS Release已清理，不能再把原Release附件描述为可下载。清理前后21个Git tag对象一致，六个固定镜像digest与原清单一致；六份仓库manifest原字节保持。原始CI记录受保留期约束，不保证永久可下载；本文件仅维护结论、输入边界和CI链接。
 
-Agent实际入口6项回归：前版0/6、修复后6/6。本机1570项1559通过0失败11平台跳过；原生amd64/arm64各1570项1562通过0失败8平台跳过。4来源×2架构冻结/完整恢复、reasoning费用保护与性能比较通过。正式镜像与Release匿名读回同一源码；DXP4800已备份并实际升级，真实新上传/3571归档会话完整保持，停机37.67秒；DH SSH拒绝未部署本修订。工作流、摘要及范围见 [HANDOFF_0.71.0-02.md](HANDOFF_0.71.0-02.md)。以下均为前版历史。
+文档收敛不改容器运行代码、版本、Docker/Compose、上游锁定或manifest。文档引用、版本及差异检查应在PR提交前通过；最终CI/审查状态以PR实际当前提交为准。
 
-## 历史 v0.71.0-01 完成记录（2026-10-15）
+## 未覆盖项
 
-原生amd64、arm64各1556通过、0失败、8平台/桌面跳过；真实Tokscale39客户端/别名与3 fork-only、Goose累计/创建日/选择优先级/WAL、DSH及Linux10计费契约通过。三来源×两架构冻结、完整恢复、无reasoning及独立含reasoning人工控制器、Agent-only全部通过；固定1000会话三轮旧/新资源对照通过，2000会话归档投影断言通过。正式发布与真实DXP4800新上传、SSE、独立Watcher、core/adapter及3568归档/完整历史保持验证完成，DH4300Plus SSH阻塞。完整证据与限制见 [HANDOFF_0.71.md](HANDOFF_0.71.md)。下列为历史记录。
-
-Target: DXP4800, existing device ID `Hermes-NAS-4800`.
-
-- Built `token-monitor-hermes-agent:0.54.0-nas.1` successfully on the NAS.
-- Ran 19 Agent tests in the built runtime image: all passed.
-- Dependency pruning removed 16 packages; npm reported zero known vulnerabilities at build time.
-- Old running container baseline: approximately 147 MiB of 512 MiB, 0 restarts.
-- Repository visibility verified private; collaborator list contained only the owner.
-
-Deployment completed on 2026-09-08 after the SSH session was restored.
-- Consistent state and original configuration/source backup completed before cutover.
-- A dry run against the Hermes database, using an independent state copy, succeeded.
-- Today, month and all-time token totals matched the old Agent's Hub record exactly.
-- The existing Compose path and device ID were retained.
-- Hub received version 0.54.0 with Hermes active after cutover.
-- Local collection and upload checks both reported ok; Docker health was healthy.
-- Restart count was zero. Post-start memory snapshot: 118.4 MiB of 512 MiB, CPU 0%.
-  This is a snapshot, not a long-term performance benchmark.
-- Old image, original files and state snapshots remain on the NAS for rollback.
-
-The new health command distinguishes successful collection from successful upload.
-Upload staleness is reported separately; it does not trigger restart loops while
-the Hub is offline. No automatic device deletion is enabled.
-
-## DH4300plus deployment
-
-- Built the same release natively on aarch64; all 19 Agent tests passed.
-- Backed up the original configuration, source, state and cutover state under
-  `/volume4/docker/token-monitor-backup-20260908`; retained the old image.
-- A dry run with an independent state copy matched the old Hub record's today,
-  month and all-time token totals exactly.
-- Retained `Hermes-NAS-4300`, the NAS-local `.env`, and the original
-  `/volume4/docker/token-monitor-hermes-agent/docker-compose.yaml` path.
-- Hub received Agent version 0.54.0 with Hermes active after deployment.
-- Collection and upload both reported ok; Docker health was healthy with zero restarts.
-- Memory snapshots: 70.54 MiB before, 51.34 MiB after, out of 512 MiB; CPU 0%.
-  These are point-in-time observations, not a long-term performance benchmark.
-- The repository's `docker-compose.4300.yaml` is the volume4 deployment template;
-  install it as `docker-compose.yaml` on the NAS to preserve UGREEN project management.
-
-## v0.65.0-01 升级验证
-
-官方基础为 v0.65.0（db325fdf46ea7f7328feeb47a4f2005fe339909f）。本地 NAS 回归测试通过 479 项，新增持续事件最大等待时间、扫描负载保护与吞吐字段相关测试。双架构容器测试由发布工作流在固定版本及 latest 提升前执行。部署结果单独以 NAS 实际镜像版本和采集/上传健康检查确认。
-
-2026-10-03 部署确认：GitHub 发布工作流 37033217902 成功，固定标签及 latest 的 manifest digest 为 `sha256:e0664aee03fa5c21fc0157a274b5db99f637fee1a6e27ebe0755b081e89da4da`。DXP4800 与 DH4300Plus 实际运行版本均为 v0.65.0-01，容器健康且 collection/upload 均为 ok。4800 归档会话 3237 条、旧会话缺失 0；4300 升级前后均为 14 条；归档数据库完整性检查通过。
-
-状态及 Compose 备份存于各部署目录下 `backups/v0.63.1-01-before-0.65.0-01`（4300 完整关闭状态副本为 `state-closed`）。现有设备 ID、持久化挂载、300000ms 兜底周期、60000ms Watch 防抖与只读限制保持原样。新版 Watch 持续事件最大等待边界在该防抖配置下为 60 秒。启动后的内存快照不代表长期占用改善。
-
-## v0.69.0-01 candidate validation — 2026-10-12
-
-Official tag locked to `3f106ae3d4712b26cced8272f0d488eaab0de1e6`; NAS baseline `2fdfbc57dd11fd0838aff2820504da2d2d67fcf3`. Evidence and remaining release/deployment gates are recorded in [UPGRADE_0.69.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.69.md). Historical deployment results above are not verification of this candidate. No production data or NAS was accessed for this upgrade.
-
-Native candidate CI 38195738924 passed at source commit acdad0e7d1e368a515bc67aad94e5ac0e500d421 on Linux amd64 and arm64, Node 22.23.2. Each architecture passed 990/992 NAS tests, with zero failures and two Windows-native platform skips, plus 31 promotion tests. Each architecture also passed all 15 fixed-workload regression gates in three repeats with 60-second soak. See UPGRADE_0.69.md and synthetic-only evidence JSON for complete measurements, source fingerprints and scope. No production deployment or fixed-tag publication occurred.
-
-## v0.70.0-01 candidate — 2026-10-14
-
-Current validation/release/deployment stages are recorded in [UPGRADE_0.70.md](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/da59a50dbc648baa28312d7bd418a545d0bbd20e/UPGRADE_0.70.md). Historical production results above do not verify the current candidate. Shipping Linux/native Docker checks and production acceptance are separate from local macOS tests.
-
-本轮源码与原生容器/冻结/恢复/性能检查和正式发布已完成，证据见 UPGRADE_0.70.md；生产仍未升级，两台实际部署验收均不计为通过。
+本任务未部署或验收两台生产NAS，未执行其现场备份恢复、真实新增采集或24小时持续运行，也未安装控制程序。真实Android手机、实际Hub局域网/公网/蜂窝链路、OEM后台及真实额度账户不由本仓库合成/原生CI代替。DXP4800和DH4300Plus必须独立验收，详见 [统一部署与回退](DEPLOYMENT.md)。
