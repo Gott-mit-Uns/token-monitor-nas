@@ -52,7 +52,7 @@ jobs:
       - name: Compare fixed synthetic workload against released baseline
         run: |
           mkdir -p /tmp/token-monitor-baseline /tmp/token-monitor-performance
-          git archive 9a06b658e75d96285ac98847ef5e6e67299a4085 app | tar -x -C /tmp/token-monitor-baseline
+          git archive 61d43212bea55db685e1d52e8346b0d4b253e5c0 app | tar -x -C /tmp/token-monitor-baseline
           docker run --rm --init -v /tmp/token-monitor-baseline/app:/baseline node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 sh -c 'cd /baseline && npm ci --omit=dev --ignore-scripts'
           docker run --rm --init --network none -v /tmp/token-monitor-baseline/app:/baseline:ro -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v /tmp/token-monitor-performance:/evidence token-monitor-candidate node scripts/verify-nas-transition.js --baseline /baseline --candidate /opt/token-monitor --output /evidence/mixed-version-transition.json
           docker run --rm --init --memory 1g --cpus 2 -v /tmp/token-monitor-baseline/app:/baseline:ro -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v /tmp/token-monitor-performance:/evidence token-monitor-candidate node scripts/benchmark-nas-regression.js --baseline /baseline --candidate /opt/token-monitor --repeats 3 --sessions 1000 --idle-ms 1500 --sustain-ms 60000 --sample-ms 50 --tick-ms 250 --output /evidence/synthetic-performance.json

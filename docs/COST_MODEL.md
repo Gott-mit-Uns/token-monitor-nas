@@ -37,3 +37,7 @@ Token 规范化为非负整数（`Math.round`）；shared 汇总内部以数值�
 完整扫描可以用权威会话统计替换旧归档观察值，包括合法零值；Today-only 监听或不完整预览不能抹去其他期间。匹配计时字段只影响生成速率，不改变 Token 费用公式。固定 parser 随官方升级；不得假设同 Token 总数证明逐日分配和费用一致，发布前以冻结 Hermes 输入逐项比较，生产以前后统计和真实同步单独验收。
 
 新 fullScan 纠正后须与新 parser 同配置输出比较；现场观察和差异验收仅记录在 [VALIDATION](VALIDATION.md)。Hermes 调用日志重分配日期和固定 parser 的估价路径可改变月份和模型费用，但不应丢失累计 Token 桶或会话身份。诊断必须复用 scanner.bucketTimezone，不能仅设置容器 TZ 后与另一日期桶比较。历史保留账本继续按现有策略保留冻结观察值，不能声称其与新 parser 的全量分日重算完全相等；要验证的是归档投影和 Hub 读取的一致性。生产原始数据不提交仓库。
+
+## v0.74 数据与估价边界
+
+Grok parser 的 output 与 reasoning 为独立桶，公共输出及总量计入 reasoning 一次；其他来源不能按 Grok 规则重复加总。Tokscale 4.20.0 fork 引入 provider-scoped billing/pricing、Codex OpenCodex 物理模型与缓存代际迁移；完整人工模型单价仍是最终估价，保留人工 provider_overrides，覆盖不完整时保留来源成本。这些变化不保证旧新模型/日期/估价逐项不变。升级前以相同来源、日期桶及价格比较累计桶、会话、历史和费用；不明差异仍拒绝自动部署。项目模型占比只增加分类元数据，不新增消费。

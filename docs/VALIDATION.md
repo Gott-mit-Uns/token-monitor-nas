@@ -1,5 +1,11 @@
 # 当前验收
 
+## v0.74.0-01 当前候选
+
+2026-10-19（Asia/Shanghai）：官方正式 tag v0.74.0 解引用为 `cbed5915e294abb4a210f7ebb385e9415f706821`；NAS 起点 main `aed120716e2e844bfbf1c766b17bbb194935f65e`。42 份旧/新上游参考文件逐份核对 Git blob SHA，20 个适用变更文件三方合并无冲突；官方 registry 仅供核对，NAS 自有闭包另算。共享功能定向测试 163 项：162 通过、1 Electron 专用跳过；发布辅助 67、部署 Python 59、文档规则 12 通过，文档检查0发现。默认来源/挂载/设备模板及 README 未改。
+
+本机为 macOS arm64、Node 24.21.0。终端 DNS 无法解析 GitHub，固定 Tokscale 下载失败；本机已有的 npm 4.20.0 二进制 SHA 与固定 fork 不符，不能用它证明 parser 契约。完整 suite 已尝试但遇到沙箱 HTTP 监听/原生文件事件限制，不记通过。原生 Linux amd64/arm64、指定 fork 的真实二进制契约、八来源冻结/完整状态恢复、混合版本和性能 CI 尚待执行；没有新镜像、生产部署或恢复结论。
+
 ## v0.73.0-01 已发布及 DXP4800 验收
 
 检查时间：2026-10-18（Asia/Shanghai）。官方 v0.73.0 / `1190260afdcacd8998938de311e0435c306a18ed`；NAS 正式源码 `61d43212bea55db685e1d52e8346b0d4b253e5c0`。起点 v0.72.0-02，DXP4800 amd64；本次没有连接或部署 DH4300plus。
