@@ -30,3 +30,5 @@ shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Includ
 按解引用后的正式 tag 比较 15 个上游提交、全部 103 个变更路径（路径数以 GitHub compare 返回为准）。共享代码同步 Grok 独立 reasoning、history 显式零值分类来源、项目模型占比、Reasonix 本地项目元数据、Kilo 原生 VS Code 根及保留人工 pricing/provider_overrides。固定 Tokscale 4.20.0 fork `324d51362201b746fc35c2f2a3793c971f01d5aa`，依赖与全部平台摘要同步。Agent/Node Hub 入口和 watcherPolicy 本轮无直接上游差异；Kilo 根由现有轻量 watcher 闭包复用，不另建监听器。默认来源、额度、项目开关和只读挂载保持。
 
 上游项目模型聚合使用 null-prototype 字典，保留保留字键测试。NAS registry 仅追加实际源码/依赖闭包身份，不复制官方或生成 Worker 身份。共享测试按 NAS 能力适配，Grok 计时验证传输字段，Reasonix 执行共享采集/归档/同步断言并跳过 Electron 展示断言；limitWindowText 的桌面集成不纳入 NAS suite。桌面 Liquid Glass、Top Notch、renderer、macOS 窗口、Worker 镜像和桌面发布说明不分发；上游文档用于接口与范围核对，不覆盖 NAS 文档。逐路径处理保留在 PR。
+
+补充来源边界：OpenCodex 账本仅辅助物理模型归属，不增加 Token 行，没有专用 ledger watcher，依赖正常采集及完整期间复核。Claude compacted 历史可由 parser 缓存保留，删除源 transcript 不等于删除保留用量。Grok 旧归档与实际计时能力见 [费用与数据边界](docs/COST_MODEL.md#v074-数据与估价边界)。

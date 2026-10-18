@@ -4,7 +4,14 @@
 
 2026-10-19（Asia/Shanghai）：官方正式 tag v0.74.0 解引用为 `cbed5915e294abb4a210f7ebb385e9415f706821`；NAS 起点 main `aed120716e2e844bfbf1c766b17bbb194935f65e`。42 份旧/新上游参考文件逐份核对 Git blob SHA，20 个适用变更文件三方合并无冲突；官方 registry 仅供核对，NAS 自有闭包另算。共享功能定向测试 163 项：162 通过、1 Electron 专用跳过；发布辅助 67、部署 Python 59、文档规则 12 通过，文档检查0发现。默认来源/挂载/设备模板及 README 未改。
 
-本机为 macOS arm64、Node 24.21.0。终端 DNS 无法解析 GitHub，固定 Tokscale 下载失败；本机已有的 npm 4.20.0 二进制 SHA 与固定 fork 不符，不能用它证明 parser 契约。完整 suite 已尝试但遇到沙箱 HTTP 监听/原生文件事件限制，不记通过。原生 Linux amd64/arm64、指定 fork 的真实二进制契约、八来源冻结/完整状态恢复、混合版本和性能 CI 尚待执行；没有新镜像、生产部署或恢复结论。
+本机为 macOS arm64、Node 24.21.0。终端 DNS 无法解析 GitHub，固定 Tokscale 下载失败；本机已有的 npm 4.20.0 二进制 SHA 与固定 fork 不符，不能用它证明 parser 契约。完整 suite 已尝试但遇到沙箱 HTTP 监听/原生文件事件限制，不记通过。下列原生 CI 后续通过；本机完整 suite 的首轮结果为1758项（1691通过、56失败、11跳过），包含沙箱HTTP/ps/原生watch限制及随后修正的NAS测试适配，不能替代最终Linux结果。没有新正式镜像或生产部署/恢复结论。
+
+运行源码 `04afb4f2d400c9f1521ae76340733a7bb57247c1` 的 [PR #19](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/19) 验证：
+
+- [原生双架构产品/性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39173173470) 全部成功；每架构1777项，1768通过、9平台/桌面跳过、0失败；指定Tokscale fork的发布/全部平台摘要、客户端与真实二进制契约通过。混合旧/新Hub与Agent、1000会话旧/新各3轮60秒合成负载通过；没有据此宣称长期生产性能改善。
+- [八来源×双架构冻结/完整状态恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39173173536) 的16组全部成功，包含v0.73.0-01固定index；普通及reasoning人工路径验证保持生产差异保护，不代表生产恢复快照。
+- [文档治理](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39173173469) 成功；本地仅NAS可达引用的历史安全检查1740个文件版本、0发现。初次本地克隆带入87个无关上游参考tag，存在官方Qoder测试DB误入扫描范围；已仅清理隔离副本中的无关引用，未改写仓库历史或放宽检查，GitHub干净NAS引用检查通过。
+- 本次结果补记只修改现有文档，不改变已验证的app、Docker、依赖或部署代码；最新文档提交检查以PR为准。尚未合并、打tag、推广镜像或访问生产NAS；真实来源增量、24小时、物理客户端、公网代理和逐台备份/部署仍未覆盖。
 
 ## v0.73.0-01 已发布及 DXP4800 验收
 

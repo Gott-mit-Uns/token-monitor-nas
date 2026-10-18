@@ -41,3 +41,5 @@ Token 规范化为非负整数（`Math.round`）；shared 汇总内部以数值�
 ## v0.74 数据与估价边界
 
 Grok parser 的 output 与 reasoning 为独立桶，公共输出及总量计入 reasoning 一次；其他来源不能按 Grok 规则重复加总。Tokscale 4.20.0 fork 引入 provider-scoped billing/pricing、Codex OpenCodex 物理模型与缓存代际迁移；完整人工模型单价仍是最终估价，保留人工 provider_overrides，覆盖不完整时保留来源成本。这些变化不保证旧新模型/日期/估价逐项不变。升级前以相同来源、日期桶及价格比较累计桶、会话、历史和费用；不明差异仍拒绝自动部署。项目模型占比只增加分类元数据，不新增消费。
+
+Grok 的旧归档日仍保留已记录的 reasoningTokens；有原始日志的日期可在完整扫描后纠正，归档日不自动全量迁移，可能继续偏低。当前固定 fork 尚未包含 Grok 正计时样本支持，真实 Grok TPS/TPM 保持不可用；合成计时测试只证明未来合法计时字段的传输/归一化，不证明该 parser 已能采集它。
