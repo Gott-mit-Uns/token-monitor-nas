@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Javis603/token-monitor",
-  "tag": "v0.73.0",
-  "commit": "1190260afdcacd8998938de311e0435c306a18ed",
-  "previousTag": "v0.72.0",
-  "previousCommit": "126e9a43dcc51d3d7b2609231eac9974ba73bed7",
-  "nasBaseline": "e99661a9e53802c22550b53e32238d96b1227eab",
+  "tag": "v0.74.0",
+  "commit": "cbed5915e294abb4a210f7ebb385e9415f706821",
+  "previousTag": "v0.73.0",
+  "previousCommit": "1190260afdcacd8998938de311e0435c306a18ed",
+  "nasBaseline": "aed120716e2e844bfbf1c766b17bbb194935f65e",
   "scope": [
     "src/shared",
     "src/agent",
@@ -15,7 +15,7 @@
   ],
   "audit": "UPSTREAM_0.72_AUDIT.md",
   "patches": "NAS_PATCHES.md",
-  "nasRevision": "v0.73.0-01",
-  "revisionBaseline": "e99661a9e53802c22550b53e32238d96b1227eab",
-  "revisionNotes": "Three-way merge v0.73.0 shared/runtime, Tokscale 4.19.1 pinned fork, corrected session totals including zero, matched timing, Cursor quotas, source/watch metadata. Preserve NAS strict archives, streaming reads, isolated watchers, Hub ordering and privacy. No new sources enabled. Retain the historical v0.72 path audit pointer per repository policy; current v0.73 decisions are in UPSTREAM.md and PR #17."
+  "nasRevision": "v0.74.0-01",
+  "revisionBaseline": "aed120716e2e844bfbf1c766b17bbb194935f65e",
+  "revisionNotes": "Three-way merge v0.73.0 to v0.74.0: Grok disjoint reasoning, explicit zero unclassified history, project model shares, Kilo roots and preserved manual pricing fields. Pin Tokscale 4.20.0 fork 324d5136. Retain NAS patches and historical audit pointer. Native candidate and restore acceptance remain required before release."
 }

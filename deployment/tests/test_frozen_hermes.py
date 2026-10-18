@@ -79,13 +79,14 @@ class FrozenHermesTest(unittest.TestCase):
 
     def test_baselines_are_fixed_and_candidate_read_from_single_version_input(self):
         with tempfile.TemporaryDirectory() as tmp:
-            file = Path(tmp) / 'version'; file.write_text('v0.73.0-01\n')
+            file = Path(tmp) / 'version'; file.write_text('v0.74.0-01\n')
             self.assertEqual(exercise.BASELINES['v0.71.0-01'], 'sha256:209da1db610b38871eb9357f27b6d625c80441ec9853024256190fd4843b585a')
             self.assertEqual(exercise.BASELINES['v0.72.0-01'], 'sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810')
+            self.assertEqual(exercise.BASELINES['v0.73.0-01'], 'sha256:48edfc344a513cebd8ed59c44f4504a40222c4ba44554d32300e888710daad34')
             for version, digest in exercise.BASELINES.items():
                 ref, candidate = exercise.versions(version, file)
                 self.assertEqual(ref, m.IMAGE + '@' + digest)
-                self.assertEqual(candidate, 'v0.73.0-01')
+                self.assertEqual(candidate, 'v0.74.0-01')
             with self.assertRaises(m.Refused): exercise.versions('latest', file)
             file.write_text('v0.69.0-02')
             with self.assertRaises(m.Refused): exercise.versions('v0.69.0-02', file)
