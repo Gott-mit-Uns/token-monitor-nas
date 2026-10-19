@@ -1,17 +1,29 @@
 # 当前验收
 
-## v0.74.0-01 当前候选
+## v0.74.0-01 已发布
 
 2026-10-19（Asia/Shanghai）：官方正式 tag v0.74.0 解引用为 `cbed5915e294abb4a210f7ebb385e9415f706821`；NAS 起点 main `aed120716e2e844bfbf1c766b17bbb194935f65e`。42 份旧/新上游参考文件逐份核对 Git blob SHA，20 个适用变更文件三方合并无冲突；官方 registry 仅供核对，NAS 自有闭包另算。共享功能定向测试 163 项：162 通过、1 Electron 专用跳过；发布辅助 67、部署 Python 59、文档规则 12 通过，文档检查0发现。默认来源/挂载/设备模板及 README 未改。
 
-本机为 macOS arm64、Node 24.21.0。终端 DNS 无法解析 GitHub，固定 Tokscale 下载失败；本机已有的 npm 4.20.0 二进制 SHA 与固定 fork 不符，不能用它证明 parser 契约。完整 suite 已尝试但遇到沙箱 HTTP 监听/原生文件事件限制，不记通过。下列原生 CI 后续通过；本机完整 suite 的首轮结果为1758项（1691通过、56失败、11跳过），包含沙箱HTTP/ps/原生watch限制及随后修正的NAS测试适配，不能替代最终Linux结果。没有新正式镜像或生产部署/恢复结论。
+本机为 macOS arm64、Node 24.21.0。终端 DNS 无法解析 GitHub，固定 Tokscale 下载失败；本机已有的 npm 4.20.0 二进制 SHA 与固定 fork 不符，不能用它证明 parser 契约。完整 suite 已尝试但遇到沙箱 HTTP 监听/原生文件事件限制，不记通过。下列原生 CI 后续通过；本机完整 suite 的首轮结果为1758项（1691通过、56失败、11跳过），包含沙箱HTTP/ps/原生watch限制及随后修正的NAS测试适配，不能替代最终Linux结果。这些是发布前的本机结果；正式发布证据见下文，生产部署/恢复未在本次核验。
 
 运行源码 `04afb4f2d400c9f1521ae76340733a7bb57247c1` 的 [PR #19](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/19) 验证：
 
 - [原生双架构产品/性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39173173470) 全部成功；每架构1777项，1768通过、9平台/桌面跳过、0失败；指定Tokscale fork的发布/全部平台摘要、客户端与真实二进制契约通过。混合旧/新Hub与Agent、1000会话旧/新各3轮60秒合成负载通过；没有据此宣称长期生产性能改善。
 - [八来源×双架构冻结/完整状态恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39173173536) 的16组全部成功，包含v0.73.0-01固定index；普通及reasoning人工路径验证保持生产差异保护，不代表生产恢复快照。
 - [文档治理](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39173173469) 成功；本地仅NAS可达引用的历史安全检查1740个文件版本、0发现。初次本地克隆带入87个无关上游参考tag，存在官方Qoder测试DB误入扫描范围；已仅清理隔离副本中的无关引用，未改写仓库历史或放宽检查，GitHub干净NAS引用检查通过。
-- 本次结果补记只修改现有文档，不改变已验证的app、Docker、依赖或部署代码；最新文档提交检查以PR为准。尚未合并、打tag、推广镜像或访问生产NAS；真实来源增量、24小时、物理客户端、公网代理和逐台备份/部署仍未覆盖。
+- 上述是 PR 运行源码的既有验收，本次文档核对未重跑产品/性能或恢复矩阵。PR #19 已合并，正式 main/tag/source 为 `14a590313c3e655cca7eac88d7ac18ac0f250042`；该提交的 [文档治理 CI](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39174431668) 成功。
+- 2026-10-19 从本机 Mac 通过 GitHub API 重新核对：[正式发布运行 39182258253](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39182258253) 绑定上述正式源码，build_amd64、verify_arm64、promote 三个 job 均成功；最终两架构原生运行验证、固定镜像、三份仓库记录写入/读回及 latest 推广步骤成功。记录分支提交为 `8719db4f95e550f268f97c9fc47cbe12bcf2ebf8`，[manifest](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/8719db4f95e550f268f97c9fc47cbe12bcf2ebf8/publications/v0.74.0-01/manifest.json) 的 version/sourceCommit 与正式 tag 一致；index `sha256:f928d90e8c697d7e872ed1e19f20a93490e378444cfbea0d5b7cb4453ca104d7`，linux/amd64 子摘要 `sha256:ee08b80ee68f376d3ba185e467e6e9fb26b1fd7bfb5c75d2e10c8279ca635189`，linux/arm64 子摘要 `sha256:ec284ed27483e524479572cea59e632add178aa8d0c2822020fec8351cd7c5a8`。本次没有独立拉取 Registry/OCI，也未新建 GitHub Release；实时 Release 列表仅有 v0.73.0-01，不将 Release 页面作为本版发布门槛。
+- 本次只修正文档状态，未访问生产 NAS；真实来源增量、24小时、物理客户端、公网代理和逐台备份/部署仍未覆盖。v0.73 的现场证据不代替 v0.74 部署/恢复证明。
+
+本次文档修复本机检查（2026-10-19，macOS arm64、Python 3.9.6）：`python3 scripts/check-docs.py --base origin/main` 0发现；`python3 -m unittest discover -s scripts/tests -p 'test_doc_governance.py' -v` 12项通过；`git diff --check` 通过。人工核对两个文件的最终差异、历史/当前范围、旧 PR 独有信息及发布记录保留边界。没有重跑业务测试、构建镜像或执行生产操作。
+
+### 旧 PR #15 的保留与替代
+
+2026-10-19 审查 [PR #15](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/15) 最终 head `3e3288e6692558a0e86b1be064950c63a4786f06` 的全部变更文件及文档。费用公式、逐项人工复核、恢复/身份/标题/隐私边界已由 [COST_MODEL](COST_MODEL.md)、[DEPLOYMENT](../DEPLOYMENT.md)、当前交接和有限历史索引覆盖；旧归档审计继续保留，不套用该 PR 的历史改写。控制器 override 的后续使用已有部署说明，本次交接补明完整配套依赖和 override 备份/恢复要求。
+
+该 PR 独有的历史清理记录报告：2026-10-17 已删除21个旧 NAS Release及附件，前后21个Git tag ref/对象SHA一致，六个固定镜像digest与原清单一致。这是旧 PR 的执行报告，本次未重新证明当时前后快照，不将其写成当前实测；旧附件不可作为可下载证据，Git历史保留原资料，CI artifacts仍受保留期约束。后续已创建的 v0.73 Release 不在该旧清理范围，本次不删除任何 Release、tag、镜像或恢复记录。
+
+旧 PR 的四入口/引用整理已被当前治理替代；仅保留 manifest 的发布器/消费者改造、README扩写及删除12份逐版本 UPGRADE/ROLLBACK 不移植。旧 PR 的测试/审查仅适用其原提交，不能移记为当前 main 的通过证据。本次以仅修改两个当前文档的 PR 替代，不合并旧 PR；新 PR 的最终检查以其当前提交为准。
 
 ## v0.73.0-01 已发布及 DXP4800 验收
 
@@ -64,6 +76,6 @@ reasoning 共 120（现代100、legacy20），属于 output 子集，不能重�
 
 跨 v0.69 reasoning 修正的独立样例及生产手动限制见 [COST_MODEL](COST_MODEL.md#费用差异的部署保护)。性能样本是三进程合计1GiB测试容器，生产每服务512MiB没有提高；短合成 soak、采样 RSS 不证明普遍改善或长期无泄漏。原始数字与旧报告的固定提交链接见 [历史索引](archive/README.md)。
 
-## 当前未覆盖
+## v0.72.0-02 当时未覆盖
 
 本次未访问生产。两台设备当前版本/digest/架构、用户手工更新、新上传、真实备份/恢复、24小时持续运行，真实账户、Android 真机和公网 Windows UI/HTTPS/gzip，均不可记为已通过。历史 DXP v0.71 部署不能代替当前证明。下一步与授权边界见 [HANDOFF](HANDOFF.md)。
