@@ -1,10 +1,12 @@
 # 当前交接
 
-## 2026-10-20 v0.75.0-01 candidate
+## 2026-10-20 v0.75.0-01 已发布
 
-Baseline: main `3e7b5b33409b793610338732c35e3af55062cd36`, published NAS v0.74.0-01; desktop v0.75.0 / `877fef6002a5fee84aa502fc3454b4f700b55813`. Antigravity parent metadata, DSH project attribution, Grok activity evidence and Claude probe isolation are synchronized. Existing privacy/default sources, project/quota switches, Tokscale pin, accounting and persisted formats are unchanged. See UPSTREAM/NAS_PATCHES for scope and VALIDATION for evidence.
+桌面正式基线为 v0.75.0 / `877fef6002a5fee84aa502fc3454b4f700b55813`。NAS 对齐已由 [PR #21](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/21) 合入 main，正式源码与 annotated tag `v0.75.0-01` 均指向 `23e63652806921a74d7c4f0945ea56ad16cbd44a`。Antigravity 父子关系、DSH 项目归属、Grok 活动证据及 Claude 探测隔离已同步；原有来源/隐私/项目/额度默认开关、固定 parser、费用口径及持久化格式保持。修改范围见 [UPSTREAM](../UPSTREAM.md) 与 [NAS_PATCHES](../NAS_PATCHES.md)。
 
-The owner explicitly authorized implementation, tests, separate PRs, review fixes, merge and publication on 2026-10-20. Publish v0.75.0-01 only after native amd64/arm64 and nine-source frozen/full-state restore gates pass. Publication follows the existing Git tag, immutable image, repository records and latest mechanism. Production installation, restart, migration and deployment remain outside this authorization; no production devices were accessed. No new GitHub Release is required.
+PR 最终提交的21项检查及自动审查已完成，原生双架构产品/性能与九来源×双架构冻结/完整状态恢复通过；合并树与已验收 PR 一致。[正式发布运行](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39288665611) 三个 job 均成功，固定多架构镜像、仓库三份记录及 latest 推广完成。固定镜像为 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.75.0-01`，index `sha256:c92f1ad9ad1e7d6b6f7e6302bcfde64ad4e3b5f2583b2dea0d8821f76e3328e3`；[固定发布清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/e00128282eeed4755ccb5cc9214a0c35675f3bfa/publications/v0.75.0-01/manifest.json) 记录两个平台身份及恢复政策。已独立匿名读取 GHCR，固定版本与 latest 指向同一 index，两个平台的 digest、源码和版本标签一致；latest 仍是可变指针。完整证据及本机首轮失败范围见 [VALIDATION](VALIDATION.md)。
+
+所有者于 2026-10-20 明确授权实现、测试、PR、审查修复、合并与发布；本次收尾仅更新现有两份交接/验收文档，不再创建软件版本。发布沿用 Git tag、多架构镜像、仓库三份发布记录及 latest 机制，不新建 GitHub Release。生产安装、重启、迁移及部署不在本次授权范围；没有访问生产设备，实际部署/恢复、真实增量及24小时观察仍未验收。下方各旧版本的现场结果只适用于其原提交与范围。
 
 ## 2026-10-19 当前状态
 
