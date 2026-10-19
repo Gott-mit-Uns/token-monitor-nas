@@ -6,7 +6,7 @@
 
 固定镜像为 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.74.0-01`，index 为 `sha256:f928d90e8c697d7e872ed1e19f20a93490e378444cfbea0d5b7cb4453ca104d7`；两平台摘要及迁移/恢复政策以 [发布清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/8719db4f95e550f268f97c9fc47cbe12bcf2ebf8/publications/v0.74.0-01/manifest.json) 为准。latest 是可变指针，不能代替固定身份；本次核对 GitHub 发布证据，未独立拉取 Registry 镜像。
 
-发布成功不代表两台 NAS 已运行本版；本次没有访问、更新或验收生产 NAS，v0.74 的实际部署/恢复、真实增量和24小时观察仍未知。下节 v0.73 的 DXP4800 结果保留原范围，不能移记到 v0.74；DH4300Plus 仍须单独核实。下一步是审阅本次文档修复 PR；本次授权不包含合并、新版本发布或生产操作，未来逐台操作仍按下方门槛取得当次授权。
+发布成功不代表两台 NAS 已运行本版；本次没有访问、更新或验收生产 NAS，v0.74 的实际部署/恢复、真实增量和24小时观察仍未知。下节 v0.73 的 DXP4800 结果保留原范围，不能移记到 v0.74；DH4300Plus 仍须单独核实。所有者随后明确授权将本次文档修复在检查/审查通过后合入 main；此次发布仅指文档进入主分支，不创建新软件版本、Release或镜像。未来版本发布及逐台生产操作仍须取得当次授权，并按下方门槛执行。
 
 旧 [PR #15](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/15) 的文档收敛已由现有固定入口及治理覆盖，独有历史记录与审查结论见 [VALIDATION](VALIDATION.md#旧-pr-15-的保留与替代)。其仅保留 manifest 的发布器/消费者改造及删除12份 UPGRADE/ROLLBACK 与当前 [AGENTS](../AGENTS.md) 冲突，不合并该方案；保留现有三份发布/恢复记录及原字节。未来若明确启用可选控制器，须审阅同一提交的完整配套依赖；备份/恢复与后续重建须包含私有 `image-override.json` 及相同 Compose `-f` 组合，保持固定镜像身份，详见 [DEPLOYMENT](../DEPLOYMENT.md)。
 
