@@ -1,5 +1,11 @@
 # 当前交接
 
+## 2026-10-20 v0.75.0-01 candidate
+
+Baseline: main `3e7b5b33409b793610338732c35e3af55062cd36`, published NAS v0.74.0-01; desktop v0.75.0 / `877fef6002a5fee84aa502fc3454b4f700b55813`. Antigravity parent metadata, DSH project attribution, Grok activity evidence and Claude probe isolation are synchronized. Existing privacy/default sources, project/quota switches, Tokscale pin, accounting and persisted formats are unchanged. See UPSTREAM/NAS_PATCHES for scope and VALIDATION for evidence.
+
+The owner explicitly authorized implementation, tests, separate PRs, review fixes, merge and publication on 2026-10-20. Publish v0.75.0-01 only after native amd64/arm64 and nine-source frozen/full-state restore gates pass. Publication follows the existing Git tag, immutable image, repository records and latest mechanism. Production installation, restart, migration and deployment remain outside this authorization; no production devices were accessed. No new GitHub Release is required.
+
 ## 2026-10-19 当前状态
 
 官方基线为 v0.74.0 / `cbed5915e294abb4a210f7ebb385e9415f706821`；NAS v0.74.0-01 已由 [PR #19](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/19) 合入 main，正式源码/tag 为 `14a590313c3e655cca7eac88d7ac18ac0f250042`。原生双架构产品/性能及八来源×双架构冻结/完整状态恢复已通过；[正式发布运行](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39182258253) 成功，固定镜像、仓库三份发布记录及 latest 推广已完成。具体证据与边界见 [VALIDATION](VALIDATION.md)。

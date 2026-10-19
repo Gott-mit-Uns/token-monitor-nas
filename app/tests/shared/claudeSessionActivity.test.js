@@ -582,3 +582,31 @@ test('the existing watcher routes registry changes into activity without schedul
   collector.stop(); watcher.emit('all', 'change', registry);
   assert.equal(scans, 3);
 });
+
+test('registry excludes Token Monitor probe cwd from readings and pre-token rows', async t => {
+  const f = fixture(t);
+  const probe = path.join(f.home, 'probe');
+  const alias = path.join(f.home, 'probe-alias');
+  fs.mkdirSync(probe);
+  fs.symlinkSync(probe, alias, 'junction');
+  const canonical = fs.realpathSync(probe);
+  const missing = path.join(f.home, 'missing-probe');
+  for (const platform of ['darwin', 'win32']) {
+    for (const [claudeProbeDir, cwd] of [
+      [undefined, path.join(os.tmpdir(), 'token-monitor-claude-probe')],
+      [probe, probe], [alias, canonical], [canonical, alias], [missing, missing]
+    ]) {
+      const options = { ...f.options, platform, claudeProbeDir };
+      f.write({ sessionId: 'probe-session', pidDomain: platform, cwd });
+      // The registry name is deliberately identical; only cwd identifies ours.
+      f.write({ sessionId: 'real-session', pidDomain: platform, cwd: `${probe}-project` }, 2345);
+      const readings = await activity.readSessionActivity(null, options);
+      assert.equal(readings.has('probe-session'), false, `${platform}: ${cwd}`);
+      assert.equal(readings.get('real-session').state, 'waiting');
+      const observed = await activity.readSummaryActivity({}, options);
+      assert.equal(observed.readings.has('probe-session'), false);
+      assert.deepEqual(Object.keys(observed.sessions), ['claude:real-session']);
+      assert.equal(observed.sessions['claude:real-session'].tokenDataUnavailable, true);
+    }
+  }
+});
