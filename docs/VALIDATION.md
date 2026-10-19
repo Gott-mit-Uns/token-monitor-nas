@@ -1,5 +1,11 @@
 # 当前验收
 
+## v0.75.0-01 candidate validation
+
+2026-10-20 (Asia/Shanghai): main `3e7b5b33409b793610338732c35e3af55062cd36` / published v0.74.0-01 is the NAS baseline. Installed desktop is 0.75.0; latest official v0.75.0 resolves to `877fef6002a5fee84aa502fc3454b4f700b55813`. Three-way merged 12 applicable shared source paths, two version manifests and seven shared test files; retained NAS-specific Claude activity tests. Agent/Hub entrypoints, dependencies, pinned parser, accounting and persisted formats have no upstream delta. Actual NAS core/Node closure identities were regenerated; official registry hashes were not copied. README, Compose, device IDs and default switches are unchanged.
+
+Local macOS arm64 / Node24.19.0: publication helper tests 67/67, deployment Python 59/59 and documentation tests 12/12 pass; version/documentation checks report zero findings. First deployment run failed because its fixture candidate v0.74 now equalled the newly added baseline; changed the fixture candidate to v0.75, retaining same-version refusal checks. First targeted run: 191 tests, 185 pass, two fail, four skipped; both failures referenced Electron files absent from NAS. DSH now verifies the actual shared rollup and normalized fields/tokens (five tests pass); renderer-only integration is explicitly skipped while shared activity assertions remain active. Full local suite was attempted; missing/mismatched pinned Tokscale cannot establish parser acceptance. Native dual-architecture regression, mixed-version/performance and nine-source frozen/full-state restore results must come from current PR CI before acceptance/publication. No physical-device, production NAS, real-account or 24-hour validation was performed.
+
 ## v0.74.0-01 已发布
 
 2026-10-19（Asia/Shanghai）：官方正式 tag v0.74.0 解引用为 `cbed5915e294abb4a210f7ebb385e9415f706821`；NAS 起点 main `aed120716e2e844bfbf1c766b17bbb194935f65e`。42 份旧/新上游参考文件逐份核对 Git blob SHA，20 个适用变更文件三方合并无冲突；官方 registry 仅供核对，NAS 自有闭包另算。共享功能定向测试 163 项：162 通过、1 Electron 专用跳过；发布辅助 67、部署 Python 59、文档规则 12 通过，文档检查0发现。默认来源/挂载/设备模板及 README 未改。
