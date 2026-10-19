@@ -35,4 +35,4 @@ shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Includ
 
 ## v0.75 适用决策
 
-同步全部12个适用共享源码路径及版本清单：Antigravity新旧SQLite schema兼容、agent_name标题回退及parentSessionId；DSH从transcript cwd关联项目；Grok Bot只以明确turn或liveActivity判断运行；Claude探测使用独立cwd、禁止保存历史并排除探测活动。Windows子进程降优先级辅助在Linux不执行，不改变NAS调度。Agent/Hub入口、持久化格式、费用规则、依赖和Tokscale pin均无上游变化；NAS补丁原样保留。实际core/Node闭包身份重新计算，上游registry仅核对而不复制。7个上游shared测试变更纳入现有NAS suite；claude活动测试保留NAS自有修正并增补探测排除断言。桌面Notch、Electron/renderer、Worker及其测试/文档不分发；上游说明只作范围参考。完整路径分类见PR，当前结果见VALIDATION。
+同步全部11个适用共享源码路径及版本清单：Antigravity新旧SQLite schema兼容、agent_name标题回退及parentSessionId；DSH从transcript cwd关联项目；Grok Bot只以明确turn或liveActivity判断运行；Claude探测使用独立cwd、禁止保存历史并排除探测活动。Windows子进程降优先级辅助在Linux不执行，不改变NAS调度。Agent/Hub入口、持久化格式、费用规则、依赖和Tokscale pin均无上游变化；NAS补丁原样保留。实际core/Node闭包身份重新计算，上游registry仅核对而不复制。7个上游shared测试变更纳入现有NAS suite；claude活动测试保留NAS自有修正并增补探测排除断言。桌面Notch、Electron/renderer、Worker及其测试/文档不分发；上游说明只作范围参考。完整路径分类见PR，当前结果见VALIDATION。
