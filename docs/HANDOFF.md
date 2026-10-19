@@ -1,8 +1,14 @@
 # 当前交接
 
-## 2026-10-19 当前工作
+## 2026-10-19 当前状态
 
-官方 v0.74.0 源码已对齐，候选 NAS v0.74.0-01；基于 main `aed120716e2e844bfbf1c766b17bbb194935f65e`，[PR #19](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/19) 的运行源码为 `04afb4f2d400c9f1521ae76340733a7bb57247c1`。原生双架构产品/性能及八来源×双架构冻结/完整状态恢复全部通过，细项与边界见 [VALIDATION](VALIDATION.md)。最终结果补记仅文档，最新PR检查另行核实。当前授权已完成源码对齐、验证和PR；下一步合并、正式tag/镜像发布与推广仍须当次明确授权，生产逐台操作另按既有门槛确认，不沿用上次跳过备份/部署的授权。尚未发布镜像或操作生产NAS。
+官方基线为 v0.74.0 / `cbed5915e294abb4a210f7ebb385e9415f706821`；NAS v0.74.0-01 已由 [PR #19](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/19) 合入 main，正式源码/tag 为 `14a590313c3e655cca7eac88d7ac18ac0f250042`。原生双架构产品/性能及八来源×双架构冻结/完整状态恢复已通过；[正式发布运行](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39182258253) 成功，固定镜像、仓库三份发布记录及 latest 推广已完成。具体证据与边界见 [VALIDATION](VALIDATION.md)。
+
+固定镜像为 `ghcr.io/gott-mit-uns/token-monitor-hermes:v0.74.0-01`，index 为 `sha256:f928d90e8c697d7e872ed1e19f20a93490e378444cfbea0d5b7cb4453ca104d7`；两平台摘要及迁移/恢复政策以 [发布清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/8719db4f95e550f268f97c9fc47cbe12bcf2ebf8/publications/v0.74.0-01/manifest.json) 为准。latest 是可变指针，不能代替固定身份；本次核对 GitHub 发布证据，未独立拉取 Registry 镜像。
+
+发布成功不代表两台 NAS 已运行本版；本次没有访问、更新或验收生产 NAS，v0.74 的实际部署/恢复、真实增量和24小时观察仍未知。下节 v0.73 的 DXP4800 结果保留原范围，不能移记到 v0.74；DH4300Plus 仍须单独核实。下一步是审阅本次文档修复 PR；本次授权不包含合并、新版本发布或生产操作，未来逐台操作仍按下方门槛取得当次授权。
+
+旧 [PR #15](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/15) 的文档收敛已由现有固定入口及治理覆盖，独有历史记录与审查结论见 [VALIDATION](VALIDATION.md#旧-pr-15-的保留与替代)。其仅保留 manifest 的发布器/消费者改造及删除12份 UPGRADE/ROLLBACK 与当前 [AGENTS](../AGENTS.md) 冲突，不合并该方案；保留现有三份发布/恢复记录及原字节。未来若明确启用可选控制器，须审阅同一提交的完整配套依赖；备份/恢复与后续重建须包含私有 `image-override.json` 及相同 Compose `-f` 组合，保持固定镜像身份，详见 [DEPLOYMENT](../DEPLOYMENT.md)。
 
 ## 2026-10-18 当前交付
 
@@ -16,7 +22,7 @@ DH4300plus 没有由助手更新，由所有者手动使用同一固定版本镜
 
 适用：NAS `v0.72.0-02`；文档治理基线 `caa51169`。检查时间：2026-10-17（Asia/Shanghai）。来源：该提交的历次交接、验收及部署计划；本次仅核对仓库资料，未重新访问生产设备或核验 Registry。实际测试范围见 [VALIDATION](VALIDATION.md)。
 
-## 当前状态与下一步
+### v0.72.0-02 当时状态与下一步
 
 - 上游稳定基线为 v0.72.0 / `126e9a43dcc51d3d7b2609231eac9974ba73bed7`；正式 NAS v0.72.0-02 源码为 `0f748427b7c75171d1c2fcaf40c0ef552bfb2f2d`。旧记录确认 2026-10-16 21:35:40（北京时间）发布完成；不可变身份以 [仓库清单](../publications/v0.72.0-02/manifest.json) 为准。该历史结论不代表本次重新核验 latest。
 - 后续发布采用 Git tag＋多架构镜像＋仓库三份发布记录，详见 [发布规范](../NAS_PUBLICATION.md)。六版迁入记录保留原字节；不覆盖固定 tag/镜像/清单，不删除旧 Release。新流程首次实际 tag 发布、专用 `nas-publications` 分支写入及 GHCR 推广未在本次执行，不能把模拟验收写成真实发布。
@@ -27,7 +33,7 @@ DH4300plus 没有由助手更新，由所有者手动使用同一固定版本镜
 
 默认 Hermes-only、limits 关闭、五分钟兜底、独立 Watcher=0、只读来源、每服务 512MiB、设备身份与持久化路径保持。标题默认关闭，迁移/卸载前完成旧 Hub 的撤销清理，见 [部署规范](../DEPLOYMENT.md#标题关闭迁移与卸载)。Node Hub 与 Agent 使用同一共享基线；真实闭包指纹不复制上游值冒充一致，Worker 未在本仓库分发。
 
-当前 core revision 84；Node runtime revision 8 的旧验收指纹为 `sha256:21b76f9f6e1eaf24d634dd0d1b120ddf42f5fe90a9cecfebbc52c842b487cdd5`。本次不重生成构建身份。可选 Hub 名称只在鉴权 stats/完整 SSE 公开，未配置省略，匿名 health 不返回；仅在 Hub 服务显式配置，不能改 Agent ID 代替，见 [合同](../HUB_DISPLAY_NAME.md)。
+v0.72.0-02 的 core revision 84、Node runtime revision 8 旧验收指纹为 `sha256:21b76f9f6e1eaf24d634dd0d1b120ddf42f5fe90a9cecfebbc52c842b487cdd5`。本次不重生成构建身份。可选 Hub 名称只在鉴权 stats/完整 SSE 公开，未配置省略，匿名 health 不返回；仅在 Hub 服务显式配置，不能改 Agent ID 代替，见 [合同](../HUB_DISPLAY_NAME.md)。
 
 Hub 迟到保护分别处理 usage/limits：只有可信 Hub receivedAt 且 producer 最多超前 5 分钟时比较顺序；异常/缺失时间沿用到达顺序，不能保证该区间乱序。首次 limits-only 不建立 usage 水位，持久化标记在首份完整用量后清除。合法降费和日界归零仍可接受，不用只增不减假设。
 
