@@ -1,6 +1,6 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.74.0-01；2026-10-19 从 v0.73.0 三方合并核对。官方稳定基线 `v0.74.0` / `cbed5915e294abb4a210f7ebb385e9415f706821`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.75.0-01；2026-10-20 从 v0.74.0 三方合并核对。官方稳定基线 `v0.75.0` / `877fef6002a5fee84aa502fc3454b4f700b55813`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 
@@ -32,3 +32,7 @@ shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Includ
 上游项目模型聚合使用 null-prototype 字典，保留保留字键测试。NAS registry 仅追加实际源码/依赖闭包身份，不复制官方或生成 Worker 身份。共享测试按 NAS 能力适配，Grok 计时验证传输字段，Reasonix 执行共享采集/归档/同步断言并跳过 Electron 展示断言；limitWindowText 的桌面集成不纳入 NAS suite。桌面 Liquid Glass、Top Notch、renderer、macOS 窗口、Worker 镜像和桌面发布说明不分发；上游文档用于接口与范围核对，不覆盖 NAS 文档。逐路径处理保留在 PR。
 
 补充来源边界：OpenCodex 账本仅辅助物理模型归属，不增加 Token 行，没有专用 ledger watcher，依赖正常采集及完整期间复核。Claude compacted 历史可由 parser 缓存保留，删除源 transcript 不等于删除保留用量。Grok 旧归档与实际计时能力见 [费用与数据边界](docs/COST_MODEL.md#v074-数据与估价边界)。
+
+## v0.75 适用决策
+
+同步全部12个适用共享源码路径及版本清单：Antigravity新旧SQLite schema兼容、agent_name标题回退及parentSessionId；DSH从transcript cwd关联项目；Grok Bot只以明确turn或liveActivity判断运行；Claude探测使用独立cwd、禁止保存历史并排除探测活动。Windows子进程降优先级辅助在Linux不执行，不改变NAS调度。Agent/Hub入口、持久化格式、费用规则、依赖和Tokscale pin均无上游变化；NAS补丁原样保留。实际core/Node闭包身份重新计算，上游registry仅核对而不复制。7个上游shared测试变更纳入现有NAS suite；claude活动测试保留NAS自有修正并增补探测排除断言。桌面Notch、Electron/renderer、Worker及其测试/文档不分发；上游说明只作范围参考。完整路径分类见PR，当前结果见VALIDATION。
