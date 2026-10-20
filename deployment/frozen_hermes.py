@@ -20,7 +20,7 @@ MODEL = 'synthetic-frozen-model'
 EXPECTED_COST = {'today': (0.00651, 0.00551), 'month': (0.007645, 0.006445), 'allTime': (0.007645, 0.006445)}
 # Only these verified releases already contain the Hermes reasoning correction.
 # Older releases keep the exact historical reduction oracle above.
-CORRECTED_BASELINES = {'v0.74.0-01', 'v0.73.0-01', 'v0.72.0-02', 'v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01'}
+CORRECTED_BASELINES = {'v0.75.0-01', 'v0.74.0-01', 'v0.73.0-01', 'v0.72.0-02', 'v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01'}
 
 def fixture(file):
     with sqlite3.connect(file) as db:

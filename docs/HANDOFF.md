@@ -1,5 +1,9 @@
 # 当前交接
 
+## 2026-10-20 v0.76.0-01 对齐与部署任务
+
+目标为官方正式 v0.76.0 / `fbbe4c1cb04e3277b73499016d432338c1d2ab4e`，NAS 起点 `31d8c6c1`。本次所有者已明确授权对齐、验证、PR审阅、合并、发布及DXP4800部署，并要求先完整备份、不操作DH4300plus。当前完成Antigravity共享额度差异与测试同步；原生CI、审阅、合并和发布尚待完成。DXP4800的22端口首次只读连接被拒绝，未登录、未备份或改动设备；部署等待安全连接恢复，不能把发布当作已部署。详细验证见[VALIDATION](VALIDATION.md)。
+
 ## 2026-10-20 v0.75.0-01 已发布
 
 桌面正式基线为 v0.75.0 / `877fef6002a5fee84aa502fc3454b4f700b55813`。NAS 对齐已由 [PR #21](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/21) 合入 main，正式源码与 annotated tag `v0.75.0-01` 均指向 `23e63652806921a74d7c4f0945ea56ad16cbd44a`。Antigravity 父子关系、DSH 项目归属、Grok 活动证据及 Claude 探测隔离已同步；原有来源/隐私/项目/额度默认开关、固定 parser、费用口径及持久化格式保持。修改范围见 [UPSTREAM](../UPSTREAM.md) 与 [NAS_PATCHES](../NAS_PATCHES.md)。
