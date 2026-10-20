@@ -556,7 +556,35 @@ def archive_preserved(old, new, now=None):
             return False
     return True
 
-def history_preserved(old, new, path=(), daily_window=None):
+def history_daily_metrics(history):
+    """Recompute only the three window-derived mergeHistories display metrics."""
+    rows = history.get('daily', [])
+    if not isinstance(rows, list):
+        return {}
+    active, peak = set(), 0
+    for row in rows:
+        if not isinstance(row, dict):
+            return {}
+        value = row.get('tokens')
+        if type(value) not in [int, float] or value < 0 or (isinstance(value, float) and not math.isfinite(value)):
+            return {}
+        try:
+            day = dt.date.fromisoformat(row['date'])
+        except (ValueError, KeyError, TypeError):
+            return {}
+        if value > 0:
+            active.add(day)
+        peak = max(peak, value)
+    longest = run = 0
+    previous = None
+    for day in sorted(active):
+        run = run + 1 if previous is not None and day - previous == dt.timedelta(days=1) else 1
+        longest = max(longest, run)
+        previous = day
+    return {'activeDays': len(active), 'longestStreak': longest, 'peakDayTokens': peak}
+
+
+def history_preserved(old, new, path=(), daily_window=None, summary_changes=()):
     """Retain dated history and counters, allowing only bounded USD roundoff.
 
     This is deliberately separate from archive/frozen accounting comparisons.
@@ -565,14 +593,27 @@ def history_preserved(old, new, path=(), daily_window=None):
     if isinstance(old, dict):
         if not isinstance(new, dict):
             return False
-        if not path and daily_window and not history_rollover_proven(old, new, daily_window):
-            daily_window = None
+        if not path and daily_window:
+            if not history_rollover_proven(old, new, daily_window):
+                daily_window = None
+            else:
+                # normalizeHistory has lifetime metrics; mergeHistories derives
+                # these same fields from the capped daily window. Permit a drop
+                # only when BOTH values exactly match their retained daily rows.
+                before_metrics, after_metrics = history_daily_metrics(old), history_daily_metrics(new)
+                summary_changes = tuple(key for key in before_metrics
+                    if type(old.get('summary', {}).get(key)) in [int, float]
+                    and type(new.get('summary', {}).get(key)) in [int, float]
+                    and old['summary'][key] == before_metrics[key]
+                    and new['summary'][key] == after_metrics.get(key))
         for key, value in old.items():
             if key in ['updatedAt', 'savedAt', 'generatedAt', 'pricingRevision']:
                 continue
             if key not in new:
                 return False
             current = new[key]
+            if path == ('summary',) and key in summary_changes:
+                continue
             # These presentation values are derived from retained counters.
             if path == ('summary',) and key == 'favoriteModel':
                 if not isinstance(value, str) or not isinstance(current, str):
@@ -585,7 +626,7 @@ def history_preserved(old, new, path=(), daily_window=None):
                 if key in ['intensity', 'tokenIntensity', 'costIntensity'] and max(value, current) > 4:
                     return False
                 continue
-            if not history_preserved(value, current, path + (key,), daily_window):
+            if not history_preserved(value, current, path + (key,), daily_window, summary_changes):
                 return False
         return True
     if isinstance(old, list):
@@ -621,7 +662,7 @@ def history_preserved(old, new, path=(), daily_window=None):
             cutoff = (dt.date.fromisoformat(daily_window[1]) - dt.timedelta(days=369)).isoformat()
             if any(key >= cutoff for key in missing):
                 return False
-        return all(history_preserved(row, after[key], path + (key,), daily_window)
+        return all(history_preserved(row, after[key], path + (key,), daily_window, summary_changes)
                    for key, row in before.items() if key in after)
     if isinstance(old, bool) or isinstance(new, bool):
         return type(old) is bool and type(new) is bool and old == new
@@ -678,9 +719,8 @@ def history_rollover_proven(old, new, window):
         values = [summary.get(field) for summary in [before_summary, after_summary]]
         if any(type(value) not in [int, float] for value in values):
             return False
-    # Per-device normalizeHistory derives these summaries from uncapped
-    # contributions: activeDays/streak peaks and all accounting must survive.
-    return history_preserved(before_summary, after_summary, ('summary',))
+    return all(history_preserved(before_summary[field], after_summary[field], ('summary', field))
+               for field in ['totalTokens', 'totalCost'])
 
 
 def verify_state(cfg, snapshot):

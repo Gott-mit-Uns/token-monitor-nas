@@ -159,6 +159,28 @@ class CappedHistoryRolloverTest(unittest.TestCase):
         new = copy.deepcopy(old); new['daily'].pop(1)
         self.assertFalse(m.history_preserved(old, new, daily_window=(previous_day, today)))
 
+    def test_rollover_summary_decreases_require_exact_daily_recomputation(self):
+        import datetime as dt
+        today = m.local_window('today')
+        yesterday = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
+        old = self.full_history()
+        old['daily'][0]['tokens'] = 100
+        old['summary']['peakDayTokens'] = 100
+        new = copy.deepcopy(old); new['daily'].pop(0)
+        new['summary'].update(activeDays=369, longestStreak=369, peakDayTokens=10)
+        window = (yesterday, today)
+        self.assertTrue(m.history_preserved(old, new, daily_window=window))
+        self.assertFalse(m.history_preserved(old, new))
+        for field in ['activeDays', 'longestStreak', 'peakDayTokens']:
+            with self.subTest(field=field):
+                bad = copy.deepcopy(new); bad['summary'][field] = 0
+                self.assertFalse(m.history_preserved(old, bad, daily_window=window))
+                lifetime = copy.deepcopy(old); lifetime['summary'][field] += 100
+                self.assertFalse(m.history_preserved(lifetime, new, daily_window=window))
+                # Genuine lifetime summaries stay unchanged as daily rows expire.
+                retained = copy.deepcopy(new); retained['summary'] = copy.deepcopy(lifetime['summary'])
+                self.assertTrue(m.history_preserved(lifetime, retained, daily_window=window))
+
     def test_only_proven_capped_window_expiry_with_durable_totals_is_allowed(self):
         import datetime as dt
         today = m.local_window('today')
@@ -181,8 +203,8 @@ class CappedHistoryRolloverTest(unittest.TestCase):
             lambda c: c['history']['monthly'].pop(0),
             lambda c: c['history']['summary'].update(totalTokens=3699),
             lambda c: c['history']['summary'].update(totalCost=46),
-            lambda c: c['history']['summary'].update(activeDays=369),
-            lambda c: c['history']['summary'].update(longestStreak=369),
+            lambda c: c['history']['summary'].update(activeDays=368),
+            lambda c: c['history']['summary'].update(longestStreak=368),
             lambda c: c['history']['summary'].update(peakDayTokens=0),
             lambda c: c['periodWindows']['today'].update(key=yesterday),
         ]:
