@@ -1,8 +1,12 @@
 # 当前交接
 
-## 2026-10-20 v0.76.0-01 对齐与部署任务
+## 2026-10-20 v0.76.0-01 已发布并部署DXP4800
 
-目标为官方正式 v0.76.0 / `fbbe4c1cb04e3277b73499016d432338c1d2ab4e`，NAS 起点 `31d8c6c1`。本次所有者已明确授权对齐、验证、PR审阅、合并、发布及DXP4800部署，并要求先完整备份、不操作DH4300plus。当前完成Antigravity共享额度差异与测试同步；原生CI、审阅、合并和发布尚待完成。DXP4800的22端口首次只读连接被拒绝，未登录、未备份或改动设备；部署等待安全连接恢复，不能把发布当作已部署。详细验证见[VALIDATION](VALIDATION.md)。
+官方正式基线v0.76.0 / `fbbe4c1cb04e3277b73499016d432338c1d2ab4e`；[PR #23](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/23) 已合并，正式源码/tag为`9700023b94f366623359cedc59d64c9600b9279b`。Antigravity额度共享差异和测试已同步，固定parser、采集计费、持久化格式及默认开关保持。原生双架构产品/性能、十来源×双架构冻结/完整恢复和自动审查均通过；[正式发布](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39435315763)成功，固定镜像/三份记录/latest及两平台OCI身份已独立核验。index为`sha256:072c1d1bb4f8eda509269d6d7b9e06d56fbaaf66fc97b1f4241988831baa4174`，以[固定清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/e17136182b0064360449cf57d4fca7ff14aa0940/publications/v0.76.0-01/manifest.json)为准。
+
+所有者本次明确授权对齐、验证、合并、发布与DXP4800升级，并要求完整备份、不动DH4300plus。现场从v0.74.0-01升级：先停写并完成整个项目备份/元数据及SQLite校验，在冻结只读来源与独立状态副本验证旧/新统计和历史相等，再Hub→Agent升级。实际Compose两处镜像固定到index，配置、设备、挂载、隐私和资源限制保留；两服务healthy、0重启，启动后采集/上传、Hub新鲜接收、独立Watcher、API/SSE/gzip/重连、归档/历史及共享/标题许可通过。下一轮五分钟正常采集上传已观察到，Hub receivedAt由1792505514036推进至1792505816421。备份与旧准确镜像留在NAS私有位置，禁止删卷、清状态或仅切旧镜像回退。细项及首次备份副本校验失败的处理见[VALIDATION](VALIDATION.md)。
+
+本次没有访问或更新DH4300plus；没有观察到新增Hermes消费，24小时、生产回滚、物理客户端和公网代理未验收。此次收尾只更新现有验收与交接，不再发布软件版本。以下旧版本授权和结果仅属历史，不替代本次现场证据，也不自动授权其他设备。
 
 ## 2026-10-20 v0.75.0-01 已发布
 
