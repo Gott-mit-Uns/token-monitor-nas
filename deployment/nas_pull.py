@@ -528,10 +528,10 @@ def history_preserved(old, new, path=()):
                     return False
                 continue
             if (path == ('summary',) and key == 'currentStreak') or (
-                    len(path) == 2 and path[0] in ['daily', 'monthly'] and key == 'intensity'):
+                    len(path) == 2 and path[0] in ['daily', 'monthly'] and key in ['intensity', 'tokenIntensity', 'costIntensity']):
                 if any(type(x) is not int or x < 0 for x in [value, current]):
                     return False
-                if key == 'intensity' and max(value, current) > 4:
+                if key in ['intensity', 'tokenIntensity', 'costIntensity'] and max(value, current) > 4:
                     return False
                 continue
             if not history_preserved(value, current, path + (key,)):

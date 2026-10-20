@@ -66,7 +66,7 @@ Agent 在状态目录内的私有 `agent-sync-credentials.json` 保存旧目标�
 
 ### Hub 历史保留核验
 
-部署核验按daily的date和monthly的month匹配历史行，允许重排、新增日期及原行计数增加；不能删除旧日期/月、客户端/模型分项或减少任何Token、消息、活动时间等统计。重复/无效日期、类型替换和非有限数字拒绝。费用字段cost/costUsd/totalCost仅容忍最多8个IEEE浮点精度单位且不超过1e-12美元的尾数下降，两条件同时满足；不使用随金额放大的相对误差，不允许正数归零或实质费用减少。行intensity、summary.favoriteModel/currentStreak是派生展示，允许有效值重算，但其原日期与底层计数必须保留。旧的按日期键控字典仍支持；未知数组沿用严格保留比较。
+部署核验按daily的date和monthly的month匹配历史行，允许重排、新增日期及原行计数增加；不能删除旧日期/月、客户端/模型分项或减少任何Token、消息、活动时间等统计。重复/无效日期、类型替换和非有限数字拒绝。费用字段cost/costUsd/totalCost仅容忍最多8个IEEE浮点精度单位且不超过1e-12美元的尾数下降，两条件同时满足；不使用随金额放大的相对误差，不允许正数归零或实质费用减少。行intensity/tokenIntensity/costIntensity、summary.favoriteModel/currentStreak是派生展示，允许有效值重算，但其原日期与底层计数必须保留。旧的按日期键控字典仍支持；未知数组沿用严格保留比较。
 
 此规则仅用于Hub历史核验。SQLite会话归档、Agent日账本、冻结旧/新费用和Token对比、设备身份与共享/标题许可保护不放宽。修复随源码发布，现有可选控制器仍未安装；手工部署使用同一发布源码中的核验模块，不因升级镜像自动安装后台控制器。
 

@@ -12,7 +12,7 @@ m = controller_tests.m
 def history():
     return {
         'daily': [
-            {'date': '2026-10-19', 'tokens': 100, 'cost': 1.25, 'intensity': 3,
+            {'date': '2026-10-19', 'tokens': 100, 'cost': 1.25, 'intensity': 3, 'tokenIntensity': 3, 'costIntensity': 4,
              'perClient': {'dsh': {'tokens': 100, 'messages': 2, 'cost': 1.25}},
              'perModel': {'synthetic': {'tokens': 100, 'cost': 1.25}}},
             {'date': '2026-10-20', 'tokens': 20, 'cost': 0.25, 'intensity': 1},
@@ -28,7 +28,7 @@ class HistoryPreservationTest(unittest.TestCase):
         old = history(); new = copy.deepcopy(old)
         new['daily'][0]['perClient']['dsh']['cost'] = math.nextafter(1.25, 0)
         new['daily'][0]['perModel']['synthetic']['cost'] = math.nextafter(1.25, 0)
-        new['daily'][0]['intensity'] = 1
+        new['daily'][0].update(intensity=1, tokenIntensity=1, costIntensity=2)
         new['daily'][1].update(tokens=40, cost=0.5)
         new['daily'].append({'date': '2026-10-21', 'tokens': 10, 'cost': 0.1})
         new['daily'].reverse()
@@ -64,6 +64,9 @@ class HistoryPreservationTest(unittest.TestCase):
             lambda h: h['daily'][0].update(cost=-1),
             lambda h: h['summary'].update(currentStreak=-1),
             lambda h: h['daily'][0].update(intensity=8),
+            lambda h: h['daily'][0].update(tokenIntensity=-1),
+            lambda h: h['daily'][0].update(costIntensity=5),
+            lambda h: h['daily'][0].update(tokenIntensity=True),
             lambda h: h['summary'].update(favoriteModel=None),
         ]
         for i, mutate in enumerate(mutations):
