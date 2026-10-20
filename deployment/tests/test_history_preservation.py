@@ -123,3 +123,62 @@ class HistoryGateIntegrationTest(unittest.TestCase):
         rows[0]['tokens'] = 19; file.write_text(json.dumps(new))
         with self.assertRaisesRegex(m.Refused, 'hub_history_lost'):
             m.verify_state(self.cfg, snapshot)
+
+class CappedHistoryRolloverTest(unittest.TestCase):
+    setUp = controller_tests.ControllerTest.setUp
+    tearDown = controller_tests.ControllerTest.tearDown
+    engine = controller_tests.ControllerTest.engine
+
+    def full_history(self):
+        import datetime as dt
+        today = dt.date.fromisoformat(m.local_window('today'))
+        yesterday = today - dt.timedelta(days=1)
+        days = [{'date': (yesterday - dt.timedelta(days=369-i)).isoformat(),
+                 'tokens': 10, 'cost': 0.125} for i in range(370)]
+        months = {}
+        for row in days:
+            month = row['date'][:7]
+            bucket = months.setdefault(month, {'month': month, 'tokens': 0, 'cost': 0})
+            bucket['tokens'] += 10; bucket['cost'] += 0.125
+        return {'daily': days, 'monthly': list(months.values()),
+                'summary': {'totalTokens': 3700, 'totalCost': 46.25,
+                            'activeDays': 370, 'longestStreak': 370, 'peakDayTokens': 10}}
+
+    def test_only_proven_capped_window_expiry_with_durable_totals_is_allowed(self):
+        import datetime as dt
+        today = m.local_window('today')
+        yesterday = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
+        file = Path(self.cfg['hubDataDir'], 'devices.json')
+        old = json.loads(file.read_text())
+        record = old['devices']['DXP4800']; record['history'] = self.full_history()
+        record['periodWindows'] = {'today': {'key': yesterday}}
+        file.write_text(json.dumps(old)); engine, _ = self.engine()
+        snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'capped-snapshot')
+        new = copy.deepcopy(old); current = new['devices']['DXP4800']
+        current['periodWindows']['today']['key'] = today
+        current['history']['daily'].pop(0)
+        current['history']['summary'].update(activeDays=369, longestStreak=369)
+        file.write_text(json.dumps(new)); m.verify_state(self.cfg, snapshot)
+        # A new zero-usage today row is also valid; a missing active day is not.
+        current['history']['daily'].append({'date': today, 'tokens': 0, 'cost': 0})
+        file.write_text(json.dumps(new)); m.verify_state(self.cfg, snapshot)
+        for mutate in [
+            lambda c: c['history']['daily'].pop(20),
+            lambda c: c['history']['monthly'].pop(0),
+            lambda c: c['history']['summary'].update(totalTokens=3699),
+            lambda c: c['history']['summary'].update(totalCost=46),
+            lambda c: c['periodWindows']['today'].update(key=yesterday),
+        ]:
+            with self.subTest(mutation=mutate):
+                bad = copy.deepcopy(new); mutate(bad['devices']['DXP4800'])
+                file.write_text(json.dumps(bad))
+                with self.assertRaisesRegex(m.Refused, 'hub_history_lost'):
+                    m.verify_state(self.cfg, snapshot)
+        # No expiry allowance for a short history, even across midnight.
+        old['devices']['DXP4800']['history']['daily'] = old['devices']['DXP4800']['history']['daily'][-2:]
+        file.write_text(json.dumps(old)); snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'short-snapshot')
+        new = copy.deepcopy(old); current = new['devices']['DXP4800']
+        current['periodWindows']['today']['key'] = today; current['history']['daily'].pop(0)
+        file.write_text(json.dumps(new))
+        with self.assertRaisesRegex(m.Refused, 'hub_history_lost'):
+            m.verify_state(self.cfg, snapshot)

@@ -36,7 +36,7 @@
 
 ## 部署历史核验
 
-`deployment/nas_pull.py`的Hub历史比较按日期/月唯一键保留旧行与嵌套统计，仅费用叶值接受8 ULP且不超过1e-12美元的尾差。真实日期、记录、Token/消息/缓存/推理回退和实质费用下降继续拒绝；派生强度/当前连胜/常用模型允许有效值重算。契约和范围见[部署规范](DEPLOYMENT.md#hub-历史保留核验)，合成正反例见`deployment/tests/test_history_preservation.py`。通用归档和冻结会计比较不变，不自动安装控制器。
+`deployment/nas_pull.py`的Hub历史比较按日期/月唯一键保留旧行与嵌套统计，仅费用叶值接受8 ULP且不超过1e-12美元的尾差。除已证明跨日且月份/累计保留的完整370日窗口到期外，真实日期、记录、Token/消息/缓存/推理回退和实质费用下降继续拒绝；派生强度/当前连胜/常用模型允许有效值重算。契约和范围见[部署规范](DEPLOYMENT.md#hub-历史保留核验)，合成正反例见`deployment/tests/test_history_preservation.py`。通用归档和冻结会计比较不变，不自动安装控制器。
 
 ## 维护与验证
 

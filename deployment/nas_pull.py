@@ -507,7 +507,7 @@ def archive_preserved(old, new, now=None):
             return False
     return True
 
-def history_preserved(old, new, path=()):
+def history_preserved(old, new, path=(), daily_window=None):
     """Retain dated history and counters, allowing only bounded USD roundoff.
 
     This is deliberately separate from archive/frozen accounting comparisons.
@@ -516,6 +516,8 @@ def history_preserved(old, new, path=()):
     if isinstance(old, dict):
         if not isinstance(new, dict):
             return False
+        if not path and daily_window and not history_rollover_proven(old, new, daily_window):
+            daily_window = None
         for key, value in old.items():
             if key in ['updatedAt', 'savedAt', 'generatedAt', 'pricingRevision']:
                 continue
@@ -527,14 +529,14 @@ def history_preserved(old, new, path=()):
                 if not isinstance(value, str) or not isinstance(current, str):
                     return False
                 continue
-            if (path == ('summary',) and key == 'currentStreak') or (
+            if (path == ('summary',) and (key == 'currentStreak' or (daily_window and key in ['activeDays', 'longestStreak', 'peakDayTokens']))) or (
                     len(path) == 2 and path[0] in ['daily', 'monthly'] and key in ['intensity', 'tokenIntensity', 'costIntensity']):
                 if any(type(x) is not int or x < 0 for x in [value, current]):
                     return False
                 if key in ['intensity', 'tokenIntensity', 'costIntensity'] and max(value, current) > 4:
                     return False
                 continue
-            if not history_preserved(value, current, path + (key,)):
+            if not history_preserved(value, current, path + (key,), daily_window):
                 return False
         return True
     if isinstance(old, list):
@@ -561,8 +563,17 @@ def history_preserved(old, new, path=()):
             return result
 
         before, after = indexed(old), indexed(new)
-        return (before is not None and after is not None and set(before) <= set(after)
-                and all(history_preserved(row, after[key], path + (key,)) for key, row in before.items()))
+        if before is None or after is None:
+            return False
+        missing = set(before) - set(after)
+        if missing:
+            if path != ('daily',) or daily_window is None:
+                return False
+            cutoff = (dt.date.fromisoformat(daily_window[1]) - dt.timedelta(days=369)).isoformat()
+            if any(key >= cutoff for key in missing):
+                return False
+        return all(history_preserved(row, after[key], path + (key,), daily_window)
+                   for key, row in before.items() if key in after)
     if isinstance(old, bool) or isinstance(new, bool):
         return type(old) is bool and type(new) is bool and old == new
     if isinstance(old, (int, float)) or isinstance(new, (int, float)):
@@ -580,6 +591,44 @@ def history_preserved(old, new, path=()):
         except OverflowError:
             return False
     return old == new
+
+
+def history_rollover_proven(old, new, window):
+    """Allow only expiry of a full, dense default 370-day window.
+
+    The caller must separately prove the producer's local-day rollover. Durable
+    monthly rows and cumulative totals must survive before any daily expiry.
+    """
+    previous_day, current_day = map(dt.date.fromisoformat, window)
+    if current_day <= previous_day:
+        return False
+    before, after = old.get('daily'), new.get('daily')
+    if not isinstance(before, list) or len(before) != 370 or not isinstance(after, list):
+        return False
+    old_dates = [row.get('date') if isinstance(row, dict) else None for row in before]
+    expected = {(previous_day - dt.timedelta(days=i)).isoformat() for i in range(370)}
+    if any(not isinstance(key, str) for key in old_dates) or set(old_dates) != expected:
+        return False
+    cutoff = (current_day - dt.timedelta(days=369)).isoformat()
+    if any(not isinstance(row, dict) or not isinstance(row.get('date'), str)
+           or not cutoff <= row['date'] <= current_day.isoformat() for row in after):
+        return False
+    months = old.get('monthly')
+    if not isinstance(months, list) or not months or not history_preserved(months, new.get('monthly'), ('monthly',)):
+        return False
+    if not {key[:7] for key in old_dates} <= {row['month'] for row in months}:
+        return False
+    before_summary, after_summary = old.get('summary'), new.get('summary')
+    if not isinstance(before_summary, dict) or not isinstance(after_summary, dict):
+        return False
+    for field in ['totalTokens', 'totalCost']:
+        values = [summary.get(field) for summary in [before_summary, after_summary]]
+        if any(type(value) not in [int, float] for value in values):
+            return False
+    # Rolling-window display metrics may shrink; lifetime accounting may not.
+    derived = ['activeDays', 'longestStreak', 'peakDayTokens']
+    return history_preserved({k: v for k, v in before_summary.items() if k not in derived},
+                             {k: v for k, v in after_summary.items() if k not in derived}, ('summary',))
 
 
 def verify_state(cfg, snapshot):
@@ -617,7 +666,8 @@ def verify_state(cfg, snapshot):
                 for counter in ['totalTokens', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens']:
                     if isinstance(previous.get(counter), (int, float)):
                         require(current.get(counter, -1) >= previous[counter], 'hub_accounting_regressed')
-            require(history_preserved(record.get('history', {}), after['devices'][device].get('history', {})), 'hub_history_lost')
+            daily_window = (window_key(record, 'today'), window_key(next_record, 'today')) if expired_window(record, next_record, 'today') else None
+            require(history_preserved(record.get('history', {}), next_record.get('history', {}), daily_window=daily_window), 'hub_history_lost')
     return {'archive': 'integrity-ok-and-old-keys-retained', 'history': 'retained', 'hubPolicy': 'preserved'}
 
 def preserved(old, new):
