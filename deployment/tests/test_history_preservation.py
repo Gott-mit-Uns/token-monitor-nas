@@ -1,5 +1,8 @@
 """Synthetic regression tests for the deployed Hub history retention gate."""
 import copy
+import datetime as dt
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 import json
 import math
 from pathlib import Path
@@ -194,3 +197,60 @@ class CappedHistoryRolloverTest(unittest.TestCase):
         file.write_text(json.dumps(new))
         with self.assertRaisesRegex(m.Refused, 'hub_history_lost'):
             m.verify_state(self.cfg, snapshot)
+
+
+class ProducerTimezoneRolloverTest(unittest.TestCase):
+    setUp = controller_tests.ControllerTest.setUp
+    tearDown = controller_tests.ControllerTest.tearDown
+    engine = controller_tests.ControllerTest.engine
+
+    def test_foreign_producer_day_and_boundaries_prove_rollover(self):
+        # New York still calls this Jan 2; the UTC+8 controller calls it Jan 3.
+        now = dt.datetime(2026, 1, 3, 1, tzinfo=dt.timezone.utc)
+        zone = ZoneInfo('America/New_York')
+        previous = dt.date(2026, 1, 1)
+        record = {'periodWindows': {'timeZone': 'America/New_York',
+                    'today': {'key': '2026-01-01', 'endsAt': '2026-01-02T05:00:00Z'}},
+                  'periods': {'today': {'totalTokens': 100}, 'allTime': {'totalTokens': 100}}}
+        days = [{'date': (previous - dt.timedelta(days=i)).isoformat(), 'tokens': 1, 'cost': 0.125}
+                for i in range(370)]
+        months = {}
+        for day in days:
+            key = day['date'][:7]; bucket = months.setdefault(key, {'month': key, 'tokens': 0, 'cost': 0})
+            bucket['tokens'] += 1; bucket['cost'] += 0.125
+        record['history'] = {'daily': days, 'monthly': list(months.values()),
+                             'summary': {'totalTokens': 370, 'totalCost': 46.25}}
+        after = copy.deepcopy(record)
+        after['periodWindows']['today'] = {'key': '2026-01-02', 'endsAt': '2026-01-03T05:00:00Z'}
+        after['updatedAt'] = now.isoformat(); after['periods']['today']['totalTokens'] = 0
+        after['history']['daily'].pop()
+        file = Path(self.cfg['hubDataDir'], 'devices.json'); hub = json.loads(file.read_text())
+        hub['devices']['DXP4800'] = record; file.write_text(json.dumps(hub))
+        engine, _ = self.engine(); snapshot = engine.snapshot(Path(self.cfg['controlDir']) / 'timezone-snapshot')
+        original_datetime = dt.datetime
+        class Clock(original_datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return now.astimezone(tz)
+        with patch.object(m.dt, 'datetime', Clock):
+            hub['devices']['DXP4800'] = after; file.write_text(json.dumps(hub))
+            m.verify_state(self.cfg, snapshot)
+            for mutate in [
+                lambda r: r['periodWindows']['today'].update(endsAt='2026-01-04T05:00:00Z'),
+                lambda r: r['periodWindows'].update(timeZone='invalid/zone'),
+                lambda r: r.update(updatedAt='2099-01-01T00:00:00Z'),
+                lambda r: r.update(updatedAt='2026-01-01T01:00:00Z'),
+                lambda r: r['periods']['allTime'].update(totalTokens=99),
+            ]:
+                bad = copy.deepcopy(after); mutate(bad)
+                hub['devices']['DXP4800'] = bad; file.write_text(json.dumps(hub))
+                with self.assertRaises(m.Refused):m.verify_state(self.cfg, snapshot)
+
+    def test_producer_boundaries_follow_dst_not_a_fixed_24_hours(self):
+        old = {'periodWindows': {'timeZone': 'America/New_York', 'today': {
+            'key': '2026-03-08', 'endsAt': '2026-03-09T04:00:00Z'}}}
+        new = {'periodWindows': {'timeZone': 'America/New_York', 'today': {
+            'key': '2026-03-09', 'endsAt': '2026-03-10T04:00:00Z'}},
+            'updatedAt': '2026-03-09T04:05:00Z'}
+        self.assertEqual(m.producer_window_rollover(old, new, 'today',
+            now=dt.datetime(2026, 3, 9, 4, 6, tzinfo=dt.timezone.utc)), ('2026-03-08', '2026-03-09'))

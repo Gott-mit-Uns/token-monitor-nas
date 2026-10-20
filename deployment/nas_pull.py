@@ -23,6 +23,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from zoneinfo import ZoneInfo
 
 REPO = 'Gott-mit-Uns/token-monitor-nas'
 IMAGE = 'ghcr.io/gott-mit-uns/token-monitor-hermes'
@@ -486,6 +487,54 @@ def expired_window(old, new, period, archive=False, now=None):
     today = local_window(period, now)
     return bool(previous and previous < today and (current == today or (archive and period not in new.get('periods', {}))))
 
+
+def producer_window_rollover(old, new, period, now=None):
+    """Prove rollover from producer-local keys and UTC midnight boundaries."""
+    if period not in ['today', 'month']:
+        return None
+
+    def boundary(record):
+        windows = record.get('periodWindows')
+        if not isinstance(windows, dict) or not isinstance(windows.get(period), dict):
+            raise ValueError('missing producer window')
+        window = windows[period]; key = window.get('key')
+        pattern = r'\d{4}-\d{2}-\d{2}' if period == 'today' else r'\d{4}-\d{2}'
+        if not isinstance(key, str) or not re.fullmatch(pattern, key):
+            raise ValueError('invalid producer key')
+        zone = ZoneInfo(windows['timeZone'])
+        day = dt.date.fromisoformat(key if period == 'today' else key + '-01')
+        start = dt.datetime.combine(day, dt.time(), tzinfo=zone)
+        following = day + dt.timedelta(days=1) if period == 'today' else dt.date(day.year + (day.month == 12), day.month % 12 + 1, 1)
+        expected_end = dt.datetime.combine(following, dt.time(), tzinfo=zone)
+        end = dt.datetime.fromisoformat(window['endsAt'].replace('Z', '+00:00'))
+        if end.tzinfo is None or end != expected_end:
+            raise ValueError('producer boundary mismatch')
+        return key, start, end
+
+    try:
+        previous, _, old_end = boundary(old)
+        current, new_start, new_end = boundary(new)
+        stamp = dt.datetime.fromisoformat((new.get('updatedAt') or new.get('collectedAt')).replace('Z', '+00:00'))
+        clock = now or dt.datetime.now(dt.timezone.utc)
+        if (stamp.tzinfo is None or current <= previous or not new_start <= stamp < new_end
+                or stamp < old_end or stamp > clock + dt.timedelta(minutes=5)):
+            return None
+        return previous, current
+    except (KeyError, ValueError, TypeError, AttributeError, OverflowError):
+        return None
+
+
+def hub_window_rollover(old, new, period):
+    # Legacy records with no producer boundary metadata retain the old fallback.
+    # Once metadata is present, malformed/contradictory evidence must not fall back.
+    for record in [old, new]:
+        windows = record.get('periodWindows')
+        if isinstance(windows, dict) and ('timeZone' in windows or
+                isinstance(windows.get(period), dict) and 'endsAt' in windows[period]):
+            return producer_window_rollover(old, new, period)
+    return (window_key(old, period), window_key(new, period)) if expired_window(old, new, period) else None
+
+
 def archive_preserved(old, new, now=None):
     if 'periods' not in old:
         return preserved(accounting(old), accounting(new))
@@ -665,12 +714,12 @@ def verify_state(cfg, snapshot):
                 previous = record.get('periods', {}).get(period, record.get(period, {}))
                 next_record = after['devices'][device]
                 current = next_record.get('periods', {}).get(period, next_record.get(period, {}))
-                if period != 'allTime' and expired_window(record, next_record, period):
+                if period != 'allTime' and hub_window_rollover(record, next_record, period):
                     continue
                 for counter in ['totalTokens', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens']:
                     if isinstance(previous.get(counter), (int, float)):
                         require(current.get(counter, -1) >= previous[counter], 'hub_accounting_regressed')
-            daily_window = (window_key(record, 'today'), window_key(next_record, 'today')) if expired_window(record, next_record, 'today') else None
+            daily_window = hub_window_rollover(record, next_record, 'today')
             require(history_preserved(record.get('history', {}), next_record.get('history', {}), daily_window=daily_window), 'hub_history_lost')
     return {'archive': 'integrity-ok-and-old-keys-retained', 'history': 'retained', 'hubPolicy': 'preserved'}
 
