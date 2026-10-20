@@ -19,6 +19,7 @@ import time
 import nas_pull as m
 
 BASELINES = {
+    'v0.76.0-01': 'sha256:072c1d1bb4f8eda509269d6d7b9e06d56fbaaf66fc97b1f4241988831baa4174',
     'v0.75.0-01': 'sha256:c92f1ad9ad1e7d6b6f7e6302bcfde64ad4e3b5f2583b2dea0d8821f76e3328e3',
     'v0.74.0-01': 'sha256:f928d90e8c697d7e872ed1e19f20a93490e378444cfbea0d5b7cb4453ca104d7',
     'v0.73.0-01': 'sha256:48edfc344a513cebd8ed59c44f4504a40222c4ba44554d32300e888710daad34',

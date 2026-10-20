@@ -15,7 +15,7 @@
   ],
   "audit": "UPSTREAM_0.72_AUDIT.md",
   "patches": "NAS_PATCHES.md",
-  "nasRevision": "v0.76.0-01",
-  "revisionBaseline": "31d8c6c18277f8ee8000f27a942399e0350adbd2",
-  "revisionNotes": "Three-way merge v0.75.0 to v0.76.0: Antigravity Argon quota groups, finite versus unknown allowances and same-account OAuth/RPC merging. Preserve all NAS patches, parser pin, source and privacy defaults. Native candidate and complete-state restore gates required before publication."
+  "nasRevision": "v0.76.0-02",
+  "revisionBaseline": "f1c8f77ea1a93d2e6e784b081b07249d1db50073",
+  "revisionNotes": "NAS-only deployment history guard: date-keyed monotonic rows and tightly bounded cost ULP roundoff; preserve strict archive/frozen accounting, data and privacy protection. Official v0.76.0 source, dependencies and parser remain unchanged."
 }

@@ -1,5 +1,9 @@
 # 当前交接
 
+## 2026-10-20 v0.76.0-02 历史守卫修复候选
+
+所有者已明确要求直接修复hub_history_lost的浮点尾差和正常历史增量误报，补测试、PR、发布和部署；本次按现有范围仅DXP4800，先完整备份，不操作DH4300plus。修复仅部署核验模块，按日期/月匹配历史行并保留嵌套统计；费用接受8 ULP且最多1e-12美元尾差，归档/冻结会计/设备/隐私守卫不放宽。已补齐三种强度重算，以及需跨日/已触达370自然日边界/月累计保留证据的受控日窗口到期。现有可选控制器未安装，本次不新增后台服务，部署时使用对应发布源码的核验模块并保留私有版本副本。官方基线与应用代码/依赖/parser/持久化不变，NAS修订增加为v0.76.0-02。现阶段本机测试及上次真实故障快照只读回归通过；CI、审阅、合并、发布和生产升级待完成。见[VALIDATION](VALIDATION.md)。
+
 ## 2026-10-20 v0.76.0-01 已发布并部署DXP4800
 
 官方正式基线v0.76.0 / `fbbe4c1cb04e3277b73499016d432338c1d2ab4e`；[PR #23](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/23) 已合并，正式源码/tag为`9700023b94f366623359cedc59d64c9600b9279b`。Antigravity额度共享差异和测试已同步，固定parser、采集计费、持久化格式及默认开关保持。原生双架构产品/性能、十来源×双架构冻结/完整恢复和自动审查均通过；[正式发布](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39435315763)成功，固定镜像/三份记录/latest及两平台OCI身份已独立核验。index为`sha256:072c1d1bb4f8eda509269d6d7b9e06d56fbaaf66fc97b1f4241988831baa4174`，以[固定清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/e17136182b0064360449cf57d4fca7ff14aa0940/publications/v0.76.0-01/manifest.json)为准。

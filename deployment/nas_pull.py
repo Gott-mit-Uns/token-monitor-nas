@@ -12,6 +12,7 @@ import datetime as dt
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -22,6 +23,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from zoneinfo import ZoneInfo
 
 REPO = 'Gott-mit-Uns/token-monitor-nas'
 IMAGE = 'ghcr.io/gott-mit-uns/token-monitor-hermes'
@@ -485,6 +487,54 @@ def expired_window(old, new, period, archive=False, now=None):
     today = local_window(period, now)
     return bool(previous and previous < today and (current == today or (archive and period not in new.get('periods', {}))))
 
+
+def producer_window_rollover(old, new, period, now=None):
+    """Prove rollover from producer-local keys and UTC midnight boundaries."""
+    if period not in ['today', 'month']:
+        return None
+
+    def boundary(record):
+        windows = record.get('periodWindows')
+        if not isinstance(windows, dict) or not isinstance(windows.get(period), dict):
+            raise ValueError('missing producer window')
+        window = windows[period]; key = window.get('key')
+        pattern = r'\d{4}-\d{2}-\d{2}' if period == 'today' else r'\d{4}-\d{2}'
+        if not isinstance(key, str) or not re.fullmatch(pattern, key):
+            raise ValueError('invalid producer key')
+        zone = ZoneInfo(windows['timeZone'])
+        day = dt.date.fromisoformat(key if period == 'today' else key + '-01')
+        start = dt.datetime.combine(day, dt.time(), tzinfo=zone)
+        following = day + dt.timedelta(days=1) if period == 'today' else dt.date(day.year + (day.month == 12), day.month % 12 + 1, 1)
+        expected_end = dt.datetime.combine(following, dt.time(), tzinfo=zone)
+        end = dt.datetime.fromisoformat(window['endsAt'].replace('Z', '+00:00'))
+        if end.tzinfo is None or end != expected_end:
+            raise ValueError('producer boundary mismatch')
+        return key, start, end
+
+    try:
+        previous, _, old_end = boundary(old)
+        current, new_start, new_end = boundary(new)
+        stamp = dt.datetime.fromisoformat((new.get('updatedAt') or new.get('collectedAt')).replace('Z', '+00:00'))
+        clock = now or dt.datetime.now(dt.timezone.utc)
+        if (stamp.tzinfo is None or current <= previous or not new_start <= stamp < new_end
+                or stamp < old_end or stamp > clock + dt.timedelta(minutes=5)):
+            return None
+        return previous, current
+    except (KeyError, ValueError, TypeError, AttributeError, OverflowError):
+        return None
+
+
+def hub_window_rollover(old, new, period):
+    # Legacy records with no producer boundary metadata retain the old fallback.
+    # Once metadata is present, malformed/contradictory evidence must not fall back.
+    for record in [old, new]:
+        windows = record.get('periodWindows')
+        if isinstance(windows, dict) and ('timeZone' in windows or
+                isinstance(windows.get(period), dict) and 'endsAt' in windows[period]):
+            return producer_window_rollover(old, new, period)
+    return (window_key(old, period), window_key(new, period)) if expired_window(old, new, period) else None
+
+
 def archive_preserved(old, new, now=None):
     if 'periods' not in old:
         return preserved(accounting(old), accounting(new))
@@ -505,6 +555,173 @@ def archive_preserved(old, new, now=None):
         if old_key != new_key or not preserved(accounting(before[period]), accounting(after.get(period))):
             return False
     return True
+
+def history_daily_metrics(history):
+    """Recompute only the three window-derived mergeHistories display metrics."""
+    rows = history.get('daily', [])
+    if not isinstance(rows, list):
+        return {}
+    active, peak = set(), 0
+    for row in rows:
+        if not isinstance(row, dict):
+            return {}
+        value = row.get('tokens')
+        if type(value) not in [int, float] or value < 0 or (isinstance(value, float) and not math.isfinite(value)):
+            return {}
+        try:
+            day = dt.date.fromisoformat(row['date'])
+        except (ValueError, KeyError, TypeError):
+            return {}
+        if value > 0:
+            active.add(day)
+        peak = max(peak, value)
+    longest = run = 0
+    previous = None
+    for day in sorted(active):
+        run = run + 1 if previous is not None and day - previous == dt.timedelta(days=1) else 1
+        longest = max(longest, run)
+        previous = day
+    return {'activeDays': len(active), 'longestStreak': longest, 'peakDayTokens': peak}
+
+
+def history_preserved(old, new, path=(), daily_window=None, summary_changes=()):
+    """Retain dated history and counters, allowing only bounded USD roundoff.
+
+    This is deliberately separate from archive/frozen accounting comparisons.
+    Row ordering and live additions do not change a day/month's identity.
+    """
+    if isinstance(old, dict):
+        if not isinstance(new, dict):
+            return False
+        if not path and daily_window:
+            if not history_rollover_proven(old, new, daily_window):
+                daily_window = None
+            else:
+                # normalizeHistory has lifetime metrics; mergeHistories derives
+                # these same fields from the capped daily window. Permit a drop
+                # only when BOTH values exactly match their retained daily rows.
+                before_metrics, after_metrics = history_daily_metrics(old), history_daily_metrics(new)
+                summary_changes = tuple(key for key in before_metrics
+                    if type(old.get('summary', {}).get(key)) in [int, float]
+                    and type(new.get('summary', {}).get(key)) in [int, float]
+                    and old['summary'][key] == before_metrics[key]
+                    and new['summary'][key] == after_metrics.get(key))
+        for key, value in old.items():
+            if key in ['updatedAt', 'savedAt', 'generatedAt', 'pricingRevision']:
+                continue
+            if key not in new:
+                return False
+            current = new[key]
+            if path == ('summary',) and key in summary_changes:
+                continue
+            # These presentation values are derived from retained counters.
+            if path == ('summary',) and key == 'favoriteModel':
+                if not isinstance(value, str) or not isinstance(current, str):
+                    return False
+                continue
+            if (path == ('summary',) and key == 'currentStreak') or (
+                    len(path) == 2 and path[0] in ['daily', 'monthly'] and key in ['intensity', 'tokenIntensity', 'costIntensity']):
+                if any(type(x) is not int or x < 0 for x in [value, current]):
+                    return False
+                if key in ['intensity', 'tokenIntensity', 'costIntensity'] and max(value, current) > 4:
+                    return False
+                continue
+            if not history_preserved(value, current, path + (key,), daily_window, summary_changes):
+                return False
+        return True
+    if isinstance(old, list):
+        if path not in [('daily',), ('monthly',)]:
+            return preserved(old, new)
+        field = 'date' if path == ('daily',) else 'month'
+
+        def indexed(rows):
+            if not isinstance(rows, list):
+                return None
+            result = {}
+            for row in rows:
+                key = row.get(field) if isinstance(row, dict) else None
+                pattern = r'\d{4}-\d{2}-\d{2}' if field == 'date' else r'\d{4}-\d{2}'
+                if not isinstance(key, str) or not re.fullmatch(pattern, key) or key in result:
+                    return None
+                try:
+                    dt.date.fromisoformat(key if field == 'date' else key + '-01')
+                except ValueError:
+                    return None
+                if not history_preserved(row, row, path + (key,)):
+                    return None
+                result[key] = row
+            return result
+
+        before, after = indexed(old), indexed(new)
+        if before is None or after is None:
+            return False
+        missing = set(before) - set(after)
+        if missing:
+            if path != ('daily',) or daily_window is None:
+                return False
+            cutoff = (dt.date.fromisoformat(daily_window[1]) - dt.timedelta(days=369)).isoformat()
+            if any(key >= cutoff for key in missing):
+                return False
+        return all(history_preserved(row, after[key], path + (key,), daily_window, summary_changes)
+                   for key, row in before.items() if key in after)
+    if isinstance(old, bool) or isinstance(new, bool):
+        return type(old) is bool and type(new) is bool and old == new
+    if isinstance(old, (int, float)) or isinstance(new, (int, float)):
+        if any(not isinstance(x, (int, float)) or x < 0
+               or (isinstance(x, float) and not math.isfinite(x)) for x in [old, new]):
+            return False
+        if new >= old:
+            return True
+        if not path or path[-1] not in ['cost', 'costUsd', 'totalCost'] or new <= 0:
+            return False
+        # A relative epsilon alone could hide real losses on large amounts.
+        # Both an 8-ULP budget and an absolute USD 1e-12 ceiling must hold.
+        try:
+            return old - new <= min(1e-12, 8 * max(math.ulp(old), math.ulp(new)))
+        except OverflowError:
+            return False
+    return old == new
+
+
+def history_rollover_proven(old, new, window):
+    """Allow only expiry at the proved default 370-calendar-day boundary.
+
+    The caller must separately prove the producer's local-day rollover. Durable
+    monthly rows and cumulative totals must survive before any daily expiry.
+    """
+    previous_day, current_day = map(dt.date.fromisoformat, window)
+    if current_day <= previous_day:
+        return False
+    before, after = old.get('daily'), new.get('daily')
+    if not isinstance(before, list) or not 1 <= len(before) <= 370 or not isinstance(after, list):
+        return False
+    old_dates = [row.get('date') if isinstance(row, dict) else None for row in before]
+    expected = {(previous_day - dt.timedelta(days=i)).isoformat() for i in range(370)}
+    if any(not isinstance(key, str) for key in old_dates):
+        return False
+    # Sparse histories may omit inactive days. The oldest row must still hit
+    # the known calendar boundary, and every other old date must lie inside it.
+    if len(set(old_dates)) != len(old_dates) or not set(old_dates) <= expected or min(old_dates) != min(expected):
+        return False
+    cutoff = (current_day - dt.timedelta(days=369)).isoformat()
+    if any(not isinstance(row, dict) or not isinstance(row.get('date'), str)
+           or not cutoff <= row['date'] <= current_day.isoformat() for row in after):
+        return False
+    months = old.get('monthly')
+    if not isinstance(months, list) or not months or not history_preserved(months, new.get('monthly'), ('monthly',)):
+        return False
+    if not {key[:7] for key in old_dates} <= {row['month'] for row in months}:
+        return False
+    before_summary, after_summary = old.get('summary'), new.get('summary')
+    if not isinstance(before_summary, dict) or not isinstance(after_summary, dict):
+        return False
+    for field in ['totalTokens', 'totalCost']:
+        values = [summary.get(field) for summary in [before_summary, after_summary]]
+        if any(type(value) not in [int, float] for value in values):
+            return False
+    return all(history_preserved(before_summary[field], after_summary[field], ('summary', field))
+               for field in ['totalTokens', 'totalCost'])
+
 
 def verify_state(cfg, snapshot):
     old_archives = list((snapshot / 'state').rglob('session-usage-archive.sqlite'))
@@ -536,12 +753,13 @@ def verify_state(cfg, snapshot):
                 previous = record.get('periods', {}).get(period, record.get(period, {}))
                 next_record = after['devices'][device]
                 current = next_record.get('periods', {}).get(period, next_record.get(period, {}))
-                if period != 'allTime' and expired_window(record, next_record, period):
+                if period != 'allTime' and hub_window_rollover(record, next_record, period):
                     continue
                 for counter in ['totalTokens', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens']:
                     if isinstance(previous.get(counter), (int, float)):
                         require(current.get(counter, -1) >= previous[counter], 'hub_accounting_regressed')
-            require(preserved(record.get('history', {}), after['devices'][device].get('history', {})), 'hub_history_lost')
+            daily_window = hub_window_rollover(record, next_record, 'today')
+            require(history_preserved(record.get('history', {}), next_record.get('history', {}), daily_window=daily_window), 'hub_history_lost')
     return {'archive': 'integrity-ok-and-old-keys-retained', 'history': 'retained', 'hubPolicy': 'preserved'}
 
 def preserved(old, new):
