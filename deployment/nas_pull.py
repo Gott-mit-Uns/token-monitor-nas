@@ -12,6 +12,7 @@ import datetime as dt
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -506,6 +507,81 @@ def archive_preserved(old, new, now=None):
             return False
     return True
 
+def history_preserved(old, new, path=()):
+    """Retain dated history and counters, allowing only bounded USD roundoff.
+
+    This is deliberately separate from archive/frozen accounting comparisons.
+    Row ordering and live additions do not change a day/month's identity.
+    """
+    if isinstance(old, dict):
+        if not isinstance(new, dict):
+            return False
+        for key, value in old.items():
+            if key in ['updatedAt', 'savedAt', 'generatedAt', 'pricingRevision']:
+                continue
+            if key not in new:
+                return False
+            current = new[key]
+            # These presentation values are derived from retained counters.
+            if path == ('summary',) and key == 'favoriteModel':
+                if not isinstance(value, str) or not isinstance(current, str):
+                    return False
+                continue
+            if (path == ('summary',) and key == 'currentStreak') or (
+                    len(path) == 2 and path[0] in ['daily', 'monthly'] and key == 'intensity'):
+                if any(type(x) is not int or x < 0 for x in [value, current]):
+                    return False
+                if key == 'intensity' and max(value, current) > 4:
+                    return False
+                continue
+            if not history_preserved(value, current, path + (key,)):
+                return False
+        return True
+    if isinstance(old, list):
+        if path not in [('daily',), ('monthly',)]:
+            return preserved(old, new)
+        field = 'date' if path == ('daily',) else 'month'
+
+        def indexed(rows):
+            if not isinstance(rows, list):
+                return None
+            result = {}
+            for row in rows:
+                key = row.get(field) if isinstance(row, dict) else None
+                pattern = r'\d{4}-\d{2}-\d{2}' if field == 'date' else r'\d{4}-\d{2}'
+                if not isinstance(key, str) or not re.fullmatch(pattern, key) or key in result:
+                    return None
+                try:
+                    dt.date.fromisoformat(key if field == 'date' else key + '-01')
+                except ValueError:
+                    return None
+                if not history_preserved(row, row, path + (key,)):
+                    return None
+                result[key] = row
+            return result
+
+        before, after = indexed(old), indexed(new)
+        return (before is not None and after is not None and set(before) <= set(after)
+                and all(history_preserved(row, after[key], path + (key,)) for key, row in before.items()))
+    if isinstance(old, bool) or isinstance(new, bool):
+        return type(old) is bool and type(new) is bool and old == new
+    if isinstance(old, (int, float)) or isinstance(new, (int, float)):
+        if any(not isinstance(x, (int, float)) or x < 0
+               or (isinstance(x, float) and not math.isfinite(x)) for x in [old, new]):
+            return False
+        if new >= old:
+            return True
+        if not path or path[-1] not in ['cost', 'costUsd', 'totalCost'] or new <= 0:
+            return False
+        # A relative epsilon alone could hide real losses on large amounts.
+        # Both an 8-ULP budget and an absolute USD 1e-12 ceiling must hold.
+        try:
+            return old - new <= min(1e-12, 8 * max(math.ulp(old), math.ulp(new)))
+        except OverflowError:
+            return False
+    return old == new
+
+
 def verify_state(cfg, snapshot):
     old_archives = list((snapshot / 'state').rglob('session-usage-archive.sqlite'))
     require(len(old_archives) == 1, 'archive_missing_or_ambiguous')
@@ -541,7 +617,7 @@ def verify_state(cfg, snapshot):
                 for counter in ['totalTokens', 'inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens']:
                     if isinstance(previous.get(counter), (int, float)):
                         require(current.get(counter, -1) >= previous[counter], 'hub_accounting_regressed')
-            require(preserved(record.get('history', {}), after['devices'][device].get('history', {})), 'hub_history_lost')
+            require(history_preserved(record.get('history', {}), after['devices'][device].get('history', {})), 'hub_history_lost')
     return {'archive': 'integrity-ok-and-old-keys-retained', 'history': 'retained', 'hubPolicy': 'preserved'}
 
 def preserved(old, new):

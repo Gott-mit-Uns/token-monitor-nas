@@ -1,6 +1,6 @@
 # NAS 专用补丁契约
 
-适用：NAS v0.76.0-01；2026-10-20 与上游 v0.76.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
+适用：NAS v0.76.0-02；2026-10-20 与上游 v0.76.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
 
 ## 必须保留的补丁
 
@@ -33,6 +33,10 @@
 - NAS 自有 core/node 指纹由 `app/scripts/nas-hub-build.js` 按实际源闭包、Hub helper/日历及 package/lock 计算，排除自引用注册表；只追加真实身份，旧客户端 unknown 不伪装 current。Worker 不在本仓库分发。
 - Node Hub usage/limits 独立顺序保护仅使用可信 receivedAt 且 producer 最多超前5分钟；异常/缺失时间沿用到达顺序，不保证该区间乱序。首份 limits-only 不建立 usage 时钟，标记持久化直到完整用量；迟到旧快照不覆盖新历史，合法降费/日界仍接受。入口回归见 [ingressOrdering.test.js](app/tests/hub/ingressOrdering.test.js)。
 - 可选 Hub 显示名称的鉴权、Unicode及空值合同见 [HUB_DISPLAY_NAME](HUB_DISPLAY_NAME.md)；不得改变设备 ID、匿名health或持久化格式。
+
+## 部署历史核验
+
+`deployment/nas_pull.py`的Hub历史比较按日期/月唯一键保留旧行与嵌套统计，仅费用叶值接受8 ULP且不超过1e-12美元的尾差。真实日期、记录、Token/消息/缓存/推理回退和实质费用下降继续拒绝；派生强度/当前连胜/常用模型允许有效值重算。契约和范围见[部署规范](DEPLOYMENT.md#hub-历史保留核验)，合成正反例见`deployment/tests/test_history_preservation.py`。通用归档和冻结会计比较不变，不自动安装控制器。
 
 ## 维护与验证
 
