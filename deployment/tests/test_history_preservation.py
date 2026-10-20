@@ -172,7 +172,6 @@ class CappedHistoryRolloverTest(unittest.TestCase):
         new = copy.deepcopy(old); current = new['devices']['DXP4800']
         current['periodWindows']['today']['key'] = today
         current['history']['daily'].pop(0)
-        current['history']['summary'].update(activeDays=369, longestStreak=369)
         file.write_text(json.dumps(new)); m.verify_state(self.cfg, snapshot)
         # A new zero-usage today row is also valid; a missing active day is not.
         current['history']['daily'].append({'date': today, 'tokens': 0, 'cost': 0})
@@ -182,6 +181,9 @@ class CappedHistoryRolloverTest(unittest.TestCase):
             lambda c: c['history']['monthly'].pop(0),
             lambda c: c['history']['summary'].update(totalTokens=3699),
             lambda c: c['history']['summary'].update(totalCost=46),
+            lambda c: c['history']['summary'].update(activeDays=369),
+            lambda c: c['history']['summary'].update(longestStreak=369),
+            lambda c: c['history']['summary'].update(peakDayTokens=0),
             lambda c: c['periodWindows']['today'].update(key=yesterday),
         ]:
             with self.subTest(mutation=mutate):

@@ -578,7 +578,7 @@ def history_preserved(old, new, path=(), daily_window=None):
                 if not isinstance(value, str) or not isinstance(current, str):
                     return False
                 continue
-            if (path == ('summary',) and (key == 'currentStreak' or (daily_window and key in ['activeDays', 'longestStreak', 'peakDayTokens']))) or (
+            if (path == ('summary',) and key == 'currentStreak') or (
                     len(path) == 2 and path[0] in ['daily', 'monthly'] and key in ['intensity', 'tokenIntensity', 'costIntensity']):
                 if any(type(x) is not int or x < 0 for x in [value, current]):
                     return False
@@ -678,10 +678,9 @@ def history_rollover_proven(old, new, window):
         values = [summary.get(field) for summary in [before_summary, after_summary]]
         if any(type(value) not in [int, float] for value in values):
             return False
-    # Rolling-window display metrics may shrink; lifetime accounting may not.
-    derived = ['activeDays', 'longestStreak', 'peakDayTokens']
-    return history_preserved({k: v for k, v in before_summary.items() if k not in derived},
-                             {k: v for k, v in after_summary.items() if k not in derived}, ('summary',))
+    # Per-device normalizeHistory derives these summaries from uncapped
+    # contributions: activeDays/streak peaks and all accounting must survive.
+    return history_preserved(before_summary, after_summary, ('summary',))
 
 
 def verify_state(cfg, snapshot):
