@@ -1,6 +1,6 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.75.0-01；2026-10-20 从 v0.74.0 三方合并核对。官方稳定基线 `v0.75.0` / `877fef6002a5fee84aa502fc3454b4f700b55813`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.76.0-01；2026-10-20 从 v0.75.0 三方合并核对。官方稳定基线 `v0.76.0` / `fbbe4c1cb04e3277b73499016d432338c1d2ab4e`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 
@@ -36,3 +36,7 @@ shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Includ
 ## v0.75 适用决策
 
 同步全部11个适用共享源码路径及版本清单：Antigravity新旧SQLite schema兼容、agent_name标题回退及parentSessionId；DSH从transcript cwd关联项目；Grok Bot只以明确turn或liveActivity判断运行；Claude探测使用独立cwd、禁止保存历史并排除探测活动。Windows子进程降优先级辅助在Linux不执行，不改变NAS调度。Agent/Hub入口、持久化格式、费用规则、依赖和Tokscale pin均无上游变化；NAS补丁原样保留。实际core/Node闭包身份重新计算，上游registry仅核对而不复制。7个上游shared测试变更纳入现有NAS suite；claude活动测试保留NAS自有修正并增补探测排除断言。桌面Notch、Electron/renderer、Worker及其测试/文档不分发；上游说明只作范围参考。完整路径分类见PR，当前结果见VALIDATION。
+
+## v0.76 适用决策
+
+三方合并3个Antigravity共享源码及3个共享测试：Gemini 4 Argon单独额度池、有限读数优先于未知值、真正零额度保留、同账户本地RPC合并时保留OAuth独有额度组。客户端兼容版本随官方更新；真实账户仍须单独验收，不启用默认关闭的额度。Agent/Hub入口、采集计费、持久化格式、Tokscale固定构建和依赖均无变化，仅同步app版本。新增3份额度测试到NAS执行清单。桌面Notch手势、窗口堆叠/遮罩优化、主页显示数量及图标不进入NAS；Worker版本和桌面测试/发布说明不分发。实际闭包身份由NAS脚本重新计算，不复制官方哈希。完整路径分类见PR。
