@@ -1,10 +1,27 @@
 # 当前验收
 
-## v0.76.0-01 当前候选
+## v0.76.0-01 对齐与发布
 
-2026-10-20（Asia/Shanghai）：正式v0.76.0解引用为`fbbe4c1cb04e3277b73499016d432338c1d2ab4e`，NAS起点`31d8c6c1`。9个上游提交、62个路径中3个共享源码和3个共享测试适用；源码无冲突，测试仅末尾空行冲突。依赖与Tokscale pin不变，新增Antigravity三份测试进入NAS执行清单；默认来源、额度、设备、挂载、README不变。
+2026-10-20（Asia/Shanghai）：正式v0.76.0解引用为`fbbe4c1cb04e3277b73499016d432338c1d2ab4e`，NAS起点`31d8c6c1`。[PR #23](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/23) 运行源码`6a495678bd3743c57c616db643f6cca51f64abeb`，合并源码为`9700023b94f366623359cedc59d64c9600b9279b`；合并后的app/Docker/scripts/deployment/workflow与已验收PR一致。9个上游提交、62个路径中3个共享源码和3个共享测试适用；源码无冲突，测试仅末尾空行冲突。依赖与Tokscale pin不变，新增Antigravity三份测试进入NAS执行清单；默认来源、额度、设备、挂载、README不变。
 
-本机定向测试112项、发布辅助67项、部署Python59项、文档规则12项全部通过；文档检查0发现。完整NAS suite及原生CI待完成。安全检查首次扫描本地共享库的上游参考refs，命中上游Qoder合成DB；这不属于NAS可达源码，将在仅NAS可达引用的隔离副本及CI重新检查，不删除/放宽安全检查。DXP4800 SSH端口22拒绝连接，未访问生产、未备份、未部署；本次未连接DH4300plus。
+本机完整NAS suite为2022项：2006通过、16平台/桌面跳过、0失败；定向112项、发布辅助67项、部署Python59项、文档规则12项通过，文档检查0发现。首次本地共享refs扫描命中无关上游Qoder合成DB；仅NAS分支可达历史的隔离副本检查1845个文件版本、0发现，CI保持原安全检查。没有删历史引用或放宽安全检查。
+
+- [原生双架构产品/合成性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39433954454)成功，每架构2022项：2009通过、13平台/桌面跳过、0失败；固定Tokscale契约、旧/新Hub-Agent兼容及1000会话旧/新各3轮60秒合成性能通过。短合成结果不是长期生产改善证明。
+- [十来源×双架构冻结/完整状态恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39433954429)20组全部通过，新增来源v0.75.0-01固定index；保留生产费用差异保护，合成恢复不能代替真实生产快照。
+- PR自动代码审查完成，无发现项；24项检查（含PR正文变更后的文档检查）全部成功。[正式发布](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39435315763)三个job成功；固定tag、多架构镜像、三份发布记录及latest推广完成。已独立匿名核对固定/latest index、两个平台digest和OCI版本/源码身份，annotated tag解引用与正式源码一致。
+- 正式index为`sha256:072c1d1bb4f8eda509269d6d7b9e06d56fbaaf66fc97b1f4241988831baa4174`；[固定发布清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/e17136182b0064360449cf57d4fca7ff14aa0940/publications/v0.76.0-01/manifest.json)绑定两平台身份与升级/恢复政策。此次收尾仅文档，不增加软件版本或覆盖镜像。
+
+### DXP4800 实际部署
+
+所有者本次明确要求先完整备份，仅操作DXP4800，不动DH4300plus。22端口首次拒绝连接，所有者开启SSH后通过现有安全连接访问；没有新增凭据、权限或控制器。现场Hub与Agent均为v0.74.0-01，而非文档中的最新发布v0.75；先核对实际身份、配置及协议。实际额度、项目和标题开关已开启，原样保留，未用模板默认值覆盖。
+
+- 保留旧准确镜像及本地恢复标签，停止监控写入后备份整个实际项目（含原Compose、私有环境配置、完整Hub/Agent状态、SQLite DB/WAL/SHM及项目内已有文件）。最终归档699176960字节、531个普通文件；独立解包后逐项校验内容SHA256、权限、uid/gid，SQLite完整性和Hub JSON可读。最初Python3.14默认解包过滤改变副本元数据，校验失败后两个旧服务恢复运行；随后对自行生成的可信归档显式保留原元数据，重新停写并创建新的完整备份，验证通过才继续。首次失败归档保留，不冒充最终可恢复副本；私有数据及原始日志未上传仓库。
+- 从Hermes只读挂载创建SQLite一致性冻结快照，对备份状态的两份独立副本运行旧/新Agent dry-run，网络禁用、只用相同已有价格缓存，逐期Token/缓存/reasoning/费用、会话/日期/历史完全相等。未修改生产Hermes来源，也未放宽差异保护。
+- 实际Compose仅两处镜像改为正式index digest，合并配置除镜像外完全相等。先Hub后Agent；两个运行镜像均为amd64、v0.76.0-01/源码`9700023b`，实际image ID为`sha256:ce30e3b3ecaf67ae3255b2d5d81509419f817da1d7036242e61afdfc3bc4afde`。环境指纹（只排除版本变量）、设备身份、挂载读写、512MiB、安全限制和重启策略保持，0重启、均healthy，检查时无fatal/timeout/failed/SQLite异常指标。
+- Hub鉴权API、普通SSE及Windows gzip SSE各自重连成功；四设备身份保持，共享设置、订阅与标题许可保留且策略代次不下降。Agent本次启动后的新采集与成功上传、fresh Hub receivedAt和真实独立Watcher通过；旧SQLite会话键/统计、Agent逐日历史及Hub历史和策略的副本核对通过。只读SQLite缺少SHM时需在稳定副本验证，未为核查向生产状态写入辅助文件。
+- 最终跨设备复核时，原`verify_state`严格守卫报告`hub_history_lost`，未修改或放宽该生产守卫。独立只读逐字段审阅确认：DXP4800自身历史完全相等，全部设备日期/行及Token桶保留；其他活跃设备正常上报带来当日计数增加，一台相同producer版本设备的receivedAt前进，其旧日DSH/模型费用有4个IEEE浮点尾数下降，最大`4.440892098500626e-16`美元。严格list字典成员比较不能表达正常活跃行更新；非成本字段及计数没有回退，成本下降仅上述4处舍入尾数。归档完整性/旧键、Agent逐日历史、共享设置/订阅/标题许可已先于该守卫失败逐项通过，配置指纹复核仍相等。此为本次人工证据解释，不把严格守卫写成通过，也不更改数据或自动控制器差异策略。
+- 下一轮五分钟正常采集上传已观察到，Hub receivedAt由1792505514036推进至1792505816421；累计Token与升级前相等，没有观察到新增Hermes消费，不能把启动上传/心跳写成新增Token验收。没有操作或验收DH4300plus，没有执行生产回滚、24小时观察、物理客户端UI/公网反向代理验收。备份解包校验与CI合成恢复不等于执行了生产恢复。
+
 
 ## v0.75.0-01 已发布
 
