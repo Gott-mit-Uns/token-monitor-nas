@@ -594,7 +594,7 @@ def history_preserved(old, new, path=(), daily_window=None):
 
 
 def history_rollover_proven(old, new, window):
-    """Allow only expiry of a full, dense default 370-day window.
+    """Allow only expiry at the proved default 370-calendar-day boundary.
 
     The caller must separately prove the producer's local-day rollover. Durable
     monthly rows and cumulative totals must survive before any daily expiry.
@@ -603,11 +603,15 @@ def history_rollover_proven(old, new, window):
     if current_day <= previous_day:
         return False
     before, after = old.get('daily'), new.get('daily')
-    if not isinstance(before, list) or len(before) != 370 or not isinstance(after, list):
+    if not isinstance(before, list) or not 1 <= len(before) <= 370 or not isinstance(after, list):
         return False
     old_dates = [row.get('date') if isinstance(row, dict) else None for row in before]
     expected = {(previous_day - dt.timedelta(days=i)).isoformat() for i in range(370)}
-    if any(not isinstance(key, str) for key in old_dates) or set(old_dates) != expected:
+    if any(not isinstance(key, str) for key in old_dates):
+        return False
+    # Sparse histories may omit inactive days. The oldest row must still hit
+    # the known calendar boundary, and every other old date must lie inside it.
+    if len(set(old_dates)) != len(old_dates) or not set(old_dates) <= expected or min(old_dates) != min(expected):
         return False
     cutoff = (current_day - dt.timedelta(days=369)).isoformat()
     if any(not isinstance(row, dict) or not isinstance(row.get('date'), str)

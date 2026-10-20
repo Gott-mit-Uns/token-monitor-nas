@@ -129,20 +129,32 @@ class CappedHistoryRolloverTest(unittest.TestCase):
     tearDown = controller_tests.ControllerTest.tearDown
     engine = controller_tests.ControllerTest.engine
 
-    def full_history(self):
+    def full_history(self, sparse=False):
         import datetime as dt
         today = dt.date.fromisoformat(m.local_window('today'))
         yesterday = today - dt.timedelta(days=1)
         days = [{'date': (yesterday - dt.timedelta(days=369-i)).isoformat(),
                  'tokens': 10, 'cost': 0.125} for i in range(370)]
+        if sparse:
+            days = days[::29]
         months = {}
         for row in days:
             month = row['date'][:7]
             bucket = months.setdefault(month, {'month': month, 'tokens': 0, 'cost': 0})
             bucket['tokens'] += 10; bucket['cost'] += 0.125
         return {'daily': days, 'monthly': list(months.values()),
-                'summary': {'totalTokens': 3700, 'totalCost': 46.25,
-                            'activeDays': 370, 'longestStreak': 370, 'peakDayTokens': 10}}
+                'summary': {'totalTokens': len(days) * 10, 'totalCost': len(days) * 0.125,
+                            'activeDays': len(days), 'longestStreak': 1 if sparse else 370, 'peakDayTokens': 10}}
+
+    def test_sparse_window_boundary_expiry_uses_calendar_dates_not_row_count(self):
+        import datetime as dt
+        today = m.local_window('today')
+        previous_day = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
+        old = self.full_history(sparse=True)  # Inactive dates need not have rows.
+        new = copy.deepcopy(old); new['daily'].pop(0)
+        self.assertTrue(m.history_preserved(old, new, daily_window=(previous_day, today)))
+        new = copy.deepcopy(old); new['daily'].pop(1)
+        self.assertFalse(m.history_preserved(old, new, daily_window=(previous_day, today)))
 
     def test_only_proven_capped_window_expiry_with_durable_totals_is_allowed(self):
         import datetime as dt
