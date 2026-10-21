@@ -129,3 +129,19 @@ test('compressor errors release the channel exactly once', () => {
   assert.equal(compressor.destroyed, true);
   assert.equal(channel.send('status', {}), false);
 });
+
+test('pre-encoded fanout frames retain latest-only backpressure and byte limits', () => {
+  const response = new Response();
+  const channel = createSseChannel(response, { maxBufferedBytes: 1024 });
+  channel.sendFrame('stats', 'event: stats\ndata: {"revision":1}\n\n');
+  channel.sendFrame('stats', 'event: stats\ndata: {"revision":2}\n\n');
+  channel.sendFrame('stats', 'event: stats\ndata: {"revision":3}\n\n');
+  assert.equal(response.frames.length, 1);
+  response.writableLength = 0;
+  response.accept = true;
+  response.emit('drain');
+  assert.equal(response.frames.length, 2);
+  assert.match(response.frames[1], /"revision":3/);
+  assert.equal(channel.sendFrame('stats', 'x'.repeat(2048)), false);
+  assert.equal(response.destroyed, true);
+});

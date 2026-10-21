@@ -118,3 +118,7 @@ gh api --silent --method POST repos/Gott-mit-Uns/token-monitor-nas/deployments/D
 已发布的六份清单按原字节迁入 `publications/<版本>/manifest.json`，与原 Git tag、源码版本及迁移政策核对一致；既有 Release 不删除、不改写。新手动请求读取仓库记录并携带 `publicationCommit` / `publicationBranch`；控制程序验证记录提交属于 `nas-publications` 历史，六个历史版本也允许 main 上的迁入记录。旧有效请求没有记录指针时，仅六个历史版本可以从固定的 main 提交读取迁入记录；新版本缺少指针拒绝。原始测试数据不进入记录分支。
 
 旧控制程序仍依赖 Release，因此不能直接处理今后的新版本；若未来明确启用受控部署，应先单独审阅/更新本地控制程序，再批准部署请求。本任务不执行该安装。当前由所有者手工更新容器的流程不依赖控制程序，也不需要 GitHub Release。
+
+## Hub 可选批量保存
+
+v0.77.0 起支持 `TOKEN_MONITOR_PERSIST_INTERVAL_MS` 或直接启动 Hub 时的 `--persistIntervalMs`，有效范围为 0 至 2147483647 毫秒，默认 0 保持同步落盘和失败返回 503。只有显式非零配置才按首个待保存更新的截止时间合批；这种模式下已确认上传可能尚未落盘，断电、SIGKILL 或强制退出会丢失未保存更新。正常 SIGTERM/SIGINT 会拒绝新请求、限时排空已接收请求并刷新待保存数据；最终保存失败以失败退出，不能当作保存成功。订阅、共享设置、标题许可和删除仍立即保存，失败保留原内存/文件。既有 NAS 部署不自动启用批量模式。JSON 仅改为紧凑序列化，格式版本和内容字段不变。
