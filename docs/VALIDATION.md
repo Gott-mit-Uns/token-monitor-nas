@@ -1,8 +1,14 @@
 # 当前验收
 
-## v0.77.0-01 对齐候选
+## v0.77.0-01 已发布部署，最终跨设备费用验收未通过
 
-2026-10-22：官方v0.77.0解引用`c83ee3aeb6d23505257113c29ef010040deb52f7`，从NAS main `823bd21d`三方合并；13个上游提交、53路径分类，运行源码8路径适用，依赖/parser和持久化schema不变。先行Hub保存/退出定向45项通过；扩展Hub/shared418项中417通过、Worker-only1跳过，0失败；部署70项通过。本机完整NAS suite为2242项：2225通过、17跳过、0失败；另补预编码帧回压/字节上限测试，SSE9项通过。发布辅助67项、文档12项通过。最终原生双架构/12来源恢复、复审、发布和新鲜备份部署待完成。本机依赖与已验收本地v0.76清单严格比较一致后复用；首次测试缺dotenv不计通过，安装后运行。上游shutdown两项断言改为NAS固定持久化错误code，响应stub补全destroy；保留原行为断言，不放宽生产错误保护。
+2026-10-22：官方v0.77.0解引用`c83ee3aeb6d23505257113c29ef010040deb52f7`，从NAS main `823bd21d`三方合并；13个上游提交、53路径分类，运行源码8路径适用，依赖/parser和持久化schema不变。先行Hub保存/退出定向45项通过；扩展Hub/shared418项中417通过、Worker-only1跳过，0失败；部署70项通过。本机完整NAS suite为2242项：2225通过、17跳过、0失败；另补预编码帧回压/字节上限测试，SSE9项通过。发布辅助67项、文档12项通过。[PR #27](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/27)最终head `835e1d80` 的27项检查全部通过，自动复审completed、无发现/无未解决项；已合并，正式源码`729c6c0043a7f68eddc9098ce6a17f01959a0c02`与已审app/Docker/scripts/deployment/workflow一致。[原生双架构产品/性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39682863444)每架构2243项：2229通过、14跳过、0失败，固定parser、混合Hub-Agent及合成性能通过；短合成不是生产长期性能证明。[12来源×双架构冻结/完整恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39682863428)24组通过，增加v0.76.0-02固定摘要。本机仅NAS可达历史安全检查1935个文件版本、0发现。
+
+[正式发布](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39683981465)三个job成功；annotated tag、三份记录、固定/latest index与两平台OCI身份已独立核对。[固定清单](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/5c6d91f19d82482974ba4bbaa52d72ecbd5f50d3/publications/v0.77.0-01/manifest.json)，index `sha256:f01dcc6d4781d6602f6635d52e784024e9b42edc1d430edc96b60f5773e4f221`。没有新建GitHub Release。
+
+DXP4800（192.168.31.12）从v0.76.0-02升级。先停写、完整项目归档699658240字节/531个普通文件，独立解包逐项内容SHA256/权限/uid/gid一致、SQLite完整性通过，并冻结一份Hermes数据库；同一只读冻结来源和独立状态下旧/新Token/费用/会话/日期/历史精确一致。备份私有目录`/volume1/docker/token-monitor-backups/20261022-v077`，旧准确镜像及校验结果保留，不上传真实数据。上版历史守卫模块与本版源码同SHA256 `64c03dfd41e34a7020a4357ae6781b40e7cb861f520cd270ebfc88fec3315451`，持久保存在该备份deployed-tools并直接用于本次核验；未安装后台控制器。
+
+Compose只改两处镜像到固定index，解析配置除镜像外相等；Hub→Agent切换。实际amd64 image ID `sha256:371230b08796682a5b21f485da3d619f7ebe7bbd63bd04935b63d46e3755d98a`与版本/源码正确；环境、设备、只读来源、挂载、安全/资源配置与备份前一致。默认同步保存仍为0，未启用批量保存、来源或新额度账户。认证API、普通SSE/Windows gzip SSE及各自重连、独立Watcher通过，启动时归档旧会话/历史/共享/标题许可直接守卫通过，四设备ID和DXP累计Token保留、未观察新增Hermes消费。首轮及下一轮正常周期上传成功，Hub receivedAt由1792620868506推进至1792621171798，磁盘记录为1792621171798，与API一致，紧凑JSON/schema 1确认。两服务healthy、0重启，启动日志错误指标0。未操作DH4300plus；真实账号额度、24小时、实际生产回滚、物理客户端UI/公网代理未验收；完整备份读回与合成恢复不等于真实生产恢复。本机依赖与已验收本地v0.76清单严格比较一致后复用；首次测试缺dotenv不计通过，依赖补齐后运行。上游shutdown两项断言改为NAS固定持久化错误code，响应stub补全destroy；保留原行为断言，不放宽生产错误保护。
 
 ## v0.76.0-02 历史守卫已发布、DXP4800部署
 
@@ -135,3 +141,8 @@ reasoning 共 120（现代100、legacy20），属于 output 子集，不能重�
 ## v0.72.0-02 当时未覆盖
 
 本次未访问生产。两台设备当前版本/digest/架构、用户手工更新、新上传、真实备份/恢复、24小时持续运行，真实账户、Android 真机和公网 Windows UI/HTTPS/gzip，均不可记为已通过。历史 DXP v0.71 部署不能代替当前证明。下一步与授权边界见 [HANDOFF](HANDOFF.md)。
+
+
+### v0.77 部署最终历史保护告警
+
+下一周期后完整直接核验拒绝`hub_history_lost`，不能记为最终全设备历史验收通过。只读私有诊断确认：1台其他设备新上传存在5处日/客户端/模型及月分项费用实质下降，既超8 ULP也超1e-12美元；DXP4800自身history精确相等，相关设备全部非费用历史保留，源采集时间前进。没有修改数据、扩大容差或绕过守卫，没有把这次变化称为浮点尾差。旧v0.76.0-02和新v0.77.0-01 Hub在同一个固定私有验证快照中隔离回放，4设备规范化history完全相同；这排除了这两版Hub对该输入处理不同，但不能证明源设备降费本身合理。金额下降的来源/原因仍未查明，最终跨设备费用保留门槛保持未通过。服务健康、周期上传及落盘正常，未执行盲目回滚或访问其他设备；真实数据和原始差异仅在NAS私有位置，简要结果写入本次私有部署回执。

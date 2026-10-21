@@ -1,8 +1,8 @@
 # GitHub 发布与 NAS 受控拉取部署
 
-当前发布版本为 v0.72.0-02，所有者自行更新容器，本任务未部署或验收生产 NAS。NAS 今后只发 Git tag 和多架构镜像，不再依赖 GitHub Release。版本清单及升级/回退说明保存在仓库，详见 [发布流程](NAS_PUBLICATION.md) 和 [发布记录](publications/README.md)。
+当前发布与实际部署状态以 [HANDOFF](docs/HANDOFF.md) 和 [VALIDATION](docs/VALIDATION.md) 为准。NAS 今后只发 Git tag 和多架构镜像，不再依赖 GitHub Release。版本清单及升级/回退说明保存在仓库，详见 [发布流程](NAS_PUBLICATION.md) 和 [发布记录](publications/README.md)。
 
-以下控制程序是既有可选设计，当前未在 NAS 安装；本次只调整仓库代码，不部署、不安装程序、不创建凭据。首次安装、权限调整及生产部署仍须单独授权。镜像发布、部署请求、实际部署分别验收。
+以下控制程序是既有可选设计，当前未在 NAS 安装；镜像发布不会自动安装或触发此程序，也不会创建凭据。首次安装、权限调整及生产部署仍须单独授权。镜像发布、部署请求、实际部署分别验收。
 
 ## 审查结论与设计
 
