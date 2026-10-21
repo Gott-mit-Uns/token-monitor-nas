@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Javis603/token-monitor",
-  "tag": "v0.76.0",
-  "commit": "fbbe4c1cb04e3277b73499016d432338c1d2ab4e",
-  "previousTag": "v0.75.0",
-  "previousCommit": "877fef6002a5fee84aa502fc3454b4f700b55813",
-  "nasBaseline": "31d8c6c18277f8ee8000f27a942399e0350adbd2",
+  "tag": "v0.77.0",
+  "commit": "c83ee3aeb6d23505257113c29ef010040deb52f7",
+  "previousTag": "v0.76.0",
+  "previousCommit": "fbbe4c1cb04e3277b73499016d432338c1d2ab4e",
+  "nasBaseline": "823bd21d5517c51de9fc21b386ea6df65679c1fd",
   "scope": [
     "src/shared",
     "src/agent",
@@ -15,7 +15,7 @@
   ],
   "audit": "UPSTREAM_0.72_AUDIT.md",
   "patches": "NAS_PATCHES.md",
-  "nasRevision": "v0.76.0-02",
-  "revisionBaseline": "f1c8f77ea1a93d2e6e784b081b07249d1db50073",
-  "revisionNotes": "NAS-only deployment history guard: date-keyed monotonic rows and tightly bounded cost ULP roundoff; preserve strict archive/frozen accounting, data and privacy protection. Official v0.76.0 source, dependencies and parser remain unchanged."
+  "nasRevision": "v0.77.0-01",
+  "revisionBaseline": "823bd21d5517c51de9fc21b386ea6df65679c1fd",
+  "revisionNotes": "Align official v0.77.0 shared/Hub changes while retaining NAS durability, bounded SSE channels, digest identity, independent watcher and strict history/accounting guards. Batching stays opt-in (default 0); no parser or dependency change."
 }

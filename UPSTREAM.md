@@ -1,6 +1,6 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.76.0-02；2026-10-20 从 v0.75.0 三方合并核对。官方稳定基线 `v0.76.0` / `fbbe4c1cb04e3277b73499016d432338c1d2ab4e`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.77.0-01；2026-10-22 从 v0.76.0 三方合并核对。官方稳定基线 `v0.77.0` / `c83ee3aeb6d23505257113c29ef010040deb52f7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 
@@ -40,3 +40,9 @@ shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Includ
 ## v0.76 适用决策
 
 三方合并3个Antigravity共享源码及3个共享测试：Gemini 4 Argon单独额度池、有限读数优先于未知值、真正零额度保留、同账户本地RPC合并时保留OAuth独有额度组。客户端兼容版本随官方更新；真实账户仍须单独验收，不启用默认关闭的额度。Agent/Hub入口、采集计费、持久化格式、Tokscale固定构建和依赖均无变化，仅同步app版本。新增3份额度测试到NAS执行清单。桌面Notch手势、窗口堆叠/遮罩优化、主页显示数量及图标不进入NAS；Worker版本和桌面测试/发布说明不分发。实际闭包身份由NAS脚本重新计算，不复制官方哈希。完整路径分类见PR。
+
+## v0.77 适用决策
+
+13个上游提交、53个路径逐项分类：8个运行源码路径（Hub server和7个shared）三方合并，NAS安全补丁保留；package与lock仅同步官方版本，依赖和Tokscale固定构建不变。Hub合入可选批量保存、紧凑JSON和限时退出刷新，默认仍同步保存；NAS严格启动读、同步失败回滚/503、即时隐私和共享写保留。SSE按广播预编码不同普通客户端帧，同时保留SHA256比较摘要、每连接回压/缓冲上限、gzip释放及Windows独立时段调度；shared fanout增加可注入预计算内容键供NAS摘要复用，默认官方语义不变。同步Cline凭据身份隔离/保存密钥配置、Cursor未知套餐及失效缓存处理、New API今日/滚动七天/月消费和有界可选查询。Agent/collector/watcher及历史守卫源码没有上游变更。
+
+适用Hub/shared测试和Argon合成夹具同步；同名持久化测试保留NAS版，上游新增批量保存测试另名纳入自动扫描；shared limits/limitsRuntime/thirdPartyLimits明确进入NAS清单，Node Cline入口执行，Worker入口因不分发而跳过。Windows时序测试修正保留跨平台意图。桌面额度展示/实时速率/设置刷新/遮罩及对应测试、Worker与文档不分发；上游env/API配置说明只映射Hub可选保存到现有NAS入口。registry按实际闭包追加，不复制官方哈希。完整路径清单保留在本轮PR。

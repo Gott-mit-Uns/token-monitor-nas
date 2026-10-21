@@ -1,6 +1,6 @@
 # NAS 专用补丁契约
 
-适用：NAS v0.76.0-02；2026-10-20 与上游 v0.76.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
+适用：NAS v0.77.0-01；2026-10-22 与上游 v0.77.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
 
 ## 必须保留的补丁
 
@@ -13,8 +13,8 @@
 | NAS-05 | `app/src/shared/watcherPolicy.js`、`collector.js`、`watcherHost.js`、`watcherWorker.js` | 抽离轻量监听策略，独立 Watcher 不加载完整 collector/Tokscale/归档树；保留官方监听过滤、描述符降级、polling 上限、最大等待和自循环防护。默认 `TOKEN_MONITOR_WATCH_IN_PROCESS=0`；不得用降低隔离换取内存数字。 | `app/tests/shared/watcherDependencies.test.js`、`watcherHost.test.js`、`collectorLoadGuards.test.js`、native event/scope tests |
 | NAS-06 | `app/src/shared/usage/sessionUsageArchiveStore.js` | SQLite 逐行读取全量和增量会话，减少同时保留 JSON 字符串数组；iterator 异常/中断释放 statement，不能提交半成品 archive 或提前推进 revision。SQLite schema/现有目录不变。 | `app/tests/shared/sessionUsageArchiveStore.test.js`、`sessionUsageArchive.test.js` |
 | NAS-07 | `app/src/shared/usage.js`、`recordTimestamp.js` | 客户端/模型/会话键都是不可信数据；读取自有属性，特殊 `__proto__` 等保留为正常 JSON 键，不能访问或更改原型。设备时间只接收原标量类型，不能保存异常对象阻断后续聚合。升级新增字段必须使用相同安全字典边界。 | `app/tests/shared/usageMapSafety.test.js`、usage tests、Hub tests |
-| NAS-08 | `app/src/hub/store.js`、`server.js` | 文件不存在才初始化；空文件/损坏 JSON/无效结构/读失败保留原文件并拒绝启动。用量持久化失败回滚内存设备/savedAt 并返回 503。禁止用空库掩盖原数据损坏。 | `app/tests/hub/persistence.test.js`、`server.test.js` |
-| NAS-09 | `app/src/hub/sse.js`、`server.js` | 每连接只保留最新待发完整快照和新鲜度事件，8 MiB 缓冲上限，30 秒阻塞断开；重连立即完整 snapshot。gzip 流逐事件刷新，dispose 释放连接/定时器/压缩器。 | `app/tests/hub/sse.test.js`、`windowsHttp.test.js`、`windowsStream.test.js` |
+| NAS-08 | `app/src/hub/store.js`、`server.js` | 文件不存在才初始化；空文件/损坏 JSON/无效结构/读失败保留原文件并拒绝启动。用量持久化失败回滚内存设备/savedAt 并返回 503。禁止用空库掩盖原数据损坏。v0.77可选批量保存默认0；同步模式保留回滚/503，显式批量模式有未落盘丢失窗口，正常退出限时排空并刷新，权限/设置/删除仍立即保存。 | `app/tests/hub/persistence.test.js`、`server.test.js` |
+| NAS-09 | `app/src/hub/sse.js`、`server.js` | 每连接只保留最新待发完整快照和新鲜度事件，8 MiB 缓冲上限，30 秒阻塞断开；重连立即完整 snapshot。gzip 流逐事件刷新，dispose 释放连接/定时器/压缩器。普通客户端广播帧每种只编码一次并通过同一回压通道发送，Windows独立时段调度保留。 | `app/tests/hub/sse.test.js`、`windowsHttp.test.js`、`windowsStream.test.js` |
 | NAS-10 | `app/src/hub/statsContentDigest.js`、`server.js` | 长期比较值为 SHA-256 digest，避免额外持有完整统计 JSON 字符串；不改变通知内容和判断字段。 | `app/tests/hub/statsContentDigest.test.js` |
 | NAS-11 | `app/src/hub/windowsSchedule.js`、`calendars/2026.json`、`windowsStream.js`、`server.js` | 默认关闭 `/windows`；共用现有完整 API/存储/认证。北京时间中国法定工作日 07:00–17:00 十分钟，其他三十分钟，有变化才发完整统计；首连/重连立即 snapshot，手动读取不重置周期。缺年份回退周一至周五并报告。标题撤销、删除、共享/订阅即时通知。 | `app/tests/hub/windowsSchedule.test.js`、`windowsStream.test.js`、`windowsHttp.test.js` |
 | NAS-12 | `app/src/hub/deviceFreshness.js`、`windowsMetrics.js`、`server.js` | 30 秒轻量在线信息只读取 receivedAt/年龄/过期元数据，不重聚合用量或更新时间；诊断仅进程计数，无凭据、URL 参数、标题或会话正文。请求数/编码正文大小不等于公网成功送达证据。 | `app/tests/hub/deviceFreshness.test.js`、`windowsDesktop.test.js`、`windowsHttp.test.js` |

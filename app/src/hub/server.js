@@ -22,7 +22,9 @@ const {
 const { CURRENCY_CODES, normalizeCurrency } = require('../shared/currency');
 const { currentHubBuild } = require('../shared/hubBuildIdentity');
 const {
-  freshnessEvent,
+  prepareSseFanout,
+  sseClientKinds,
+  sseFrameForClient,
   acceptsEncoding,
   wantsFreshnessEvents,
   wantsMinimalResponse
@@ -38,6 +40,8 @@ const { windowsStreamPolicy } = require('./windowsSchedule');
 const { createWindowsMetrics } = require('./windowsMetrics');
 const { deviceFreshness } = require('./deviceFreshness');
 const { hubStatsContentDigest } = require('./statsContentDigest');
+
+const SHUTDOWN_DRAIN_TIMEOUT_MS = 5000;
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
@@ -59,6 +63,7 @@ function createHub({
   syncSessionTitles = false,
   staleAfterMs = DEFAULT_STALE_AFTER_MS,
   broadcastDelayMs = 100,
+  persistIntervalMs = 0,
   sseMaxBufferedBytes = 8 * 1024 * 1024,
   sseBlockedTimeoutMs = 30000,
   windowsStreamEnabled = false,
@@ -66,6 +71,9 @@ function createHub({
   dataFile = path.join(projectRoot(), 'data', 'devices.json'),
   logger = console
 } = {}) {
+  if (!Number.isFinite(persistIntervalMs) || persistIntervalMs < 0 || persistIntervalMs > 2147483647) {
+    throw new RangeError('persistIntervalMs must be a finite number between 0 and 2147483647 milliseconds');
+  }
   // Explicit display metadata only; never infer it from a collector or container hostname.
   const hubDisplayName = typeof displayName === 'string' ? displayName.trim() : '';
   if (hubDisplayName && ([...hubDisplayName].length > 80 || /[\p{Cc}\p{Cf}\p{Cs}]/u.test(hubDisplayName))) {
@@ -83,6 +91,10 @@ function createHub({
   store.syncTitlePolicies = Object.assign(Object.create(null), store.syncTitlePolicies || {});
   store.syncSettings = Object.assign(Object.create(null), store.syncSettings || {});
   const bindHost = resolveBindHost(host, secret);
+  let persistTimer = null;
+  let persistPending = false;
+  let stopping = false;
+  let stopPromise = null;
 
   // Apply the permission at startup, including records from offline devices.
   // Keep disabled policies as tombstones so re-enabling cannot reuse old tokens.
@@ -98,13 +110,34 @@ function createHub({
   if (JSON.stringify([store.devices, store.syncTitlePolicies]) !== beforeCleanup) persist();
 
   function persist() {
+    const previousSavedAt = store.savedAt;
     store.version = 1;
     store.savedAt = new Date().toISOString();
-    try { writeJsonAtomic(dataFile, store); } catch (_) {
+    try { writeJsonAtomic(dataFile, store, 0); } catch (_) {
+      store.savedAt = previousSavedAt;
       const error = new Error('Hub data could not be persisted.');
       error.code = 'hub_persistence_failed';
       throw error;
     }
+    clearTimeout(persistTimer);
+    persistTimer = null;
+    persistPending = false;
+  }
+
+  function queuePersist() {
+    if (persistIntervalMs === 0) return persist();
+    persistPending = true;
+    // Admitted HTTP uploads can finish during stop; its final flush owns them.
+    if (stopping) return;
+    // Keep the first deadline: continuous uploads must not postpone saving.
+    if (persistTimer) return;
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      try { persist(); } catch (error) {
+        (logger.error || console.error)('Hub failed to save pending device records:', error);
+      }
+    }, persistIntervalMs);
+    persistTimer.unref();
   }
 
   function getStats() {
@@ -151,8 +184,19 @@ function createHub({
     return current;
   }
 
-  function writeSse(client, event, data) {
-    return client.channel.send(event, data);
+  function fanoutStats(stats, reason, at, allowFreshness) {
+    const ordinary = [...sseClients].filter(client => !client.windowsStream);
+    const frames = prepareSseFanout({ stats, reason, at, allowFreshness,
+      lastContentKey: lastSseContentKey, contentKey: hubStatsContentDigest(stats),
+      ...sseClientKinds(ordinary) });
+    lastSseContentKey = frames.contentKey;
+    for (const client of sseClients) {
+      if (client.windowsStream) client.windowsStream.notify(reason, !allowFreshness, allowFreshness ? undefined : stats);
+      else {
+        const text = sseFrameForClient(frames, client);
+        if (text) client.channel.sendFrame(frames.unchanged && client.freshnessEvents ? 'freshness' : 'stats', text);
+      }
+    }
   }
 
   function notifyStatsListeners(reason, stats = getStats(), at = new Date().toISOString()) {
@@ -162,47 +206,19 @@ function createHub({
   }
 
   function broadcastStats(reason = 'update') {
-    if (broadcastTimer) {
-      clearTimeout(broadcastTimer);
-      broadcastTimer = null;
-    }
+    if (broadcastTimer) clearTimeout(broadcastTimer);
+    broadcastTimer = null;
     if (sseClients.size === 0 && statsListeners.size === 0) return;
     const stats = getStats();
     const at = new Date().toISOString();
-    if (sseClients.size > 0) {
-      lastSseContentKey = hubStatsContentDigest(stats);
-      for (const client of sseClients) {
-        if (client.windowsStream) client.windowsStream.notify(reason, true, stats);
-        else writeSse(client, 'stats', { type: 'stats', reason, stats, at });
-      }
-    }
+    if (sseClients.size > 0) fanoutStats(stats, reason, at, false);
     notifyStatsListeners(reason, stats, at);
   }
 
   function flushQueuedStatsBroadcast() {
     broadcastTimer = null;
     if (sseClients.size === 0) return;
-    const stats = getStats();
-    const nextContentKey = hubStatsContentDigest(stats);
-    const at = new Date().toISOString();
-    if (!lastSseContentKey || nextContentKey !== lastSseContentKey) {
-      lastSseContentKey = nextContentKey;
-      for (const client of sseClients) {
-        if (client.windowsStream) client.windowsStream.notify('ingest');
-        else writeSse(client, 'stats', { type: 'stats', reason: 'ingest', stats, at });
-      }
-      return;
-    }
-    const event = freshnessEvent(stats, 'ingest', at);
-    for (const client of sseClients) {
-      if (client.windowsStream) {
-        client.windowsStream.notify('ingest');
-      } else if (client.freshnessEvents) {
-        writeSse(client, 'freshness', event);
-      } else {
-        writeSse(client, 'stats', { type: 'stats', reason: 'ingest', stats, at });
-      }
-    }
+    fanoutStats(getStats(), 'ingest', new Date().toISOString(), true);
   }
 
   function queueStatsBroadcast() {
@@ -213,6 +229,11 @@ function createHub({
   // Transport-agnostic core: both the HTTP POST handler and the same-process
   // widget call these, so a host-mode widget never has to loopback to itself.
   function ingest(payload) {
+    if (stopping) throw Object.assign(new Error('Hub is stopping'), { code: 'hub_stopping' });
+    return ingestRecord(payload);
+  }
+
+  function ingestRecord(payload) {
     if (!payload || (!payload.deviceId && !payload.id)) {
       throw new Error('deviceId_required');
     }
@@ -224,7 +245,7 @@ function createHub({
     const hadPrevious = Object.hasOwn(store.devices, record.deviceId);
     const previousSavedAt = store.savedAt;
     store.devices[record.deviceId] = record;
-    try { persist(); } catch (error) {
+    try { queuePersist(); } catch (error) {
       if (hadPrevious) store.devices[record.deviceId] = previous;
       else delete store.devices[record.deviceId];
       store.savedAt = previousSavedAt;
@@ -366,6 +387,10 @@ function createHub({
   }
 
   async function handleRequest(req, res) {
+    if (stopping) {
+      res.shouldKeepAlive = false;
+      return sendJson(res, 503, { error: 'hub_stopping' }, { connection: 'close' });
+    }
     if (req.method === 'OPTIONS') return sendText(res, 204, '');
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const windowsRequest = url.pathname.startsWith('/windows/api/');
@@ -466,15 +491,15 @@ function createHub({
         if (!sseClients.has(client)) { client.windowsStream.dispose(); return; }
       } else if (!client.channel.send('snapshot', { type: 'stats', reason: 'snapshot', stats, at: new Date().toISOString() })) return;
       heartbeat = setInterval(() => client.windowsStream ? client.windowsStream.heartbeat() : client.channel.heartbeat(), 30000);
-      req.on('close', () => client.channel.dispose());
-      req.on('error', () => client.channel.dispose());
+      res.on('close', () => client.channel.dispose());
+      res.on('error', () => client.channel.dispose());
       return;
     }
 
     if (req.method === 'POST' && url.pathname === '/api/ingest') {
       try {
         const payload = await readJsonBody(req);
-        const record = ingest(payload);
+        const record = ingestRecord(payload);
         const response = { ok: true, deviceId: record.deviceId };
         return sendJson(res, 200, wantsMinimalResponse(req) ? response : { ...response, stats: getStats() });
       } catch (error) {
@@ -524,6 +549,7 @@ function createHub({
   }
 
   const server = http.createServer((req, res) => {
+    res.once('finish', () => { if (stopping) server.closeIdleConnections(); });
     handleRequest(req, res).catch((error) => {
       (logger.error || console.error)(error);
       sendJson(res, 500, { error: 'internal_error', message: error.message });
@@ -531,9 +557,15 @@ function createHub({
   });
 
   function start() {
+    if (stopPromise) return Promise.reject(new Error('Hub is stopping'));
+    stopping = false;
     return new Promise((resolve, reject) => {
       const onError = (err) => { server.off('listening', onListening); reject(err); };
-      const onListening = () => { server.off('error', onError); resolve(); };
+      const onListening = () => {
+        server.off('error', onError);
+        if (persistPending) queuePersist();
+        resolve();
+      };
       server.once('error', onError);
       server.once('listening', onListening);
       server.listen(port, bindHost);
@@ -541,13 +573,36 @@ function createHub({
   }
 
   function stop() {
-    return new Promise((resolve) => {
+    if (stopPromise) return stopPromise;
+    stopping = true;
+    const operation = new Promise((resolve, reject) => {
+      clearTimeout(persistTimer);
+      persistTimer = null;
       if (broadcastTimer) clearTimeout(broadcastTimer);
       broadcastTimer = null;
       for (const client of sseClients) { client.channel.dispose(); try { client.res.end(); } catch (_) {} }
       sseClients.clear();
-      server.close(() => resolve());
+      // Save acknowledged uploads even if another request never finishes.
+      // A transient failure still gets a second attempt after draining.
+      try { if (persistPending) persist(); } catch (error) {
+        (logger.error || console.error)('Hub failed to save before draining requests:', error);
+      }
+      const deadline = setTimeout(() => server.closeAllConnections(), SHUTDOWN_DRAIN_TIMEOUT_MS);
+      deadline.unref();
+      server.close((error) => {
+        clearTimeout(deadline);
+        try {
+          // Include uploads whose bodies completed while connections drained.
+          if (persistPending) persist();
+          if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') throw error;
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      });
     });
+    stopPromise = operation.finally(() => { stopPromise = null; });
+    return stopPromise;
   }
 
   return {
@@ -559,6 +614,11 @@ function createHub({
 if (require.main === module) {
   loadDotEnv();
   const args = parseArgs(process.argv.slice(2));
+  if (args.persistIntervalMs === true || (typeof args.persistIntervalMs === 'string' && !args.persistIntervalMs.trim())) {
+    console.error('Hub failed to start: --persistIntervalMs requires a numeric value');
+    process.exit(1);
+  }
+  const persistIntervalMs = Number(args.persistIntervalMs ?? process.env.TOKEN_MONITOR_PERSIST_INTERVAL_MS ?? 0);
   const port = Number(args.port || process.env.TOKEN_MONITOR_PORT || 17321);
   const host = String(args.host || process.env.TOKEN_MONITOR_HOST || '0.0.0.0');
   const secret = String(args.secret || process.env.TOKEN_MONITOR_SECRET || '').trim();
@@ -568,10 +628,19 @@ if (require.main === module) {
   const syncSessionTitles = syncSessionTitlesEnabled(args.syncSessionTitles ?? args['sync-session-titles'] ?? process.env.TOKEN_MONITOR_SYNC_SESSION_TITLES);
   const windowsStreamEnabled = String(process.env.TOKEN_MONITOR_WINDOWS_STREAM_ENABLED || '').trim() === '1';
   const displayName = process.env.TOKEN_MONITOR_HUB_DISPLAY_NAME || '';
-  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, syncSessionTitles, windowsStreamEnabled, displayName });
+  const hub = createHub({ port, host, secret, staleAfterMs, dataFile, syncSessionTitles, windowsStreamEnabled, displayName, persistIntervalMs });
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.once(signal, () => {
+      hub.stop().catch((error) => {
+        console.error(`Hub failed to stop: ${error.message}`);
+        process.exitCode = 1;
+      });
+    });
+  }
   hub.start().then(() => {
     console.log(`Token Monitor hub listening on http://${hub.bindHost}:${port}`);
     console.log(`Data file: ${dataFile}`);
+    console.log(`Persistence interval: ${persistIntervalMs}ms`);
     if (!secret) {
       console.warn(`Warning: TOKEN_MONITOR_SECRET is not set, so the hub is bound to ${hub.bindHost} (localhost only) to keep account identity off the network. Set a secret to accept connections from other devices.`);
     }

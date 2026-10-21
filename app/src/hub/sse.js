@@ -74,8 +74,10 @@ function createSseChannel(res, { maxBufferedBytes = 8 * 1024 * 1024, blockedTime
     if (!withinBudget()) close();
   }
   function send(event, data) {
+    return sendFrame(event, `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  }
+  function sendFrame(event, text) {
     if (closed) return false;
-    const text = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     const frame = { text, event, bytes: Buffer.byteLength(text) };
     if (!blocked) return write(frame);
     if (event === 'freshness') pendingFreshness = frame;
@@ -106,7 +108,7 @@ function createSseChannel(res, { maxBufferedBytes = 8 * 1024 * 1024, blockedTime
       else if (res.writableNeedDrain) block();
     });
   }
-  return { send, heartbeat, dispose, close };
+  return { send, sendFrame, heartbeat, dispose, close };
 }
 
 module.exports = { createSseChannel };
