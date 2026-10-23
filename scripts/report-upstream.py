@@ -3,15 +3,20 @@
 import argparse, json, pathlib, subprocess, tempfile
 from urllib.request import Request, urlopen
 
+SCOPE = json.loads((pathlib.Path(__file__).resolve().parent / 'nas-scope.json').read_text())
+
+def excluded(name):
+    return name in SCOPE['excludedFiles'] or any(name.startswith(prefix) for prefix in SCOPE['excludedDirectories'])
+
 def report(lock, latest, files):
     lines = ['# Official upstream comparison', '', f"Locked: `{lock['tag']}` at `{lock['commit']}`", f"Latest published release: `{latest['tag_name']}` ({latest['published_at']})", '', 'A detected release requires review; this report does not import or publish code.', '', '| Area | Changed files |', '| --- | ---: |']
-    groups = {'shared': [], 'agent': [], 'hub': [], 'dependencies': [], 'desktop and other': []}
+    groups = {'shared': [], 'agent': [], 'hub': [], 'dependencies': [], 'excluded desktop/Worker': [], 'other (review)': []}
     for name in files:
-        key = next((area for area in ('shared', 'agent', 'hub') if name.startswith('src/' + area + '/')), None)
-        key = key or ('dependencies' if name in ('package.json', 'package-lock.json', 'scripts/vendor/tokscale.json') else 'desktop and other')
+        key = 'excluded desktop/Worker' if excluded(name) else next((area for area in ('shared', 'agent', 'hub') if name.startswith('src/' + area + '/')), None)
+        key = key or ('dependencies' if name in ('package.json', 'package-lock.json', 'scripts/vendor/tokscale.json') else 'other (review)')
         groups[key].append(name)
     lines.extend(f'| {key} | {len(names)} |' for key, names in groups.items())
-    lines += ['', '## Changed paths', ''] + [f'- `{name}`' for name in files]
+    lines += ['', 'Excluded paths must not be imported; mixed changes still require dependency and protocol review.', '', '## Changed paths', ''] + [f'- {"[excluded] " if excluded(name) else ""}`{name}`' for name in files]
     if not files: lines.append('No source changes between the frozen baseline and latest release.')
     return '\n'.join(lines) + '\n'
 

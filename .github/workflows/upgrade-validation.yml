@@ -27,6 +27,8 @@ jobs:
       - name: Validate version and source safety
         run: |
           node scripts/check-nas-version.js
+          node scripts/check-nas-scope.js
+          python3 -m unittest discover -s scripts/tests -p 'test_upstream_scope.py' -v
           python3 scripts/check-publication-safety.py
           node --test scripts/tests/*.test.js
           python3 -m unittest discover -s deployment/tests -v
@@ -41,6 +43,7 @@ jobs:
         run: |
           test "$(uname -m)" = "${{ matrix.arch }}"
           docker build -t token-monitor-candidate .
+          docker run --rm --network none -v "$PWD/scripts:/nas-checks:ro" token-monitor-candidate node /nas-checks/check-nas-scope.js --image /opt/token-monitor
       - name: Verify pinned Tokscale and NAS regressions
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -52,7 +55,7 @@ jobs:
       - name: Compare fixed synthetic workload against released baseline
         run: |
           mkdir -p /tmp/token-monitor-baseline /tmp/token-monitor-performance
-          git archive 219ab704fdfcde81e889840c3cae13649b792c94 app | tar -x -C /tmp/token-monitor-baseline
+          git archive 729c6c0043a7f68eddc9098ce6a17f01959a0c02 app | tar -x -C /tmp/token-monitor-baseline
           docker run --rm --init -v /tmp/token-monitor-baseline/app:/baseline node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 sh -c 'cd /baseline && npm ci --omit=dev --ignore-scripts'
           docker run --rm --init --network none -v /tmp/token-monitor-baseline/app:/baseline:ro -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v /tmp/token-monitor-performance:/evidence token-monitor-candidate node scripts/verify-nas-transition.js --baseline /baseline --candidate /opt/token-monitor --output /evidence/mixed-version-transition.json
           docker run --rm --init --memory 1g --cpus 2 -v /tmp/token-monitor-baseline/app:/baseline:ro -v "$PWD/app/scripts:/opt/token-monitor/scripts:ro" -v /tmp/token-monitor-performance:/evidence token-monitor-candidate node scripts/benchmark-nas-regression.js --baseline /baseline --candidate /opt/token-monitor --repeats 3 --sessions 1000 --idle-ms 1500 --sustain-ms 60000 --sample-ms 50 --tick-ms 250 --output /evidence/synthetic-performance.json

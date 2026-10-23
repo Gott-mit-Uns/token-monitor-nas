@@ -1,12 +1,24 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.77.0-01；2026-10-22 从 v0.76.0 三方合并核对。官方稳定基线 `v0.77.0` / `c83ee3aeb6d23505257113c29ef010040deb52f7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.77.0-02 候选（未发布）；2026-10-22 从 v0.76.0 三方合并核对。官方稳定基线 `v0.77.0` / `c83ee3aeb6d23505257113c29ef010040deb52f7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 
 Node Hub、Agent 与 shared 使用同一稳定官方基线。源码映射为上游 `src/*` → 本仓库 `app/src/*`。仅按固定旧/新官方提交及 NAS 起点三方比较；不得浮动跟踪 main、混入预发布或整目录覆盖 NAS 补丁。`nas-version.txt` 决定当前 NAS 修订；lock 的 revisionBaseline 描述引入官方基线的操作，不代替最终发布清单。
 
 容器排除 Electron 窗口、Dock、renderer/动画、桌面更新器、浏览器登录及独立 Windows Adapter。Worker 不在本仓库分发，不生成虚假 Worker 身份。共享本地详情能力不构成远端正文 API 或真实来源授权；默认 Hermes-only，不自动启用新的客户端、额度、挂载或账户。
+
+## NAS 同步排除规则
+
+机器读取的排除清单为 `scripts/nas-scope.json`，由 `scripts/report-upstream.py` 和 `scripts/check-nas-scope.js` 共用；前者在上游差异报告中单列排除项，后者检查源码、package/lock、静态引用与最终镜像。新增桌面功能不能因位于 shared 就直接复制；未识别路径仍须人工审查，不自动列为可同步。
+
+- 永久排除当前 NAS 产品范围：Electron/renderer、托盘和字体显示、macOS Widget、桌面应用更新器、桌面打包/签名/安装器；Worker、独立 Windows Adapter、Android UI 留在各自产品，不恢复其构建发布流程。
+- 必须继续评估：采集与 parser、Token/缓存/reasoning/费用口径、历史归档、额度和账号身份、Hub 协议/共享设置、实际运行依赖的安全修复。新来源和额度保持显式启用，默认配置不随同步变化。
+- 适配后同步：collector/watcher、持久化与 SSE 优化；保留 NAS 独立 Watcher、严格持久化、历史守卫、只读来源、资源和隐私边界。`src/hub/windows*` 是 NAS 服务端能力，不属于桌面排除项。
+- 本批只移除明确未接入的显示/更新模块和桌面构建链；登录辅助、其他来源、共享本地详情、诊断与导出模块保留，不能把静态不可达名单当作批量删除许可。
+- 每次 PR 列出跟进、适配、排除和等待项；混合提交逐路径处理。删除文件的桌面专属测试随之排除，共享统计、历史、协议和 provider 测试必须保留；不能以排除 UI 为由删除共享数据字段。依赖裁剪后按实际清单重新计算 NAS 构建身份，不复制官方指纹。
+
+PR 原生双架构构建和发布最终镜像均执行排除检查；恢复被排除的路径/依赖会失败。排除清单只能随明确的 NAS 产品需求和适用测试一起审阅修改，不能为通过检查临时移除规则。一般功能以正式版为基线，确实影响 NAS 的安全/数据正确性修复可独立评估，不自动发布或部署。
 
 ## 升级步骤
 

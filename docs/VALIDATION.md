@@ -1,5 +1,15 @@
 # 当前验收
 
+## v0.77.0-02 桌面残留清理候选
+
+2026-10-23，本地macOS arm64 / Node24.19.0，从main `f5c50494`执行第一批清理。删除31个确认桌面专属文件，移除混合测试中仅依赖桌面显示文件的两个块，保留共享数据断言。锁文件由387项降至105项；所有保留package的version/integrity不变，无新增package路径。重新计算NAS Node构建身份，官方基线与Tokscale pin不变；不修改费用/SQLite/Hub JSON逻辑。
+
+新增排除守卫5项正反测试和上游报告分类测试通过；发布/范围JS共72项、Python文档/分类13项、部署70项通过，版本/范围/文档检查及diff空白检查通过。完整NAS套件第一次因npm原版Tokscale哈希不符失败；原生下载超时后取得同一锁定资产，经ensure脚本校验SHA256并替换本隔离依赖中的二进制，完整复测2242项：2225通过、0失败、17平台/桌面条件跳过。既有ESLint入口引用不存在的app/.gitignore而不能启动；本轮未放宽lint规则或扩展为全库格式整治，此项不计通过。
+
+本机无Docker，不能替代Linux镜像证据。PR工作流执行amd64/arm64完整NAS suite、固定parser、源码/安装树排除检查、对当前正式v0.77.0-01的混合Hub-Agent/合成性能，以及13来源×双架构冻结会计/完整状态恢复；结果和自动审查以PR最终head为准，未通过不得发布。恢复矩阵中的compatibleFrom条目在门槛完成前仅为候选测试目标。新增JSON规则有实际机器消费者，不新增重复报告；README未改。
+
+本轮不创建tag、发布镜像、推广latest或访问生产设备；两台NAS数据、配置与运行状态未操作。已有v0.77.0-01跨设备历史费用下降告警保留，清理和合成测试不能替代该生产问题的根因及验收。
+
 ## v0.77.0-01 已发布部署，最终跨设备费用验收未通过
 
 2026-10-22：官方v0.77.0解引用`c83ee3aeb6d23505257113c29ef010040deb52f7`，从NAS main `823bd21d`三方合并；13个上游提交、53路径分类，运行源码8路径适用，依赖/parser和持久化schema不变。先行Hub保存/退出定向45项通过；扩展Hub/shared418项中417通过、Worker-only1跳过，0失败；部署70项通过。本机完整NAS suite为2242项：2225通过、17跳过、0失败；另补预编码帧回压/字节上限测试，SSE9项通过。发布辅助67项、文档12项通过。[PR #27](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/27)最终head `835e1d80` 的27项检查全部通过，自动复审completed、无发现/无未解决项；已合并，正式源码`729c6c0043a7f68eddc9098ce6a17f01959a0c02`与已审app/Docker/scripts/deployment/workflow一致。[原生双架构产品/性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39682863444)每架构2243项：2229通过、14跳过、0失败，固定parser、混合Hub-Agent及合成性能通过；短合成不是生产长期性能证明。[12来源×双架构冻结/完整恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39682863428)24组通过，增加v0.76.0-02固定摘要。本机仅NAS可达历史安全检查1935个文件版本、0发现。
