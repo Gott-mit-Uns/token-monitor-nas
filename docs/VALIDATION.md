@@ -1,5 +1,10 @@
 # 当前验收
 
+## 2026-10-24 v0.78.0-01 候选验证
+
+固定桌面d52e0b9；本机macOS首次定向运行中，真实Python私有setgid叶目录用例失败，保留/tmp/nas078-focused.log，不放宽断言；最终以Linux原生双架构CI验证实际NAS环境。本机发布门禁72项和部署Python70项通过。完整NAS回归进行中。原生镜像、全部兼容来源冻结/完整恢复、发布及生产部署尚未验证。
+
+
 ## v0.77.0-02 已发布，DXP4800部署验收
 
 2026-10-23，从main `f5c50494`进行第一批桌面残留清理；[PR #29](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/29)最终head `1a78a940a2ab1149df0f5a964f5036ae97aa3175`的29项检查全部通过，Codex自动代码审查completed、无发现/未解决项。正式合并源码`a79a7f7ec31741a43177d44b30ce926193a9a016`与该head的tree一致。删除31个确认桌面专属文件和混合测试中的桌面显示块；lock从387项降至105项，保留包的version/integrity不变、无新增包路径。更新NAS Node构建身份，官方v0.77.0基线、Tokscale pin、会计与持久化格式不变。
