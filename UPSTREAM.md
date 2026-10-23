@@ -1,6 +1,6 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.77.0-02 候选（未发布）；2026-10-22 从 v0.76.0 三方合并核对。官方稳定基线 `v0.77.0` / `c83ee3aeb6d23505257113c29ef010040deb52f7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.77.0-02；2026-10-22 从 v0.76.0 三方合并核对。官方稳定基线 `v0.77.0` / `c83ee3aeb6d23505257113c29ef010040deb52f7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 

@@ -1,14 +1,24 @@
 # 当前验收
 
-## v0.77.0-02 桌面残留清理候选
+## v0.77.0-02 已发布，DXP4800部署验收
 
-2026-10-23，本地macOS arm64 / Node24.19.0，从main `f5c50494`执行第一批清理。删除31个确认桌面专属文件，移除混合测试中仅依赖桌面显示文件的两个块，保留共享数据断言。锁文件由387项降至105项；所有保留package的version/integrity不变，无新增package路径。重新计算NAS Node构建身份，官方基线与Tokscale pin不变；不修改费用/SQLite/Hub JSON逻辑。
+2026-10-23，从main `f5c50494`进行第一批桌面残留清理；[PR #29](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/29)最终head `1a78a940a2ab1149df0f5a964f5036ae97aa3175`的29项检查全部通过，Codex自动代码审查completed、无发现/未解决项。正式合并源码`a79a7f7ec31741a43177d44b30ce926193a9a016`与该head的tree一致。删除31个确认桌面专属文件和混合测试中的桌面显示块；lock从387项降至105项，保留包的version/integrity不变、无新增包路径。更新NAS Node构建身份，官方v0.77.0基线、Tokscale pin、会计与持久化格式不变。
 
-新增排除守卫5项正反测试和上游报告分类测试通过；发布/范围JS共72项、Python文档/分类13项、部署70项通过，版本/范围/文档检查及diff空白检查通过。完整NAS套件第一次因npm原版Tokscale哈希不符失败；原生下载超时后取得同一锁定资产，经ensure脚本校验SHA256并替换本隔离依赖中的二进制，完整复测2242项：2225通过、0失败、17平台/桌面条件跳过。既有ESLint入口引用不存在的app/.gitignore而不能启动；本轮未放宽lint规则或扩展为全库格式整治，此项不计通过。
+- 本机macOS arm64 / Node24.19：完整NAS2242项，2225通过、17条件跳过、0失败；发布/范围JS72、Python文档/分类13、部署70项通过。版本、范围、构建身份、文档和diff检查通过。初次固定parser下载超时/哈希不符，经同一锁定资产SHA256校验补齐后完整复测通过。既有ESLint入口因缺少app/.gitignore无法启动，此项不计通过，未放宽规则。
+- [原生amd64/arm64产品与性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39954405137)各2242项：2228通过、14条件跳过、0失败。源码/最终镜像排除、固定parser、对正式v0.77.0-01的混合Hub-Agent及旧新各三轮60秒合成负载通过；短合成结果不代表长期生产性能改善。
+- [13来源×双架构冻结/完整恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39954405435)26组全部通过，包含当前正式v0.77.0-01固定index。生产费用差异守卫未修改，合成恢复不替代真实生产恢复。
+- [正式发布39956314922](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/39956314922)的build_amd64、verify_arm64、promote均成功；最终发布镜像再次通过原生验证。annotated tag解引用、源码政策、三份记录、固定/latest index及两平台实际OCI版本/源码均独立核对。发布记录提交`5c388d4b81b839713479e6dd40f9dca19f6d238b`的[manifest](https://github.com/Gott-mit-Uns/token-monitor-nas/blob/5c388d4b81b839713479e6dd40f9dca19f6d238b/publications/v0.77.0-02/manifest.json)绑定index `sha256:584fbeb69acde8a0c2a925e44ec356aa87d62857e670c3b24503605bd1bf329f`。未创建GitHub Release，未覆盖旧固定tag/镜像。
 
-本机无Docker，不能替代Linux镜像证据。PR工作流执行amd64/arm64完整NAS suite、固定parser、源码/安装树排除检查、对当前正式v0.77.0-01的混合Hub-Agent/合成性能，以及13来源×双架构冻结会计/完整状态恢复；结果和自动审查以PR最终head为准，未通过不得发布。恢复矩阵中的compatibleFrom条目在门槛完成前仅为候选测试目标。新增JSON规则有实际机器消费者，不新增重复报告；README未改。
+### DXP4800现场
 
-本轮不创建tag、发布镜像、推广latest或访问生产设备；两台NAS数据、配置与运行状态未操作。已有v0.77.0-01跨设备历史费用下降告警保留，清理和合成测试不能替代该生产问题的根因及验收。
+本轮明确授权合并、发布、部署，目标仅DXP4800（192.168.31.12）。现场旧版确认为v0.77.0-01/源码`729c6c00`，两个服务healthy。使用既有安全SSH和Docker管理权限执行一次性脚本，没有新增登录凭据、权限或后台控制器。自动控制器递归检查整个Hermes源时因原有工具/依赖软链接拒绝；手工预检核实挂载根和唯一所选state.db路径均规范且无跳转，生产项目/状态无软链接，只读源和其中工具链接原样保留。固定源码中的冻结/数据保护模块原字节复用，未放宽Token/费用/历史守卫。
+
+- 新镜像按固定digest拉取并验证amd64/版本/源码后，停写Hub和Agent，完整备份实际项目。归档698828800字节、531个普通文件，SHA256 `d62d0b4a102af7cde47ae469d5b9c4557a2d1e16bdb137d59ca1a5df48cbbaa2`；独立解包逐文件SHA256、权限、uid/gid一致，SQLite完整性和Hub JSON可读。备份、核验工具与详细回执仅在NAS私有`/volume1/docker/token-monitor-backups/20261023-v07702`，真实资料不进入GitHub或本地工作区。旧准确镜像保留为本次回退标签。
+- 对同一只读Hermes SQLite快照、独立旧新状态副本、禁用网络/只用已有价格缓存执行Agent dry-run；冻结Token/缓存/reasoning/费用/会话/日期/历史精确相等。未修改真实Hermes来源。
+- Compose仅两处固定镜像替换，解析后除image外一致；私有环境文件原字节保留。实际amd64 image ID `sha256:a2844255e067261c94b4d037ab3e3ec5053a31155e78075c4119f34ca9d3a2da`，两个服务的版本/源码、设备、环境指纹（仅排除版本变量）、挂载、安全和资源限制核对一致。批量持久化仍为默认0。
+- Hub→Agent切换；鉴权API、普通SSE及Windows gzip各自重连、真实独立Watcher、启动采集上传通过。启动后直接数据守卫通过：SQLite完整性/旧会话、Agent历史、Hub全设备历史/计数、共享设置/订阅/标题许可保留。随后正常采集上传继续推进，Hub receivedAt从1792760341723增至1792760489040，API与磁盘记录相等；最终直接数据守卫再次通过。四设备身份保留，DXP历史与新鲜备份相同，两服务healthy、0重启、启动后日志错误指标0。当前新鲜备份保护通过不等于下文旧费用事件已解释。
+
+下文10月22日历史费用实质下降的根因仍未查明，本轮不将旧事件标为已解决。未操作DH4300plus，未执行生产回滚、24小时、物理客户端UI/公网代理或真实账户额度验收。完整备份读回与CI合成恢复不等于生产恢复。README未修改；本次收尾仅更新现有文档，不再发布软件版本。
 
 ## v0.77.0-01 已发布部署，最终跨设备费用验收未通过
 
