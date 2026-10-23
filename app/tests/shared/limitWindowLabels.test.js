@@ -55,28 +55,6 @@ test('Command Code rolling windows resolve to 5-hour from the kind alone', () =>
   assert.equal(limitWindowLabel('commandcode', { kind: 'weekly', label: '' }), 'Weekly');
 });
 
-test('every surface that paints a window label routes through the helper', () => {
-  const app = read('src/electron/renderer/app.js');
-  const dock = read('src/electron/renderer/edgeDock/dock.js');
-  const widget = read('src/shared/macWidgetSnapshot.js');
-
-  assert.match(app, /const \{[^}]*limitWindowLabel[^}]*\} = window\.TokenMonitorLimitWindowLabels;/);
-  assert.match(dock, /const limitWindowLabels = window\.TokenMonitorLimitWindowLabels;/);
-  assert.match(widget, /require\('\.\/limits\/windowLabels'\)/);
-
-  // The duplicated per-provider knowledge is gone from the widget snapshot.
-  assert.doesNotMatch(widget, /FIVE_HOUR_WINDOW_PROVIDERS/);
-  // The dock no longer keeps a kind table of its own.
-  assert.doesNotMatch(dock, /WINDOW_KIND_LABELS/);
-  // The Limits view no longer hard-codes a rolling-window name.
-  assert.doesNotMatch(app, /limitWindowNode\('5-hour'/);
-
-  for (const page of ['src/electron/renderer/index.html', 'src/electron/renderer/edgeDock/index.html']) {
-    assert.match(read(page), /limits\/windowLabels\.js/, `${page} should load the helper`);
-  }
-
-});
-
 test('MiMo rows group into logical accounts by suffix, then address', () => {
   // The two products of one account are two rows wherever they come from —
   // two devices may report different profile names, but the identity suffix

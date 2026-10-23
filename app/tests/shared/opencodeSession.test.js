@@ -10,7 +10,6 @@ let sqlite = null;
 try { sqlite = require('node:sqlite'); } catch (_) { sqlite = null; }
 
 const ocs = require('../../src/shared/providers/opencode/session');
-const { pickRecentUsageActivity } = require('../../src/shared/trayText');
 const { sessionActivityState } = require('../../src/shared/sessionLive');
 
 // The whole suite needs node:sqlite (Node >= 22.5 / Electron 42). Skip cleanly when absent.
@@ -241,27 +240,6 @@ maybe('readSessionMeta ignores a newer metadata timestamp without a new message'
   const meta = ocs.readSessionMeta(['stale'], { dbPaths: [file], sqlite });
 
   assert.equal(meta.get('stale').lastUsedAt, new Date(T1).toISOString());
-});
-
-maybe('OpenCode metadata updates cannot steal recent activity from a newer real message', () => {
-  const file = makeDb({
-    session: { id: 'stale', title: 'Renamed', created: T0, updated: T4 + 60_000 },
-    messages: [{ id: 'old-message', role: 'user', createdMs: T1 }]
-  });
-  const opencode = ocs.readSessionMeta(['stale'], { dbPaths: [file], sqlite }).get('stale');
-
-  const activity = pickRecentUsageActivity({
-    periods: {
-      today: {
-        sessions: {
-          'opencode:stale': { client: 'opencode', sessionId: 'stale', ...opencode },
-          'claude:active': { client: 'claude', lastUsedAt: new Date(T2).toISOString() }
-        }
-      }
-    }
-  });
-
-  assert.equal(activity.provider, 'claude');
 });
 
 maybe('readSessionMeta falls back to session creation when no message exists', () => {

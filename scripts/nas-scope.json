@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "excludedDirectories": [
+    "src/electron/",
+    "native/",
+    "worker/",
+    "site/",
+    "tests/electron/",
+    "tests/worker/"
+  ],
+  "excludedFiles": [
+    "src/shared/appUpdater.js",
+    "src/shared/macWidgetSnapshot.js",
+    "src/shared/macWidgetConfig.js",
+    "src/shared/macSystemRequirements.js",
+    "src/shared/fontSettings.js",
+    "src/shared/trayLayout.js",
+    "src/shared/trayText.js",
+    "scripts/TokenMonitorWidgetReloader.swift",
+    "scripts/build-macos-widget.js",
+    "scripts/electron-builder-version.js",
+    "scripts/electron-builder.config.js",
+    "scripts/macos-packaging.js",
+    "scripts/macos-provisioning.js",
+    "scripts/macos-widget-config.js",
+    "scripts/merge-mac-updater-metadata.js",
+    "scripts/nsis-installer.nsh",
+    "scripts/sign-macos-with-widget.js",
+    "scripts/signpath-windows-artifacts.js",
+    "scripts/verify-macos-widget-app.js",
+    "scripts/verify-updater-artifact-names.js",
+    "scripts/prepare-github-release-notes.js",
+    "scripts/sync-worker-shared.js",
+    "tests/shared/appUpdater.test.js",
+    "tests/shared/macWidgetSnapshot.test.js",
+    "tests/shared/macSystemRequirements.test.js",
+    "tests/shared/trayLayout.test.js",
+    "tests/shared/trayGeneratedIconColors.test.js",
+    "tests/shared/releaseArtifactNames.test.js",
+    "tests/shared/nsisInstallerAcl.test.js",
+    "tests/shared/nsisInstallerMode.test.js",
+    "tests/shared/signpathWindowsArtifacts.test.js",
+    "scripts/dev-macos-widget.js"
+  ],
+  "excludedDependencies": [
+    "electron",
+    "electron-builder",
+    "@electron/osx-sign",
+    "electron-updater",
+    "@xhayper/discord-rpc"
+  ]
+}

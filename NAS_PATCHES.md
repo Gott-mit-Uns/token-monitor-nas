@@ -1,6 +1,6 @@
 # NAS 专用补丁契约
 
-适用：NAS v0.77.0-01；2026-10-22 与上游 v0.77.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
+适用：NAS v0.77.0-02 候选（未发布）；2026-10-22 与上游 v0.77.0 三方核对。这里维护长期行为，不记录发布/部署流水。升级时三方合并全部补丁，实际验收只更新 [VALIDATION](docs/VALIDATION.md)。当前交接见 [HANDOFF](docs/HANDOFF.md)。
 
 ## 必须保留的补丁
 
@@ -18,7 +18,7 @@
 | NAS-10 | `app/src/hub/statsContentDigest.js`、`server.js` | 长期比较值为 SHA-256 digest，避免额外持有完整统计 JSON 字符串；不改变通知内容和判断字段。 | `app/tests/hub/statsContentDigest.test.js` |
 | NAS-11 | `app/src/hub/windowsSchedule.js`、`calendars/2026.json`、`windowsStream.js`、`server.js` | 默认关闭 `/windows`；共用现有完整 API/存储/认证。北京时间中国法定工作日 07:00–17:00 十分钟，其他三十分钟，有变化才发完整统计；首连/重连立即 snapshot，手动读取不重置周期。缺年份回退周一至周五并报告。标题撤销、删除、共享/订阅即时通知。 | `app/tests/hub/windowsSchedule.test.js`、`windowsStream.test.js`、`windowsHttp.test.js` |
 | NAS-12 | `app/src/hub/deviceFreshness.js`、`windowsMetrics.js`、`server.js` | 30 秒轻量在线信息只读取 receivedAt/年龄/过期元数据，不重聚合用量或更新时间；诊断仅进程计数，无凭据、URL 参数、标题或会话正文。请求数/编码正文大小不等于公网成功送达证据。 | `app/tests/hub/deviceFreshness.test.js`、`windowsDesktop.test.js`、`windowsHttp.test.js` |
-| NAS-13 | `app/package.json`、`app/package-lock.json`、`Dockerfile` | NAS 精简 npm 清单，不安装 Electron/dev 构建依赖；保留固定摘要 Debian slim 与 Node SQLite 兼容性。依赖安装、固定 Tokscale 验证拆层，COPY --link 复用生产依赖，镜像只 COPY agent/shared/hub。官方新增客户端不意味着增加默认扫描。 | npm install/audit、Tokscale manifest/release/client 验证、原生双架构镜像 CI |
+| NAS-13 | `app/package.json`、`app/package-lock.json`、`Dockerfile` | NAS 精简 npm 清单，直接排除 Electron/桌面更新器/Discord/桌面构建依赖；保留固定摘要 Debian slim 与 Node SQLite 兼容性。依赖安装、固定 Tokscale 验证拆层，COPY --link 复用生产依赖，镜像只 COPY agent/shared/hub。官方新增客户端不意味着增加默认扫描。 | npm install/audit、Tokscale manifest/release/client 验证、原生双架构镜像 CI |
 | NAS-14 | `docker-compose.yaml`、`docker-compose.4300.yaml`、`.env.example` | 两台 NAS 原有服务名、deviceId、Hermes 只读挂载、持久化位置、Asia/Shanghai、512 MiB 上限、只读根/最小 capabilities；五分钟周期、60 秒防抖、归档/完整明细开启，额度/项目默认关闭。现有 `.env` 不进仓库。真实部署已有 ID 即使与模板不同也必须原样保留。 | Compose config 校验与静态边界检查；真实 ID/目录保留须部署前单独核对 |
 | NAS-15 | `nas-version.txt`、`scripts/check-nas-version.js`、`scripts/promote-nas-image.js`、`.github/workflows/validate.yml` | `v<官方>-<两位NAS>`，新上游从 -01；标签与 OCI 一致。两个架构测试同一不可变 digest 后推广；固定标签存在且 digest 不同必须拒绝覆盖，旧 main CI 不可改 latest。部分失败恢复沿用原摘要。 | `scripts/tests/promote-nas-image.test.js`、版本校验与 CI 原生 amd64/arm64 jobs |
 | NAS-16 | `scripts/check-publication-safety.py`、`.gitignore`、`.dockerignore`、`SECURITY.md` | 扫描可达 Git 历史的常见秘密和运行数据路径；不提交 .env、凭据、Hermes DB、状态、日志或备份。发布检查不接触生产 NAS。模式扫描只是有限证明，不能称为全量安全审计。 | publication-safety 检查与镜像内容审阅 |
@@ -44,4 +44,4 @@
 
 运行容器 procps 提供 POSIX 进程启动/RSS采样；测试用 --init 对齐 Compose init，合成 machine-id 不烘焙进镜像。原生 amd64/arm64分别验证，短合成基准不等于生产速度、内存或长期稳定改善。性能异常先查模块/扫描/SSE，不能自动扩大资源限额。上游发现报告只进 CI artifacts，不自动覆盖代码、发布或部署。
 
-app/scripts 现有 macOS/widget/Worker 历史辅助脚本不在 NAS 运行镜像；本次不激活或删除。实际验收只更新 [VALIDATION](docs/VALIDATION.md)，继续工作与授权只更新 [HANDOFF](docs/HANDOFF.md)。
+已移除未接入的托盘、字体、macOS Widget、桌面更新模块及对应打包/签名脚本；排除清单与源码/镜像检查见 [上游规范](UPSTREAM.md#nas-同步排除规则)。保留 NAS 构建身份、固定 parser、共享 provider 和数据兼容测试；其他尚未清理的上游辅助模块不因此获得删除授权。实际验收只更新 [VALIDATION](docs/VALIDATION.md)，继续工作与授权只更新 [HANDOFF](docs/HANDOFF.md)。
