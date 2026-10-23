@@ -1,8 +1,15 @@
 # 当前验收
 
-## 2026-10-24 v0.78.0-01 候选验证
+## 2026-10-24 v0.78.0-01 验收
 
-固定桌面d52e0b9；本机macOS首次定向运行中，真实Python私有setgid叶目录用例失败，保留/tmp/nas078-focused.log，不放宽断言；最终以Linux原生双架构CI验证实际NAS环境。本机发布门禁72项和部署Python70项通过。完整NAS回归进行中。原生镜像、全部兼容来源冻结/完整恢复、发布及生产部署尚未验证。
+适用产品源码`24bbc4503d196b9dd088493c25e1d93666420965`；固定桌面v0.78.0/d52e0b9，起点e613a200。本次PR #31最终head e8128643与合并tree相同，31项CI全部成功；自动代码审查completed、has_any_findings=false、has_unresolved_findings=false且绑定e8128643。没有运行独立security_review，不把空状态写为安全审查通过。
+
+- [双原生架构回归及性能](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/40038038566)：amd64/arm64均2315项，2288通过、27按平台/产品范围跳过、0失败；固定parser实际身份、产品及共享合同、旧新上传/Hub组合、去重/断线重试通过。每架构旧新各3次固定1000会话/60秒持续负载的性能门禁通过；这不是生产长期性能或改善幅度的证明。
+- [冻结/完整恢复](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/40038038543)：14个固定来源版本×2原生架构，28组通过，新增v0.77.0-02 index由既有发布清单固定。SQLite、归档/Hub、隐私/历史守卫及完整状态恢复均为合成环境；不等于生产回滚实测。
+- 本机发布Node72项、部署Python70项、文档/版本/范围检查通过。共享本地Git含额外桌面tags，安全扫描先报上游公开SQLite fixture；独立仅NAS分支克隆检查1989历史文件版本0发现，未删guard或加白名单。全部本地NAS2337项首次仅固定parser二进制SHA失败（2318通过/18跳过），安装既有锁定构建后该1项复测通过。首次定向真实Python setgid叶目录超时保留，完整回归再跑该项通过；Linux最终原生结果见上。
+- 首次CI新增07702恢复用例未登记固定baseline失败；补齐固定index和corrected-cost集合后，旧单测候选07702与新增baseline相等再次失败。将合成候选推进07801并保留同版本拒绝断言、补07702精确摘要断言，70项本地及最终28组真实恢复全部通过。没有放宽数据/费用断言。
+
+[正式发布流水线](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/40038974349)的build_amd64、verify_arm64和promote均成功，固定tag/源码、两平台index与OCI、manifest/UPGRADE/ROLLBACK三份记录和latest均独立回读一致。发布记录固定提交76ecc2387f3e12ded5aeeca9dfd855acdb3bd53e，index为sha256:abaadd5d81b052bbc221ff661ff8262c2d37d61643e94dd9e6823cbf900deb8f；部署守卫SHA保持64c03dfd…。DXP4800在完整停写备份后更新：531文件/698961920字节，解包逐文件内容/权限/uid/gid相等，SQLite完整性及Hub JSON通过；冻结只读Hermes单数据库，旧新Token/费用/会话/日期/历史严格相等。Compose仅两处image固定到已核验index，其余解析配置与运行env摘要/身份/挂载/资源/权限保持。两服务已运行v0.78.0-01/source24bbc450，healthy、0重启、fatal/timeout/failed/SQLite错误指标0；同步保存0ms保持，API/普通及Windows gzip SSE重连通过，archive/history/hubPolicy直接守卫通过。初探Agent collection=ok、upload=stale，随后正常上传成功。首个成功receivedAt=1792798047699，后续自然采集推进至1792798111311，API与磁盘receivedAt完全相同，collection/upload均ok、独立Watcher正常、紧凑JSON/schema1及同步保存保持；这两次记录间隔约64秒，不冒称第二次为五分钟定时触发。最终再次直接守卫archive=integrity-ok-and-old-keys-retained、history=retained、hubPolicy=preserved；两服务healthy/0重启/日志错误指标0。结果已保存NAS私有20261024-v078/deployment-result.json，旧准确镜像和完整备份保留，未安装后台控制器。生产回滚、24小时、真实新增消费及物理客户端未验证；DH4300plus未访问。旧跨设备历史费用告警保持未定位。升级前只读探测两服务确认为v0.77.0-02/a79a7f7，API、普通SSE与Windows gzip SSE重连、独立Watcher、采集与上传均正常。没有仅凭运行状态宣称已更新。
 
 
 ## v0.77.0-02 已发布，DXP4800部署验收
