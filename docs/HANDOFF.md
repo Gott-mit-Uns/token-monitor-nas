@@ -1,8 +1,10 @@
 # 当前交接
 
-## 2026-10-24 v0.78.0-01 候选
+## 2026-10-24 v0.78.0-01 已发布并部署DXP4800
 
-本次用户明确授权两端对齐、测试、PR、合并、发布和部署；NAS仅DXP4800，备份后更新，不动DH4300plus。固定桌面v0.78.0/d52e0b9，NAS起点e613a200。适用增量见UPSTREAM；保留所有NAS补丁和已有历史费用告警。当前尚未合并、发布或部署，需通过原生双架构产品/冻结恢复及自动审查。
+产品[PR #31](https://github.com/Gott-mit-Uns/token-monitor-nas/pull/31)已合并至`24bbc4503d196b9dd088493c25e1d93666420965`，与最终已审`e8128643`的tree完全相同。固定桌面v0.78.0/d52e0b9；ZCode元数据、Claude私有探测和适用依赖安全修复已同步，默认来源/额度/标题、parser、费用及持久化格式不变，README未改。最终31项CI及最终head自动审查无发现。[正式发布](https://github.com/Gott-mit-Uns/token-monitor-nas/actions/runs/40038974349)三个job全部成功，tag、三份发布记录、固定/latest index及两平台OCI已独立核验。index `sha256:abaadd5d81b052bbc221ff661ff8262c2d37d61643e94dd9e6823cbf900deb8f`，发布记录提交`76ecc2387f3e12ded5aeeca9dfd855acdb3bd53e`；不创建NAS GitHub Release。DXP4800已固定同一index并按Hub→Agent切换。完整项目备份531文件/698961920字节，独立解包内容/权限/uid/gid及SQLite校验通过；同一冻结Hermes来源旧新会计精确相等。配置、身份、只读挂载、资源和隐私保持，启动数据守卫、API/普通及Windows gzip SSE重连通过，两服务healthy/0重启/日志错误0。启动后及后续自然采集上传已确认，API接收时间推进且与磁盘一致，最终archive/history/hubPolicy守卫通过；私有备份保留于20261024-v078，旧准确镜像保留，不安装后台控制器。
+
+本次用户明确授权合并、发布与部署，仅DXP4800，先完整备份并独立读回，再冻结旧新会计比较和Hub→Agent更新。DH4300plus不在范围内；保留10月22日跨设备历史费用下降的未定位告警，本轮不改数据、不放宽守卫。
 
 
 ## 2026-10-23 v0.77.0-02 已发布，DXP4800部署验收
