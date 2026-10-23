@@ -1,6 +1,6 @@
 # 官方源码基线与升级规范
 
-适用：NAS v0.77.0-02；2026-10-22 从 v0.76.0 三方合并核对。官方稳定基线 `v0.77.0` / `c83ee3aeb6d23505257113c29ef010040deb52f7`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
+适用：NAS v0.78.0-01；2026-10-24 从 v0.77.0 三方合并核对。官方稳定基线 `v0.78.0` / `d52e0b9cf970a03a30a5f5a1e9139693bb211cd8`，唯一机器输入为 [upstream-lock.json](upstream-lock.json)。当前发布状态和未完成工作见 [HANDOFF](docs/HANDOFF.md)，实际验证见 [VALIDATION](docs/VALIDATION.md)，不在本文维护逐版发布日志。
 
 ## 源码范围
 
@@ -58,3 +58,7 @@ shared/Agent、固定 Tokscale 4.19.1 fork、来源注册/路径、Cursor Includ
 13个上游提交、53个路径逐项分类：8个运行源码路径（Hub server和7个shared）三方合并，NAS安全补丁保留；package与lock仅同步官方版本，依赖和Tokscale固定构建不变。Hub合入可选批量保存、紧凑JSON和限时退出刷新，默认仍同步保存；NAS严格启动读、同步失败回滚/503、即时隐私和共享写保留。SSE按广播预编码不同普通客户端帧，同时保留SHA256比较摘要、每连接回压/缓冲上限、gzip释放及Windows独立时段调度；shared fanout增加可注入预计算内容键供NAS摘要复用，默认官方语义不变。同步Cline凭据身份隔离/保存密钥配置、Cursor未知套餐及失效缓存处理、New API今日/滚动七天/月消费和有界可选查询。Agent/collector/watcher及历史守卫源码没有上游变更。
 
 适用Hub/shared测试和Argon合成夹具同步；同名持久化测试保留NAS版，上游新增批量保存测试另名纳入自动扫描；shared limits/limitsRuntime/thirdPartyLimits明确进入NAS清单，Node Cline入口执行，Worker入口因不分发而跳过。Windows时序测试修正保留跨平台意图。桌面额度展示/实时速率/设置刷新/遮罩及对应测试、Worker与文档不分发；上游env/API配置说明只映射Hub可选保存到现有NAS入口。registry按实际闭包追加，不复制官方哈希。完整路径清单保留在本轮PR。
+
+## v0.78 适用决策
+
+比较v0.77.0至固定正式v0.78.0的9个提交和111个路径。同步4个共享源码：ZCode只读SQLite标题及subagent/workflow父关系、元数据重试、Claude私有探测叶目录与进程启动身份核验。合并5个共享测试，保留NAS午夜会计及独立Watcher测试；桌面展示断言不进入NAS。同步实际存在的undici 7.30.1、brace-expansion 5.0.12和http-cache-semantics 4.3.0锁定条目，保留NAS裁剪后的依赖集合及固定Tokscale。Agent/Hub入口、费用、历史和持久化格式无上游变化；实际core/Node闭包指纹重算，不生成Worker身份。Windows/macOS玻璃、Dock/Notch、悬停提示及Electron构建链不分发，来源/额度/标题默认开关不变。

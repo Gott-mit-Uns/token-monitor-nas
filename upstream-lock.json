@@ -1,10 +1,10 @@
 {
   "repository": "https://github.com/Javis603/token-monitor",
-  "tag": "v0.77.0",
-  "commit": "c83ee3aeb6d23505257113c29ef010040deb52f7",
-  "previousTag": "v0.76.0",
-  "previousCommit": "fbbe4c1cb04e3277b73499016d432338c1d2ab4e",
-  "nasBaseline": "823bd21d5517c51de9fc21b386ea6df65679c1fd",
+  "tag": "v0.78.0",
+  "commit": "d52e0b9cf970a03a30a5f5a1e9139693bb211cd8",
+  "previousTag": "v0.77.0",
+  "previousCommit": "c83ee3aeb6d23505257113c29ef010040deb52f7",
+  "nasBaseline": "e613a20003a0b51a5f8c90aef77ebfa994ba9499",
   "scope": [
     "src/shared",
     "src/agent",
@@ -15,7 +15,7 @@
   ],
   "audit": "UPSTREAM_0.72_AUDIT.md",
   "patches": "NAS_PATCHES.md",
-  "nasRevision": "v0.77.0-01",
-  "revisionBaseline": "823bd21d5517c51de9fc21b386ea6df65679c1fd",
-  "revisionNotes": "Align official v0.77.0 shared/Hub changes while retaining NAS durability, bounded SSE channels, digest identity, independent watcher and strict history/accounting guards. Batching stays opt-in (default 0); no parser or dependency change."
+  "nasRevision": "v0.78.0-01",
+  "revisionBaseline": "e613a20003a0b51a5f8c90aef77ebfa994ba9499",
+  "revisionNotes": "Align v0.78.0 ZCode metadata, private Claude probes and applicable dependency security fixes; retain NAS persistence, accounting, history, privacy and source defaults."
 }

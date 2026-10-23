@@ -46,7 +46,7 @@ class FrozenHermesTest(unittest.TestCase):
             with self.assertRaises(m.Refused): f.compare(before, after)
 
     def test_070_through_072_baselines_require_equal_corrected_costs(self):
-        for version in ['v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01', 'v0.73.0-01', 'v0.74.0-01', 'v0.75.0-01', 'v0.76.0-01', 'v0.76.0-02', 'v0.77.0-01']:
+        for version in ['v0.70.0-01', 'v0.71.0-01', 'v0.71.0-02', 'v0.72.0-01', 'v0.73.0-01', 'v0.74.0-01', 'v0.75.0-01', 'v0.76.0-01', 'v0.76.0-02', 'v0.77.0-01', 'v0.77.0-02']:
             with self.subTest(version=version):
                 before, after = self.evidence()
                 result = f.compare(after, after, version)
@@ -63,7 +63,7 @@ class FrozenHermesTest(unittest.TestCase):
                 lambda v: v['periods']['today'].__setitem__('costUsd', 0),
                 lambda v: v['history'][0].__setitem__('cost', 0)]:
             _, before = self.evidence(); after = copy.deepcopy(before); mutation(after)
-            for version in ['v0.71.0-01', 'v0.72.0-01', 'v0.73.0-01', 'v0.74.0-01', 'v0.75.0-01', 'v0.76.0-01', 'v0.76.0-02', 'v0.77.0-01']:
+            for version in ['v0.71.0-01', 'v0.72.0-01', 'v0.73.0-01', 'v0.74.0-01', 'v0.75.0-01', 'v0.76.0-01', 'v0.76.0-02', 'v0.77.0-01', 'v0.77.0-02']:
                 with self.assertRaises(m.Refused): f.compare(before, after, version)
 
     def test_synthetic_fixture_closed_and_consistent(self):
@@ -79,7 +79,7 @@ class FrozenHermesTest(unittest.TestCase):
 
     def test_baselines_are_fixed_and_candidate_read_from_single_version_input(self):
         with tempfile.TemporaryDirectory() as tmp:
-            file = Path(tmp) / 'version'; file.write_text('v0.77.0-02\n')
+            file = Path(tmp) / 'version'; file.write_text('v0.78.0-01\n')
             self.assertEqual(exercise.BASELINES['v0.71.0-01'], 'sha256:209da1db610b38871eb9357f27b6d625c80441ec9853024256190fd4843b585a')
             self.assertEqual(exercise.BASELINES['v0.72.0-01'], 'sha256:2830d40ea72b99084417ad415dcf6adea7f911959a5c3bfd48cc9b418ffd5810')
             self.assertEqual(exercise.BASELINES['v0.73.0-01'], 'sha256:48edfc344a513cebd8ed59c44f4504a40222c4ba44554d32300e888710daad34')
@@ -88,10 +88,11 @@ class FrozenHermesTest(unittest.TestCase):
             self.assertEqual(exercise.BASELINES['v0.76.0-01'], 'sha256:072c1d1bb4f8eda509269d6d7b9e06d56fbaaf66fc97b1f4241988831baa4174')
             self.assertEqual(exercise.BASELINES['v0.76.0-02'], 'sha256:719088855351975f38badadfdec1ae43db98b962f5b99874ca0b641874645160')
             self.assertEqual(exercise.BASELINES['v0.77.0-01'], 'sha256:f01dcc6d4781d6602f6635d52e784024e9b42edc1d430edc96b60f5773e4f221')
+            self.assertEqual(exercise.BASELINES['v0.77.0-02'], 'sha256:584fbeb69acde8a0c2a925e44ec356aa87d62857e670c3b24503605bd1bf329f')
             for version, digest in exercise.BASELINES.items():
                 ref, candidate = exercise.versions(version, file)
                 self.assertEqual(ref, m.IMAGE + '@' + digest)
-                self.assertEqual(candidate, 'v0.77.0-02')
+                self.assertEqual(candidate, 'v0.78.0-01')
             with self.assertRaises(m.Refused): exercise.versions('latest', file)
             file.write_text('v0.69.0-02')
             with self.assertRaises(m.Refused): exercise.versions('v0.69.0-02', file)
